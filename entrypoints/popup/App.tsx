@@ -1,34 +1,59 @@
-import { useState } from 'react';
-import reactLogo from '@/assets/react.svg';
-import wxtLogo from '/wxt.svg';
-import './App.css';
+import { useState } from "react";
+
+type PageUiMessage = {
+  type: "you-loop:set-page-ui-visible";
+  visible: boolean;
+};
+
+async function sendPageUiToggle(visible: boolean) {
+  const [activeTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (activeTab?.id == null) {
+    return;
+  }
+
+  const message = {
+    type: "you-loop:set-page-ui-visible",
+    visible,
+  } satisfies PageUiMessage;
+
+  await browser.tabs.sendMessage(activeTab.id, message);
+}
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [pageUiVisible, setPageUiVisible] = useState(false);
+  const [status, setStatus] = useState("");
+
+  const togglePageUi = async () => {
+    const nextVisible = !pageUiVisible;
+    setStatus("");
+
+    try {
+      await sendPageUiToggle(nextVisible);
+      setPageUiVisible(nextVisible);
+    } catch {
+      setStatus("Open a YouTube page and reload the extension");
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://wxt.dev" target="_blank">
-          <img src={wxtLogo} className="logo" alt="WXT logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>WXT + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
+    <main className="w-44 bg-zinc-950 p-3 text-white">
+      <button
+        className="h-11 w-full rounded-md bg-red-600 px-3 text-sm font-semibold hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-300"
+        type="button"
+        onClick={() => void togglePageUi()}
+      >
+        {pageUiVisible ? "Hide page UI" : "Show page UI"}
+      </button>
+      {status.length > 0 && (
+        <p className="mt-2 text-xs leading-snug text-red-200" role="status">
+          {status}
         </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the WXT and React logos to learn more
-      </p>
-    </>
+      )}
+    </main>
   );
 }
 

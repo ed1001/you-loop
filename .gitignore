@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 .output
+firefox-dev-extension
 stats.html
 stats-*.json
 .wxt

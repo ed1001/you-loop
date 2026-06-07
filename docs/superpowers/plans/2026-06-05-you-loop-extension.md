@@ -145,7 +145,7 @@ pnpm build:firefox
 
 Expected: tests pass or report no tests, typecheck passes, Chrome and Firefox builds complete.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run only if this is now a git repo:
 
@@ -775,7 +775,7 @@ git commit -m "feat: add youtube video adapter"
 - Create: `features/player-overlay/overlay.css`
 - Create: `features/player-overlay/PlayerOverlay.test.tsx`
 
-- [ ] **Step 1: Write overlay interaction tests**
+- [x] **Step 1: Write overlay interaction tests**
 
 Create `features/player-overlay/PlayerOverlay.test.tsx`:
 
@@ -814,7 +814,7 @@ describe("PlayerOverlay", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -824,7 +824,7 @@ pnpm test features/player-overlay/PlayerOverlay.test.tsx
 
 Expected: FAIL because overlay does not exist.
 
-- [ ] **Step 3: Implement overlay component**
+- [x] **Step 3: Implement overlay component**
 
 Create `features/player-overlay/PlayerOverlay.tsx`:
 
@@ -891,7 +891,7 @@ export function PlayerOverlay({ duration, state, dispatch }: Props) {
 }
 ```
 
-- [ ] **Step 4: Implement timeline and zoom components**
+- [x] **Step 4: Implement timeline and zoom components**
 
 Create `features/player-overlay/TimelineHandles.tsx`:
 
@@ -962,7 +962,7 @@ export function ZoomPanel({ duration, segment, onSegmentChange }: Props) {
 }
 ```
 
-- [ ] **Step 5: Implement overlay CSS**
+- [x] **Step 5: Implement overlay CSS**
 
 Create `features/player-overlay/overlay.css`:
 
@@ -1048,7 +1048,7 @@ Create `features/player-overlay/overlay.css`:
 }
 ```
 
-- [ ] **Step 6: Verify overlay tests**
+- [x] **Step 6: Verify overlay tests**
 
 Run:
 

@@ -357,7 +357,7 @@ git commit -m "feat: add playback reducer"
 - Create: `features/playback/controller.ts`
 - Create: `features/playback/controller.test.ts`
 
-- [ ] **Step 1: Write failing controller tests**
+- [x] **Step 1: Write failing controller tests**
 
 Create `features/playback/controller.test.ts`:
 
@@ -424,7 +424,7 @@ describe("playback controller", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -434,7 +434,7 @@ pnpm test features/playback/controller.test.ts
 
 Expected: FAIL because controller does not exist.
 
-- [ ] **Step 3: Implement controller**
+- [x] **Step 3: Implement controller**
 
 Create `features/playback/controller.ts`:
 
@@ -490,7 +490,7 @@ export async function handleOneShotReplay(
 }
 ```
 
-- [ ] **Step 4: Verify controller tests pass**
+- [x] **Step 4: Verify controller tests pass**
 
 Run:
 

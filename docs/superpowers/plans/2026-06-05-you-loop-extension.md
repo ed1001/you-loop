@@ -500,7 +500,7 @@ pnpm test features/playback/controller.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -516,7 +516,7 @@ git commit -m "feat: add playback controller"
 - Create: `shared/messaging/protocol.test.ts`
 - Modify: `entrypoints/background.ts`
 
-- [ ] **Step 1: Write protocol tests**
+- [x] **Step 1: Write protocol tests**
 
 Create `shared/messaging/protocol.test.ts`:
 
@@ -545,7 +545,7 @@ describe("messaging protocol tab state", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -555,7 +555,7 @@ pnpm test shared/messaging/protocol.test.ts
 
 Expected: FAIL because protocol does not exist.
 
-- [ ] **Step 3: Implement protocol**
+- [x] **Step 3: Implement protocol**
 
 Create `shared/messaging/protocol.ts`:
 
@@ -609,7 +609,7 @@ export function reduceBackgroundState(
 }
 ```
 
-- [ ] **Step 4: Implement background skeleton**
+- [x] **Step 4: Implement background skeleton**
 
 Replace `entrypoints/background.ts`:
 
@@ -627,7 +627,7 @@ export default defineBackground(() => {
 });
 ```
 
-- [ ] **Step 5: Verify tests and typecheck**
+- [x] **Step 5: Verify tests and typecheck**
 
 Run:
 

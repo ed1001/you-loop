@@ -110,7 +110,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 5: Configure Vitest**
+- [x] **Step 5: Configure Vitest**
 
 Create `vitest.config.ts`:
 
@@ -342,7 +342,7 @@ pnpm test features/playback/reducer.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -654,7 +654,7 @@ git commit -m "feat: add background state protocol"
 - Create: `adapters/youtube/adapter.ts`
 - Create: `adapters/youtube/adapter.test.ts`
 
-- [ ] **Step 1: Write adapter tests**
+- [x] **Step 1: Write adapter tests**
 
 Create `adapters/youtube/adapter.test.ts`:
 
@@ -680,7 +680,7 @@ describe("youtube adapter", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -690,7 +690,7 @@ pnpm test adapters/youtube/adapter.test.ts
 
 Expected: FAIL because adapter does not exist.
 
-- [ ] **Step 3: Implement watch-page helper**
+- [x] **Step 3: Implement watch-page helper**
 
 Create `adapters/youtube/watch-page.ts`:
 
@@ -705,7 +705,7 @@ export function isYouTubeWatchPage(url = window.location.href): boolean {
 }
 ```
 
-- [ ] **Step 4: Implement adapter**
+- [x] **Step 4: Implement adapter**
 
 Create `adapters/youtube/adapter.ts`:
 
@@ -747,7 +747,7 @@ export function measureTimeline(root: ParentNode = document): TimelineGeometry |
 }
 ```
 
-- [ ] **Step 5: Verify adapter tests**
+- [x] **Step 5: Verify adapter tests**
 
 Run:
 

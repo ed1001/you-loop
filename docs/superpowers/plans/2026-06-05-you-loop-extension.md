@@ -161,7 +161,7 @@ git commit -m "chore: scaffold wxt extension"
 - Create: `features/playback/reducer.ts`
 - Create: `features/playback/reducer.test.ts`
 
-- [ ] **Step 1: Write failing reducer tests**
+- [x] **Step 1: Write failing reducer tests**
 
 Create `features/playback/reducer.test.ts`:
 
@@ -227,7 +227,7 @@ describe("playback reducer", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -237,7 +237,7 @@ pnpm test features/playback/reducer.test.ts
 
 Expected: FAIL because `features/playback/reducer.ts` does not exist.
 
-- [ ] **Step 3: Implement playback types**
+- [x] **Step 3: Implement playback types**
 
 Create `features/playback/types.ts`:
 
@@ -267,7 +267,7 @@ export type PlaybackCommand =
   | { type: "markOneShotCompleted"; completed: boolean };
 ```
 
-- [ ] **Step 4: Implement reducer**
+- [x] **Step 4: Implement reducer**
 
 Create `features/playback/reducer.ts`:
 
@@ -332,7 +332,7 @@ export function playbackReducer(
 }
 ```
 
-- [ ] **Step 5: Verify reducer tests pass**
+- [x] **Step 5: Verify reducer tests pass**
 
 Run:
 

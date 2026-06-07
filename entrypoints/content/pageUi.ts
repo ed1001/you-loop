@@ -3,8 +3,7 @@ const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 export function createPageUiElement() {
   const panel = document.createElement("div");
   panel.dataset.youLoopPageUi = "true";
-  panel.className =
-    "fixed right-4 top-20 z-[2147483647] rounded-md border border-red-200 bg-zinc-950 px-4 py-3 text-sm font-semibold text-white shadow-xl";
+  panel.className = "you-loop-page-ui";
   panel.textContent = "You Loop UI on";
 
   return panel;

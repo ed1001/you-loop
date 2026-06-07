@@ -40,16 +40,16 @@ function App() {
   };
 
   return (
-    <main className="w-44 bg-zinc-950 p-3 text-white">
+    <main className="you-loop-popup">
       <button
-        className="h-11 w-full rounded-md bg-red-600 px-3 text-sm font-semibold hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-300"
+        className="you-loop-popup-button"
         type="button"
         onClick={() => void togglePageUi()}
       >
         {pageUiVisible ? "Hide page UI" : "Show page UI"}
       </button>
       {status.length > 0 && (
-        <p className="mt-2 text-xs leading-snug text-red-200" role="status">
+        <p className="you-loop-popup-status" role="status">
           {status}
         </p>
       )}

@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
-import type { PlayMode } from "../playback/types";
+import type { LoopSegment, PlayMode } from "../playback/types";
 import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
-import { SavedLoopsPopover } from "./SavedLoopsPopover";
+import { SavedLoopsModal } from "./SavedLoopsModal";
 import type { SavedLoop } from "../persistence/loopStore";
 
 type Props = {
@@ -23,9 +23,10 @@ type Props = {
   loopsDirty: boolean;
   savedLoops: SavedLoop[];
   selectedLoopId: string | null;
-  onToggleLoopsPopover: () => void;
+  currentSegment: LoopSegment | null;
+  onToggleLoops: () => void;
+  onCloseLoops: () => void;
   onSaveAsNew: (name: string) => void;
-  onUpdateSelected: () => void;
   onApplyLoop: (id: string) => void;
   onReplaceLoop: (id: string) => void;
   onRenameLoop: (id: string, name: string) => void;
@@ -65,9 +66,10 @@ export function LoopPanel({
   loopsDirty,
   savedLoops,
   selectedLoopId,
-  onToggleLoopsPopover,
+  currentSegment,
+  onToggleLoops,
+  onCloseLoops,
   onSaveAsNew,
-  onUpdateSelected,
   onApplyLoop,
   onReplaceLoop,
   onRenameLoop,
@@ -78,7 +80,6 @@ export function LoopPanel({
   const modified = playbackRate !== 1;
   // Brief pulse so a reset click reads as a deliberate snap back to 1×.
   const [pulse, setPulse] = useState(false);
-  const loopsToggleRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="you-loop-panel" data-on={enabled}>
@@ -277,49 +278,45 @@ export function LoopPanel({
         </svg>
       </button>
 
-      <div className="you-loop-loops">
-        <button
-          ref={loopsToggleRef}
-          type="button"
-          className="you-loop-loops-toggle"
-          aria-haspopup="dialog"
-          aria-expanded={loopsOpen}
-          aria-label="Saved loops"
-          data-dirty={loopsDirty}
-          disabled={!canSaveLoops}
-          onPointerDown={swallow}
-          onMouseDown={swallow}
-          onClick={(event) => {
-            swallow(event);
-            onToggleLoopsPopover();
-          }}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-              d="M7 4h10v16l-5-3.5L7 20z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        {loopsOpen && canSaveLoops && (
-          <SavedLoopsPopover
-            loops={savedLoops}
-            selectedId={selectedLoopId}
-            dirty={loopsDirty}
-            container={loopsContainer}
-            anchorRef={loopsToggleRef}
-            onSaveAsNew={onSaveAsNew}
-            onUpdateSelected={onUpdateSelected}
-            onApply={onApplyLoop}
-            onReplace={onReplaceLoop}
-            onRename={onRenameLoop}
-            onDelete={onDeleteLoop}
+      <button
+        type="button"
+        className="you-loop-loops-toggle"
+        aria-haspopup="dialog"
+        aria-expanded={loopsOpen}
+        aria-label="Saved loops"
+        data-dirty={loopsDirty}
+        disabled={!canSaveLoops}
+        onPointerDown={swallow}
+        onMouseDown={swallow}
+        onClick={(event) => {
+          swallow(event);
+          onToggleLoops();
+        }}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M7 4h10v16l-5-3.5L7 20z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinejoin="round"
           />
-        )}
-      </div>
+        </svg>
+      </button>
+
+      <SavedLoopsModal
+        open={loopsOpen && canSaveLoops}
+        container={loopsContainer}
+        loops={savedLoops}
+        selectedId={selectedLoopId}
+        currentSegment={currentSegment}
+        onClose={onCloseLoops}
+        onSaveAsNew={onSaveAsNew}
+        onReplace={onReplaceLoop}
+        onApply={onApplyLoop}
+        onRename={onRenameLoop}
+        onDelete={onDeleteLoop}
+      />
 
       <button
         type="button"

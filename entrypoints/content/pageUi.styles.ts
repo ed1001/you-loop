@@ -776,10 +776,6 @@ export const PAGE_UI_STYLES = `
       margin: 0;
     }
 
-    .you-loop-loops {
-      position: relative;
-    }
-
     .you-loop-loops-toggle {
       align-items: center;
       background: transparent;
@@ -819,90 +815,247 @@ export const PAGE_UI_STYLES = `
       width: 5px;
     }
 
-    .you-loop-loops-popover {
-      background: rgba(18, 18, 18, 0.97);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 10px;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 10px;
-      pointer-events: auto;
-      position: fixed;
-      width: 240px;
-      z-index: 2147483647;
-    }
-
-    .you-loop-loops-new {
-      display: flex;
-      gap: 6px;
-    }
-
+    /* Shared base for the modal's text inputs. */
     .you-loop-loops-input {
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 6px;
       color: #fff;
-      flex: 1;
-      font-size: 12px;
+      font-size: 12.5px;
       min-width: 0;
-      padding: 5px 7px;
+      padding: 6px 8px;
     }
 
-    .you-loop-loops-save,
-    .you-loop-loops-update {
-      background: rgba(94, 234, 212, 0.16);
+    .you-loop-loops-input:focus {
+      border-color: rgba(94, 234, 212, 0.6);
+      outline: none;
+    }
+
+    /* ── Saved-loops modal ─────────────────────────────────────────────── */
+    .you-loop-lm-backdrop {
+      align-items: center;
+      animation: you-loop-help-fade 0.18s ease both;
+      background: rgba(0, 0, 0, 0.5);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      padding: 24px;
+      pointer-events: auto;
+      position: absolute;
+      z-index: 2147483647;
+    }
+
+    .you-loop-lm-card {
+      animation: you-loop-help-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+      background: rgba(28, 28, 32, 0.86);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      backdrop-filter: blur(18px) saturate(1.2);
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      border-radius: 16px;
+      box-shadow:
+        0 0 0 1px rgba(20, 184, 166, 0.16),
+        0 24px 70px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      box-sizing: border-box;
+      color: rgba(255, 255, 255, 0.82);
+      display: flex;
+      flex-direction: column;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      gap: 18px;
+      max-height: calc(100% - 48px);
+      max-width: 420px;
+      overflow-y: auto;
+      padding: 24px 26px 22px;
+      position: relative;
+      width: 100%;
+    }
+
+    .you-loop-lm-close {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.06);
       border: 0;
-      border-radius: 6px;
-      color: #5eead4;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
       cursor: pointer;
+      display: inline-flex;
+      height: 28px;
+      justify-content: center;
+      padding: 0;
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 28px;
+    }
+
+    .you-loop-lm-close svg {
+      height: 15px;
+      width: 15px;
+    }
+
+    .you-loop-lm-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .you-loop-lm-head {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .you-loop-lm-title {
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      margin: 0;
+    }
+
+    .you-loop-lm-sub {
+      color: rgba(255, 255, 255, 0.5);
       font-size: 12px;
-      font-weight: 600;
-      padding: 5px 8px;
-      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      margin: 0;
     }
 
-    .you-loop-loops-save:disabled {
+    .you-loop-lm-label {
+      color: rgba(255, 255, 255, 0.42);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+    }
+
+    .you-loop-lm-save {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px 14px 14px;
+    }
+
+    .you-loop-lm-radio {
+      align-items: center;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      gap: 10px;
+      padding: 6px 6px;
+    }
+
+    .you-loop-lm-radio + .you-loop-lm-radio {
+      margin-top: 2px;
+    }
+
+    .you-loop-lm-radio[data-active="true"] {
+      background: rgba(94, 234, 212, 0.08);
+    }
+
+    .you-loop-lm-radio[data-disabled="true"] {
       cursor: default;
-      opacity: 0.45;
+      opacity: 0.4;
     }
 
-    .you-loop-loops-update {
-      text-align: left;
+    .you-loop-lm-radio input[type="radio"] {
+      accent-color: #5eead4;
+      flex: none;
+      height: 14px;
+      margin: 0;
+      width: 14px;
     }
 
-    .you-loop-loops-list {
+    .you-loop-lm-radio-text {
+      color: rgba(255, 255, 255, 0.85);
+      flex: none;
+      font-size: 12.5px;
+      font-weight: 600;
+      width: 56px;
+    }
+
+    .you-loop-lm-name {
+      flex: 1;
+    }
+
+    .you-loop-lm-name:disabled {
+      opacity: 0.4;
+    }
+
+    .you-loop-lm-select {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      flex: 1;
+      font-family: inherit;
+      font-size: 12.5px;
+      min-width: 0;
+      padding: 6px 8px;
+    }
+
+    .you-loop-lm-select:disabled {
+      cursor: default;
+      opacity: 0.4;
+    }
+
+    .you-loop-lm-savebtn {
+      background: #5eead4;
+      border: 0;
+      border-radius: 8px;
+      color: #06302b;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-top: 12px;
+      padding: 8px 14px;
+      width: 100%;
+    }
+
+    .you-loop-lm-savebtn:not(:disabled):hover {
+      background: #7af0de;
+    }
+
+    .you-loop-lm-savebtn:disabled {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.4);
+      cursor: default;
+    }
+
+    .you-loop-lm-list {
       display: flex;
       flex-direction: column;
       gap: 2px;
       list-style: none;
       margin: 0;
-      max-height: 200px;
+      max-height: 220px;
       overflow-y: auto;
       padding: 0;
     }
 
-    .you-loop-loops-empty {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 12px;
-      padding: 4px 2px;
+    .you-loop-lm-empty {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 12.5px;
+      padding: 6px 2px;
     }
 
-    .you-loop-loops-row {
+    .you-loop-lm-row {
       align-items: center;
-      border-radius: 6px;
+      border-radius: 8px;
       display: flex;
       gap: 6px;
-      padding: 2px 4px;
+      padding: 3px 6px 3px 4px;
     }
 
-    .you-loop-loops-row[data-selected="true"] {
-      background: rgba(255, 255, 255, 0.08);
+    .you-loop-lm-row:hover,
+    .you-loop-lm-row[data-selected="true"] {
+      background: rgba(255, 255, 255, 0.06);
     }
 
-    .you-loop-loops-name {
+    .you-loop-lm-apply {
       align-items: center;
       background: transparent;
       border: 0;
@@ -910,42 +1063,62 @@ export const PAGE_UI_STYLES = `
       cursor: pointer;
       display: flex;
       flex: 1;
-      font-size: 12.5px;
-      gap: 6px;
+      gap: 12px;
+      justify-content: space-between;
+      min-width: 0;
+      padding: 6px 4px;
+      text-align: left;
+    }
+
+    .you-loop-lm-name-text {
+      align-items: center;
+      display: flex;
+      font-size: 13px;
+      font-weight: 600;
+      gap: 7px;
       min-width: 0;
       overflow: hidden;
-      padding: 3px 2px;
-      text-align: left;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .you-loop-loops-dirty {
+    .you-loop-lm-dot {
       background: #5eead4;
       border-radius: 50%;
       flex: none;
-      height: 5px;
-      width: 5px;
+      height: 6px;
+      width: 6px;
     }
 
-    .you-loop-loops-actions {
+    .you-loop-lm-range {
+      color: rgba(255, 255, 255, 0.45);
+      flex: none;
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .you-loop-lm-rename {
+      flex: 1;
+    }
+
+    .you-loop-lm-actions {
       display: inline-flex;
       gap: 2px;
     }
 
-    .you-loop-loops-actions button {
+    .you-loop-lm-actions button {
       background: transparent;
       border: 0;
       border-radius: 4px;
-      color: rgba(255, 255, 255, 0.6);
+      color: rgba(255, 255, 255, 0.55);
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
       line-height: 1;
-      padding: 4px 5px;
+      padding: 5px 6px;
     }
 
-    .you-loop-loops-actions button:hover {
-      background: rgba(255, 255, 255, 0.1);
+    .you-loop-lm-actions button:hover {
+      background: rgba(255, 255, 255, 0.12);
       color: #fff;
     }
 `;

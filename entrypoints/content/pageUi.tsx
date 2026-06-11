@@ -263,19 +263,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
-    loopsOpen = false;
-    render();
-  };
-
-  const updateSelected = async () => {
-    if (videoId == null || selectedLoopId == null || state.loopSegment == null)
-      return;
-    await updateLoop(videoId, selectedLoopId, state.loopSegment, zoomLoop);
-    savedLoops = savedLoops.map((l) =>
-      l.id === selectedLoopId
-        ? { ...l, main: state.loopSegment!, zoom: zoomLoop }
-        : l
-    );
+    // Stay open so the new loop appears in the list as confirmation.
     render();
   };
 
@@ -321,8 +309,14 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  const toggleLoopsPopover = () => {
+  const toggleLoops = () => {
     loopsOpen = !loopsOpen;
+    render();
+  };
+
+  const closeLoops = () => {
+    if (!loopsOpen) return;
+    loopsOpen = false;
     render();
   };
 
@@ -375,9 +369,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           loopsDirty={isLoopsDirty()}
           savedLoops={savedLoops}
           selectedLoopId={selectedLoopId}
-          onToggleLoopsPopover={toggleLoopsPopover}
+          currentSegment={state.loopSegment}
+          onToggleLoops={toggleLoops}
+          onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
-          onUpdateSelected={updateSelected}
           onApplyLoop={applyLoop}
           onReplaceLoop={replaceLoop}
           onRenameLoop={renameSavedLoop}

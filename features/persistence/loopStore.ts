@@ -57,6 +57,11 @@ function evict(store: SavedStore): void {
   }
 }
 
+export async function countVideos(area?: StorageArea): Promise<number> {
+  const store = await readStore(resolveArea(area));
+  return Object.keys(store).length;
+}
+
 export async function loadEntry(
   videoId: string,
   area?: StorageArea,
@@ -126,6 +131,7 @@ export async function updateLoop(
   });
 }
 
+// fallow-ignore-next-line code-duplication -- minimal CRUD twin of updateLoop
 export async function renameLoop(
   videoId: string,
   loopId: string,

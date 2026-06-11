@@ -995,6 +995,13 @@ export const PAGE_UI_STYLES = `
       opacity: 0.4;
     }
 
+    .you-loop-lm-warn {
+      color: #fbbf24;
+      font-size: 11.5px;
+      line-height: 1.45;
+      margin: 12px 0 0;
+    }
+
     .you-loop-lm-savebtn {
       background: #5eead4;
       border: 0;

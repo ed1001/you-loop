@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useModalPresence } from "./useModalPresence";
 
 type Props = {
   open: boolean;
@@ -144,21 +145,7 @@ const SHORTCUTS: Shortcut[] = [
 ];
 
 export function HelpModal({ open, container, onClose }: Props) {
-  // Stay mounted briefly after `open` flips false so the card can play its exit
-  // animation before unmounting.
-  const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setClosing(false);
-      setMounted(true);
-      return;
-    }
-    setClosing(true);
-    const timer = setTimeout(() => setMounted(false), HELP_EXIT_MS);
-    return () => clearTimeout(timer);
-  }, [open]);
+  const { mounted, closing } = useModalPresence(open, HELP_EXIT_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -271,10 +258,8 @@ export function HelpModal({ open, container, onClose }: Props) {
         <section className="you-loop-help-section">
           <h3 className="you-loop-help-label">Memory</h3>
           <p className="you-loop-help-memory">
-            Saved loops restore automatically when you return to a video — the
-            last one you used applies. The last 1000 videos are kept; past that
-            the oldest is dropped first, and revisiting a video moves it back to
-            newest so it survives longer.
+            Save as many named loops per video as you like. They come back
+            automatically next time you watch, with your last-used loop applied.
           </p>
         </section>
 

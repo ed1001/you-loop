@@ -3,6 +3,7 @@ import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
 import type { SavedLoop } from "../persistence/loopStore";
+import { useModalPresence } from "./useModalPresence";
 
 // Must match the you-loop-help-sink duration so the card finishes its exit
 // before it unmounts.
@@ -18,6 +19,9 @@ type Props = {
   loops: SavedLoop[];
   selectedId: string | null;
   currentSegment: LoopSegment | null;
+  // At the saved-video cap and this video isn't saved yet, so saving a new
+  // loop here will evict the oldest video.
+  atVideoLimit: boolean;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
   onReplace: (id: string) => void;
@@ -57,33 +61,20 @@ export function SavedLoopsModal({
   loops,
   selectedId,
   currentSegment,
+  atVideoLimit,
   onClose,
   onSaveAsNew,
   onReplace,
   onApply,
   onRename,
-  onDelete
+  onDelete,
 }: Props) {
   const [mode, setMode] = useState<SaveMode>("new");
   const [newName, setNewName] = useState("");
   const [replaceId, setReplaceId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
-  // Stay mounted briefly after `open` flips false so the card can play its exit
-  // animation before unmounting (mirrors HelpModal).
-  const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setClosing(false);
-      setMounted(true);
-      return;
-    }
-    setClosing(true);
-    const timer = window.setTimeout(() => setMounted(false), EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [open]);
+  const { mounted, closing } = useModalPresence(open, EXIT_MS);
 
   // Seed the save form each time the modal opens.
   useEffect(() => {
@@ -354,6 +345,16 @@ export function SavedLoopsModal({
             </select>
           </label>
 
+          {atVideoLimit && mode === "new" && (
+            <p className="you-loop-lm-warn">
+              You've saved loops for the maximum number of videos. Saving here
+              drops your least-recently-used video. You've saved the maximun
+              number of loops, you can either delete some to free up space or
+              just save and the last used loop across all videos will be deleted
+              to make room for this one.
+            </p>
+          )}
+
           <button
             type="button"
             className="you-loop-lm-savebtn"
@@ -368,6 +369,6 @@ export function SavedLoopsModal({
         </section>
       </div>
     </div>,
-    container
+    container,
   );
 }

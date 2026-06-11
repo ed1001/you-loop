@@ -31,6 +31,13 @@ function makeArea(
 
 const seg = (start: number, end: number) => ({ start, end });
 
+// Seed two loops "A" and "B" on video "v" with increasing lastSeen.
+async function seedTwo(area: StorageArea) {
+  const a = await addLoop("v", "A", seg(1, 2), null, area, 10);
+  const b = await addLoop("v", "B", seg(3, 4), null, area, 20);
+  return { a, b };
+}
+
 describe("loopStore", () => {
   it("adds a loop and reads it back", async () => {
     const area = makeArea();
@@ -51,8 +58,7 @@ describe("loopStore", () => {
 
   it("overwrites a loop in place and sets it as last used", async () => {
     const area = makeArea();
-    const a = await addLoop("v", "A", seg(1, 2), null, area, 10);
-    const b = await addLoop("v", "B", seg(3, 4), null, area, 20);
+    const { a, b } = await seedTwo(area);
     await updateLoop("v", a.id, seg(5, 6), seg(5.2, 5.8), area, 30);
 
     const entry = await loadEntry("v", area, 40);
@@ -74,8 +80,7 @@ describe("loopStore", () => {
 
   it("removes a loop, deleting the entry when the last one goes", async () => {
     const area = makeArea();
-    const a = await addLoop("v", "A", seg(1, 2), null, area, 10);
-    const b = await addLoop("v", "B", seg(3, 4), null, area, 20);
+    const { a, b } = await seedTwo(area);
     await removeLoop("v", a.id, area, 30);
     const entry = await loadEntry("v", area, 40);
     expect(entry?.loops.map((l) => l.id)).toEqual([b.id]);
@@ -86,8 +91,7 @@ describe("loopStore", () => {
 
   it("clears lastUsedId when the last-used loop is removed", async () => {
     const area = makeArea();
-    const a = await addLoop("v", "A", seg(1, 2), null, area, 10);
-    await addLoop("v", "B", seg(3, 4), null, area, 20);
+    const { a } = await seedTwo(area);
     await setLastUsed("v", a.id, area, 25);
     await removeLoop("v", a.id, area, 30);
     const entry = await loadEntry("v", area, 40);

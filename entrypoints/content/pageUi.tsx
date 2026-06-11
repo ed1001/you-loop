@@ -19,12 +19,15 @@ import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
+  countVideos,
   loadEntry,
   removeLoop,
   renameLoop,
   setLastUsed,
   updateLoop,
-  type SavedLoop
+  MAX_SAVED_VIDEOS,
+  type SavedLoop,
+  type VideoEntry
 } from "../../features/persistence/loopStore";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
@@ -77,6 +80,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
+  // Count of distinct videos with saved loops, for the at-capacity notice.
+  let savedVideoCount = 0;
 
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
@@ -192,6 +197,33 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  // Fresh/unsaved video: seed the default range, no saved-loop selection.
+  const seedDefaultLoop = (duration: number) => {
+    state = playbackReducer(state, {
+      type: "setLoopSegment",
+      segment: defaultLoopSegment(duration)
+    });
+    zoomLoop = null;
+    savedLoops = [];
+    selectedLoopId = null;
+  };
+
+  // Restore the entry's last-used loop (clamping its zoom into the main loop).
+  const applySavedEntry = (entry: VideoEntry) => {
+    const loop =
+      entry.loops.find((l) => l.id === entry.lastUsedId) ?? entry.loops[0];
+    savedLoops = entry.loops;
+    selectedLoopId = loop.id;
+    state = playbackReducer(state, {
+      type: "setLoopSegment",
+      segment: loop.main
+    });
+    zoomLoop =
+      loop.zoom != null && state.loopSegment != null
+        ? clampLoopToRegion(loop.zoom, state.loopSegment)
+        : null;
+  };
+
   // Seed or restore positions for the current video. Runs on mount and on
   // navigation. Gated on a known duration so percentage seeding is meaningful.
   const loadForVideo = async () => {
@@ -200,12 +232,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const duration = getVideoDuration(video);
 
     if (id == null) {
-      state = playbackReducer(state, {
-        type: "setLoopSegment",
-        segment: defaultLoopSegment(duration)
-      });
-      savedLoops = [];
-      selectedLoopId = null;
+      seedDefaultLoop(duration);
       render();
       return;
     }
@@ -214,27 +241,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (videoId !== id) return; // navigated away mid-await
 
     if (entry != null && entry.loops.length > 0) {
-      const loop =
-        entry.loops.find((l) => l.id === entry.lastUsedId) ?? entry.loops[0];
-      savedLoops = entry.loops;
-      selectedLoopId = loop.id;
-      state = playbackReducer(state, {
-        type: "setLoopSegment",
-        segment: loop.main
-      });
-      zoomLoop =
-        loop.zoom != null && state.loopSegment != null
-          ? clampLoopToRegion(loop.zoom, state.loopSegment)
-          : null;
+      applySavedEntry(entry);
     } else {
-      savedLoops = [];
-      selectedLoopId = null;
-      state = playbackReducer(state, {
-        type: "setLoopSegment",
-        segment: defaultLoopSegment(duration)
-      });
-      zoomLoop = null;
+      seedDefaultLoop(duration);
     }
+    savedVideoCount = await countVideos();
     render();
   };
 
@@ -243,6 +254,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
+    savedVideoCount = await countVideos();
     // Stay open so the new loop appears in the list as confirmation.
     render();
   };
@@ -286,6 +298,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     await removeLoop(videoId, id);
     savedLoops = savedLoops.filter((l) => l.id !== id);
     if (selectedLoopId === id) selectedLoopId = null;
+    savedVideoCount = await countVideos();
     render();
   };
 
@@ -346,6 +359,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             video.closest(".html5-video-player") as HTMLElement | null
           }
           loopsOpen={loopsOpen}
+          atVideoLimit={
+            savedVideoCount >= MAX_SAVED_VIDEOS && savedLoops.length === 0
+          }
           savedLoops={savedLoops}
           selectedLoopId={selectedLoopId}
           currentSegment={state.loopSegment}

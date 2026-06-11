@@ -305,6 +305,25 @@ export function ZoomTimeline({ video, window: win, loop, onLoopChange }: Props) 
       role="group"
       aria-label={`Loop zoom from ${formatTime(win.start)} to ${formatTime(win.end)}`}
     >
+      <span className="you-loop-zoom-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <circle
+            cx="10"
+            cy="10"
+            r="6.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+          />
+          <path
+            d="M14.8 14.8L20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
       <span className="you-loop-zoom-time">{formatTime(win.start)}</span>
       <div
         ref={trackRef}

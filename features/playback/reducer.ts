@@ -5,6 +5,10 @@ export const MIN_PLAYBACK_RATE = 0.25;
 export const MAX_PLAYBACK_RATE = 3;
 export const PLAYBACK_RATE_STEP = 0.25;
 
+// A fresh video with no saved loops seeds its loop to the middle three-fifths,
+// skipping a fifth of intro and a fifth of outro.
+export const DEFAULT_LOOP_FRACTION = 0.2;
+
 export function createInitialPlaybackState(): PlaybackState {
   return {
     enabled: true,
@@ -30,6 +34,13 @@ export function normalizeLoopSegment(segment: LoopSegment): LoopSegment {
     start: Number(start.toFixed(3)),
     end: Number(end.toFixed(3))
   };
+}
+
+export function defaultLoopSegment(duration: number): LoopSegment {
+  return normalizeLoopSegment({
+    start: duration * DEFAULT_LOOP_FRACTION,
+    end: duration * (1 - DEFAULT_LOOP_FRACTION)
+  });
 }
 
 export function playbackReducer(

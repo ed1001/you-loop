@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useModalPresence } from "./useModalPresence";
 
 type Props = {
   open: boolean;
@@ -84,60 +85,67 @@ const ZoomIcon = (
   </svg>
 );
 
+const SaveIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M7 4h10v16l-5-3.5L7 20z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 type Shortcut = { keys: string; hold?: boolean; name: string; desc: string };
 type Control = { icon: ReactNode; term: string; desc: string };
 
 const CONTROLS: Control[] = [
-  { icon: PowerIcon, term: "Power", desc: "Turn the loop range on or off." },
+  { icon: PowerIcon, term: "Power", desc: "Activate/deactivate You-Loop" },
   {
     icon: null,
     term: "Loop / One-shot",
-    desc: "Loop repeats the range; one-shot plays it through once and stops."
+    desc: "Loop repeats the range; one-shot plays it through once and stops.",
   },
   {
     icon: SpeedIcon,
     term: "Speed",
-    desc: "Step playback speed up or down. Resets to 1× when the loop turns off."
+    desc: "Step playback speed up or down. Resets to 1× when you click the center or when deactivating You-Loop.",
   },
   {
     icon: ZoomIcon,
     term: "Zoom",
-    desc: "Magnify the looped region for finer, more precise sub-loops."
-  }
+    desc: "Magnify the looped region for finer, more precise sub-loop. (Useful for longer videos)",
+  },
+  {
+    icon: SaveIcon,
+    term: "Saved loops",
+    desc: "Save the current loop and zoom as a named loop for this video; keep several per video, rename them anytime.",
+  },
 ];
 
 const SHORTCUTS: Shortcut[] = [
-  { keys: "A", name: "Restart", desc: "Jump to the loop start and play." },
+  {
+    keys: "A",
+    name: "Restart",
+    desc: "Jump to start of selected region and play.",
+  },
   {
     keys: "S",
     hold: true,
     name: "Punch-in",
-    desc: "Play from the loop start; release snaps back to it."
+    desc: "Play from start of selected region; release snaps back to start.",
   },
   {
     keys: "D",
     hold: true,
     name: "Push-to-hear",
-    desc: "Play from the playhead; release pauses in place."
-  }
+    desc: "Play from the playhead; release pauses in place.",
+  },
 ];
 
 export function HelpModal({ open, container, onClose }: Props) {
-  // Stay mounted briefly after `open` flips false so the card can play its exit
-  // animation before unmounting.
-  const [mounted, setMounted] = useState(open);
-  const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setClosing(false);
-      setMounted(true);
-      return;
-    }
-    setClosing(true);
-    const timer = setTimeout(() => setMounted(false), HELP_EXIT_MS);
-    return () => clearTimeout(timer);
-  }, [open]);
+  const { mounted, closing } = useModalPresence(open, HELP_EXIT_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -203,9 +211,9 @@ export function HelpModal({ open, container, onClose }: Props) {
             Loop, zoom &amp; rehearse any section of a video
           </h2>
           <p className="you-loop-help-intro">
-            Set a loop range on the timeline, zoom in for more granular control
-            of the region, repeat or slow it down, and drive playback straight
-            from the keyboard.
+            Set a loop range, zoom in, and change the speed — then take full
+            control with purpose-built keyboard shortcuts that make looping
+            effortless.
           </p>
         </div>
 
@@ -247,11 +255,19 @@ export function HelpModal({ open, container, onClose }: Props) {
           </ul>
         </section>
 
+        <section className="you-loop-help-section">
+          <h3 className="you-loop-help-label">Memory</h3>
+          <p className="you-loop-help-memory">
+            Save as many named loops per video as you like. They come back
+            automatically next time you watch, with your last-used loop applied.
+          </p>
+        </section>
+
         <p className="you-loop-help-foot">
           Shortcuts work while the loop is on, and are ignored while you type.
         </p>
       </div>
     </div>,
-    container
+    container,
   );
 }

@@ -2,8 +2,27 @@ import { describe, expect, it } from "vitest";
 import {
   clampPlaybackRate,
   createInitialPlaybackState,
+  defaultLoopSegment,
+  DEFAULT_LOOP_FRACTION,
   playbackReducer
 } from "./reducer";
+
+describe("defaultLoopSegment", () => {
+  it("spans the middle three-fifths of the video", () => {
+    expect(defaultLoopSegment(100)).toEqual({ start: 20, end: 80 });
+  });
+
+  it("uses the configured fraction on each side", () => {
+    expect(DEFAULT_LOOP_FRACTION).toBe(0.2);
+    expect(defaultLoopSegment(10)).toEqual({ start: 2, end: 8 });
+  });
+
+  it("normalizes a zero-duration video to a minimum-length segment", () => {
+    const seg = defaultLoopSegment(0);
+    expect(seg.start).toBe(0);
+    expect(seg.end).toBeCloseTo(0.1, 5);
+  });
+});
 
 describe("playback reducer", () => {
   it("sets a valid loop segment", () => {

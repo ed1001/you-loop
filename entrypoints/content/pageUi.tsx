@@ -2,6 +2,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { findYouTubeVideo } from "../../adapters/youtube/adapter";
 import {
   createInitialPlaybackState,
+  defaultLoopSegment,
   playbackReducer,
   PLAYBACK_RATE_STEP
 } from "../../features/playback/reducer";
@@ -16,6 +17,16 @@ import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
+import {
+  addLoop,
+  loadEntry,
+  removeLoop,
+  renameLoop,
+  setLastUsed,
+  type SavedLoop,
+  type VideoEntry
+} from "../../features/persistence/loopStore";
+import { PAGE_UI_STYLES } from "./pageUi.styles";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
@@ -36,6 +47,16 @@ function getVideoDuration(video: HTMLVideoElement): number {
     : 1;
 }
 
+// True once the video reports a real, finite duration (metadata loaded).
+function hasKnownDuration(video: HTMLVideoElement): boolean {
+  return Number.isFinite(video.duration) && video.duration > 0;
+}
+
+// The watch page's video id, or null off a watch page (saving disabled then).
+function currentVideoId(): string | null {
+  return new URLSearchParams(window.location.search).get("v");
+}
+
 function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
@@ -51,18 +72,24 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let zoomClosing = false;
   let zoomCloseTimer = 0;
 
+  // Per-video saved loops, persisted to extension storage.
+  let videoId: string | null = currentVideoId();
+  let savedLoops: SavedLoop[] = [];
+  let selectedLoopId: string | null = null;
+  let loopsOpen = false;
+
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
   const effectiveSegment = (): LoopSegment | null =>
     zoomed && zoomLoop != null ? zoomLoop : state.loopSegment;
 
-  // Turn the loop on, seeding a default segment if none has been set yet.
+  // Turn the loop on. Positions are normally pre-seeded by loadForVideo; the
+  // fallback guards against an unknown-duration race before metadata loads.
   const enableLoop = () => {
     if (state.loopSegment == null) {
-      const duration = getVideoDuration(video);
       state = playbackReducer(state, {
         type: "setLoopSegment",
-        segment: { start: duration * 0.25, end: duration * 0.5 }
+        segment: defaultLoopSegment(getVideoDuration(video))
       });
     }
     state = playbackReducer(state, { type: "setLoopEnabled", enabled: true });
@@ -165,6 +192,109 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  // Fresh/unsaved video: seed the default range, no saved-loop selection.
+  const seedDefaultLoop = (duration: number) => {
+    state = playbackReducer(state, {
+      type: "setLoopSegment",
+      segment: defaultLoopSegment(duration)
+    });
+    zoomLoop = null;
+    savedLoops = [];
+    selectedLoopId = null;
+  };
+
+  // Restore the entry's last-used loop (clamping its zoom into the main loop).
+  const applySavedEntry = (entry: VideoEntry) => {
+    const loop =
+      entry.loops.find((l) => l.id === entry.lastUsedId) ?? entry.loops[0];
+    savedLoops = entry.loops;
+    selectedLoopId = loop.id;
+    state = playbackReducer(state, {
+      type: "setLoopSegment",
+      segment: loop.main
+    });
+    zoomLoop =
+      loop.zoom != null && state.loopSegment != null
+        ? clampLoopToRegion(loop.zoom, state.loopSegment)
+        : null;
+  };
+
+  // Seed or restore positions for the current video. Runs on mount and on
+  // navigation. Gated on a known duration so percentage seeding is meaningful.
+  const loadForVideo = async () => {
+    const id = videoId;
+    if (!hasKnownDuration(video)) return; // retried on loadedmetadata
+    const duration = getVideoDuration(video);
+
+    if (id == null) {
+      seedDefaultLoop(duration);
+      render();
+      return;
+    }
+
+    const entry = await loadEntry(id);
+    if (videoId !== id) return; // navigated away mid-await
+
+    if (entry != null && entry.loops.length > 0) {
+      applySavedEntry(entry);
+    } else {
+      seedDefaultLoop(duration);
+    }
+    render();
+  };
+
+  const saveAsNew = async (name: string) => {
+    if (videoId == null || state.loopSegment == null) return;
+    const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
+    savedLoops = [...savedLoops, loop];
+    selectedLoopId = loop.id;
+    // Stay open so the new loop appears in the list as confirmation.
+    render();
+  };
+
+  const applyLoop = async (id: string) => {
+    const loop = savedLoops.find((l) => l.id === id);
+    if (loop == null) return;
+    selectedLoopId = id;
+    state = playbackReducer(state, {
+      type: "setLoopSegment",
+      segment: loop.main
+    });
+    zoomLoop =
+      loop.zoom != null && state.loopSegment != null
+        ? clampLoopToRegion(loop.zoom, state.loopSegment)
+        : null;
+    if (videoId != null) await setLastUsed(videoId, id);
+    // Modal stays open on apply; the row flashes to confirm.
+    render();
+  };
+
+  const renameSavedLoop = async (id: string, name: string) => {
+    if (videoId == null) return;
+    await renameLoop(videoId, id, name);
+    savedLoops = savedLoops.map((l) => (l.id === id ? { ...l, name } : l));
+    render();
+  };
+
+  const deleteSavedLoop = async (id: string) => {
+    if (videoId == null) return;
+    await removeLoop(videoId, id);
+    savedLoops = savedLoops.filter((l) => l.id !== id);
+    if (selectedLoopId === id) selectedLoopId = null;
+    render();
+  };
+
+  const toggleLoops = () => {
+    loopsOpen = !loopsOpen;
+    render();
+  };
+
+  const closeLoops = () => {
+    if (!loopsOpen) return;
+    loopsOpen = false;
+    render();
+  };
+
   const render = () => {
     const duration = getVideoDuration(video);
     const zoomVisible =
@@ -206,6 +336,20 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             helpOpen = true;
             render();
           }}
+          canSaveLoops={state.loopEnabled && videoId != null}
+          loopsContainer={
+            video.closest(".html5-video-player") as HTMLElement | null
+          }
+          loopsOpen={loopsOpen}
+          savedLoops={savedLoops}
+          selectedLoopId={selectedLoopId}
+          currentSegment={state.loopSegment}
+          onToggleLoops={toggleLoops}
+          onCloseLoops={closeLoops}
+          onSaveAsNew={saveAsNew}
+          onApplyLoop={applyLoop}
+          onRenameLoop={renameSavedLoop}
+          onDeleteLoop={deleteSavedLoop}
         />
         <HelpModal
           open={helpOpen}
@@ -269,11 +413,30 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   });
 
+  // Seed/restore saved loops once metadata is ready, and re-run on SPA
+  // navigation between videos (YouTube reuses the player + <video> element).
+  const onLoadedMetadata = () => {
+    void loadForVideo();
+  };
+  const onNavigate = () => {
+    const next = currentVideoId();
+    if (next === videoId) return;
+    videoId = next;
+    selectedLoopId = null;
+    savedLoops = [];
+    loopsOpen = false;
+    void loadForVideo();
+  };
+
   video.addEventListener("timeupdate", onTimeUpdate);
   video.addEventListener("ratechange", onRateChange);
+  video.addEventListener("loadedmetadata", onLoadedMetadata);
+  video.addEventListener("durationchange", onLoadedMetadata);
+  document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);
   render();
+  void loadForVideo();
 
   return {
     root,
@@ -281,6 +444,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       clearZoomCloseTimer();
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("ratechange", onRateChange);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("durationchange", onLoadedMetadata);
+      document.removeEventListener("yt-navigate-finish", onNavigate);
       document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
       document.removeEventListener("keyup", keyHandlers.onKeyUp, true);
     }
@@ -299,726 +465,7 @@ function ensureDocumentStyles() {
 
   const style = document.createElement("style");
   style.dataset.youLoopPageUiStyle = "true";
-  style.textContent = `
-    .you-loop-page-ui {
-      inset: 0;
-      overflow: visible;
-      pointer-events: none;
-      position: absolute;
-      opacity: 1;
-      transition: opacity 0.25s cubic-bezier(0, 0, 0.2, 1);
-    }
-
-    .you-loop-page-ui[data-hidden="true"] {
-      opacity: 0;
-    }
-
-    /* While scrubbing the zoom timeline, stay visible even if YouTube autohides
-       its controls (e.g. idle timer firing while the pointer is held still). */
-    .you-loop-page-ui[data-dragging="true"] {
-      opacity: 1;
-    }
-
-    /* Our overlay lives inside .ytp-chrome-bottom; if YouTube fades that parent,
-       the overlay fades with it. Force it (and the bottom gradient) visible
-       while scrubbing the zoom timeline. */
-    .html5-video-player[data-you-loop-scrubbing="true"] .ytp-chrome-bottom,
-    .html5-video-player[data-you-loop-scrubbing="true"] .ytp-gradient-bottom {
-      opacity: 1 !important;
-    }
-
-    .you-loop-timeline {
-      height: 100%;
-      margin: 0;
-      pointer-events: none;
-      position: relative;
-      width: 100%;
-    }
-
-    /* Teal band over the progress bar marking the loop segment. */
-    .you-loop-loop-range {
-      background: rgba(20, 184, 166, 0.55);
-      border-radius: 1px;
-      height: 9px;
-      pointer-events: none;
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-
-    .you-loop-handle {
-      background: #14b8a6;
-      border: 2px solid #ffffff;
-      border-radius: 6px;
-      box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
-      cursor: ew-resize;
-      height: 24px;
-      margin: 0;
-      padding: 0;
-      pointer-events: auto;
-      position: absolute;
-      top: 50%;
-      touch-action: none;
-      transform: translate(-50%, -50%);
-      width: 10px;
-      z-index: 2147483647;
-    }
-
-    .you-loop-panel {
-      align-items: center;
-      background: rgba(38, 38, 42, 0.9);
-      border-radius: 999px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-      display: flex;
-      gap: 6px;
-      left: 50%;
-      padding: 4px;
-      pointer-events: auto;
-      position: absolute;
-      top: 100%;
-      transform: translate(-50%, 12px);
-      z-index: 2147483647;
-    }
-
-    /* Power toggle: enables/disables the loop range. Icon only. */
-    .you-loop-power {
-      align-items: center;
-      background: rgba(255, 255, 255, 0.08);
-      border: 0;
-      border-radius: 50%;
-      color: rgba(255, 255, 255, 0.55);
-      cursor: pointer;
-      display: inline-flex;
-      flex: none;
-      height: 30px;
-      justify-content: center;
-      padding: 0;
-      transition: color 0.18s ease, background 0.18s ease;
-      width: 30px;
-    }
-
-    .you-loop-power svg {
-      height: 17px;
-      width: 17px;
-    }
-
-    .you-loop-power:hover {
-      color: rgba(255, 255, 255, 0.85);
-    }
-
-    .you-loop-power[data-on="true"] {
-      background: rgba(20, 184, 166, 0.18);
-      color: #14b8a6;
-    }
-
-    /* Segmented mode control: a recessed well groups the two mutually
-       exclusive options (loop vs one-shot). */
-    .you-loop-modes {
-      background: rgba(0, 0, 0, 0.34);
-      border-radius: 999px;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-      display: flex;
-      gap: 2px;
-      padding: 2px;
-      transition: opacity 0.18s ease;
-    }
-
-    /* Dimmed and inert while the loop is off. */
-    .you-loop-modes[data-disabled="true"] {
-      opacity: 0.4;
-    }
-
-    .you-loop-mode-option:disabled,
-    .you-loop-zoom-toggle:disabled {
-      cursor: default;
-    }
-
-    .you-loop-mode-option {
-      background: transparent;
-      border: 0;
-      border-radius: 999px;
-      color: rgba(255, 255, 255, 0.62);
-      cursor: pointer;
-      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      padding: 7px 14px;
-      text-transform: uppercase;
-      transition: background 0.18s ease, color 0.18s ease;
-    }
-
-    .you-loop-mode-option:not(:disabled):not([data-active="true"]):hover {
-      color: rgba(255, 255, 255, 0.92);
-    }
-
-    .you-loop-mode-option[data-active="true"] {
-      background: #14b8a6;
-      color: #0a0a0a;
-    }
-
-    /* Magnifying-glass toggle for the zoom timeline. */
-    .you-loop-zoom-toggle {
-      align-items: center;
-      background: rgba(255, 255, 255, 0.08);
-      border: 0;
-      border-radius: 50%;
-      color: rgba(255, 255, 255, 0.55);
-      cursor: pointer;
-      display: inline-flex;
-      flex: none;
-      height: 30px;
-      justify-content: center;
-      padding: 0;
-      transition: color 0.18s ease, background 0.18s ease;
-      width: 30px;
-    }
-
-    .you-loop-zoom-toggle svg {
-      height: 16px;
-      width: 16px;
-    }
-
-    .you-loop-zoom-toggle:not(:disabled):hover {
-      color: rgba(255, 255, 255, 0.85);
-    }
-
-    .you-loop-zoom-toggle[data-on="true"] {
-      background: rgba(20, 184, 166, 0.18);
-      color: #14b8a6;
-    }
-
-    /* Dimmed while the loop is off, but still clickable: interacting turns it on. */
-    .you-loop-zoom-toggle[data-disabled="true"] {
-      opacity: 0.4;
-    }
-
-    /* Speed stepper: a compact recessed pill —  ‹ 1× ›  (independent of loop). */
-    .you-loop-speed {
-      align-items: center;
-      background: rgba(0, 0, 0, 0.34);
-      border-radius: 999px;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-      display: flex;
-      gap: 0;
-      padding: 2px;
-      transition: opacity 0.18s ease;
-    }
-
-    .you-loop-speed[data-disabled="true"] {
-      opacity: 0.4;
-    }
-
-    .you-loop-speed-step {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      border-radius: 50%;
-      color: rgba(255, 255, 255, 0.5);
-      cursor: pointer;
-      display: inline-flex;
-      flex: none;
-      height: 27px;
-      justify-content: center;
-      padding: 0;
-      transition: color 0.15s ease;
-      width: 20px;
-    }
-
-    .you-loop-speed-step svg {
-      height: 13px;
-      width: 13px;
-    }
-
-    .you-loop-speed-step:not(:disabled):hover {
-      color: #5eead4;
-    }
-
-    .you-loop-speed-step:disabled {
-      cursor: default;
-      opacity: 0.3;
-    }
-
-    .you-loop-speed-value {
-      background: transparent;
-      border: 0;
-      color: rgba(255, 255, 255, 0.78);
-      cursor: pointer;
-      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      letter-spacing: 0.01em;
-      min-width: 30px;
-      padding: 0;
-      text-align: center;
-      transition: color 0.15s ease;
-    }
-
-    .you-loop-speed-value:not(:disabled):hover {
-      color: #ffffff;
-    }
-
-    .you-loop-speed-value:disabled {
-      cursor: default;
-    }
-
-    /* The × sits a touch larger than the number. */
-    .you-loop-speed-x {
-      font-size: 13px;
-      margin-left: 0.5px;
-    }
-
-    .you-loop-speed-value[data-modified="true"] {
-      color: #5eead4;
-    }
-
-    /* Full-width timeline floating above the native scrubber, mapping just the
-       loop range across its whole width. */
-    .you-loop-zoom {
-      align-items: center;
-      animation: you-loop-zoom-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-      bottom: 100%;
-      display: flex;
-      gap: 10px;
-      left: 0;
-      margin-bottom: 30px;
-      pointer-events: none;
-      position: absolute;
-      transform-origin: center bottom;
-      width: 100%;
-    }
-
-    @keyframes you-loop-zoom-in {
-      from {
-        opacity: 0;
-        transform: translateY(8px) scaleY(0.55);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scaleY(1);
-      }
-    }
-
-    /* Reverse of the entrance, played while the strip unmounts. */
-    .you-loop-zoom[data-closing="true"] {
-      animation: you-loop-zoom-out 0.22s cubic-bezier(0.7, 0, 0.84, 0) forwards;
-      pointer-events: none;
-    }
-
-    @keyframes you-loop-zoom-out {
-      from {
-        opacity: 1;
-        transform: translateY(0) scaleY(1);
-      }
-      to {
-        opacity: 0;
-        transform: translateY(8px) scaleY(0.55);
-      }
-    }
-
-    /* Magnifying-glass badge marking this strip as the zoomed timeline. */
-    .you-loop-zoom-badge {
-      align-items: center;
-      background: radial-gradient(
-        circle at 50% 50%,
-        rgba(20, 184, 166, 0.28),
-        rgba(20, 184, 166, 0.08)
-      );
-      border: 1px solid rgba(94, 234, 212, 0.45);
-      border-radius: 50%;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45),
-        0 0 14px rgba(20, 184, 166, 0.35);
-      color: #5eead4;
-      display: inline-flex;
-      flex: none;
-      height: 30px;
-      justify-content: center;
-      width: 30px;
-    }
-
-    .you-loop-zoom-badge svg {
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-      height: 22px;
-      width: 22px;
-    }
-
-    .you-loop-zoom-time {
-      color: #5eead4;
-      flex: none;
-      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    }
-
-    .you-loop-zoom-track {
-      background: linear-gradient(
-        180deg,
-        rgba(20, 184, 166, 0.16),
-        rgba(20, 184, 166, 0.3)
-      );
-      border: 1px solid rgba(94, 234, 212, 0.45);
-      border-radius: 3px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5),
-        inset 0 0 0 1px rgba(0, 0, 0, 0.25);
-      cursor: ew-resize;
-      flex: 1;
-      height: 10px;
-      pointer-events: auto;
-      position: relative;
-      touch-action: none;
-    }
-
-    /* Faint tick hatch for a sense of magnified scale. */
-    .you-loop-zoom-track::before {
-      background-image: repeating-linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.1) 0 1px,
-        transparent 1px 24px
-      );
-      content: "";
-      inset: 0;
-      position: absolute;
-    }
-
-    /* A filled teal knob, like YouTube's scrubber dot. */
-    .you-loop-zoom-playhead {
-      background: #2dd4bf;
-      border-radius: 50%;
-      height: 20px;
-      left: 0;
-      pointer-events: none;
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      transition: opacity 0.15s ease;
-      width: 20px;
-      will-change: left;
-      /* Sit behind the loop cursors so the larger playhead does not obscure them. */
-      z-index: 1;
-    }
-
-    /* Highlighted loop region between the two zoom cursors. */
-    .you-loop-zoom-fill {
-      background: linear-gradient(
-        180deg,
-        rgba(94, 234, 212, 0.45),
-        rgba(20, 184, 166, 0.6)
-      );
-      border-radius: 2px;
-      box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.55);
-      height: 100%;
-      pointer-events: none;
-      position: absolute;
-      top: 0;
-      will-change: left, width;
-    }
-
-    /* Loop refine cursors: taller teal handles straddling the track. */
-    .you-loop-zoom-cursor {
-      background: #14b8a6;
-      border: 2px solid #ffffff;
-      border-radius: 4px;
-      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.6),
-        0 2px 8px rgba(0, 0, 0, 0.45);
-      cursor: ew-resize;
-      height: 20px;
-      margin: 0;
-      padding: 0;
-      pointer-events: auto;
-      position: absolute;
-      top: 50%;
-      touch-action: none;
-      transform: translate(-50%, -50%);
-      width: 8px;
-      will-change: left;
-      z-index: 2;
-    }
-
-    .you-loop-zoom-cursor:hover {
-      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.8),
-        0 0 10px rgba(94, 234, 212, 0.85);
-    }
-
-    /* While hovering the zoom track, suppress YouTube's "most replayed" heatmap
-       so it does not pop up and obscure the zoom timeline. */
-    .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-container,
-    .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-edu {
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-
-    /* ---- Help: info toggle + docs modal ---- */
-    .you-loop-help-toggle {
-      align-items: center;
-      background: rgba(255, 255, 255, 0.08);
-      border: 0;
-      border-radius: 50%;
-      color: rgba(255, 255, 255, 0.55);
-      cursor: pointer;
-      display: inline-flex;
-      flex: none;
-      height: 30px;
-      justify-content: center;
-      padding: 0;
-      transition: color 0.18s ease, background 0.18s ease;
-      width: 30px;
-    }
-
-    .you-loop-help-toggle svg {
-      height: 16px;
-      width: 16px;
-    }
-
-    .you-loop-help-toggle:hover {
-      background: rgba(20, 184, 166, 0.18);
-      color: #14b8a6;
-    }
-
-    .you-loop-help-backdrop {
-      align-items: center;
-      animation: you-loop-help-fade 0.18s ease both;
-      background: rgba(0, 0, 0, 0.5);
-      -webkit-backdrop-filter: blur(4px);
-      backdrop-filter: blur(4px);
-      display: flex;
-      inset: 0;
-      justify-content: center;
-      padding: 24px;
-      pointer-events: auto;
-      position: absolute;
-      z-index: 2147483647;
-    }
-
-    @keyframes you-loop-help-fade {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .you-loop-help-backdrop[data-closing="true"] {
-      animation: you-loop-help-fade-out 0.18s ease both;
-    }
-
-    @keyframes you-loop-help-fade-out {
-      from { opacity: 1; }
-      to { opacity: 0; }
-    }
-
-    .you-loop-help-card {
-      animation: you-loop-help-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
-      background: rgba(28, 28, 32, 0.82);
-      -webkit-backdrop-filter: blur(18px) saturate(1.2);
-      backdrop-filter: blur(18px) saturate(1.2);
-      border: 1px solid rgba(0, 0, 0, 0.6);
-      border-radius: 16px;
-      box-shadow:
-        0 0 0 1px rgba(20, 184, 166, 0.16),
-        0 24px 70px rgba(0, 0, 0, 0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      box-sizing: border-box;
-      color: rgba(255, 255, 255, 0.78);
-      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      max-height: calc(100% - 48px);
-      max-width: 440px;
-      overflow-y: auto;
-      padding: 26px 28px 22px;
-      position: relative;
-      width: 100%;
-    }
-
-    @keyframes you-loop-help-rise {
-      from { opacity: 0; transform: translateY(10px) scale(0.97); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    .you-loop-help-card[data-closing="true"] {
-      animation: you-loop-help-sink 0.2s cubic-bezier(0.4, 0, 1, 1) both;
-    }
-
-    @keyframes you-loop-help-sink {
-      from { opacity: 1; transform: translateY(0) scale(1); }
-      to { opacity: 0; transform: translateY(8px) scale(0.97); }
-    }
-
-    .you-loop-help-close {
-      align-items: center;
-      background: rgba(255, 255, 255, 0.06);
-      border: 0;
-      border-radius: 50%;
-      color: rgba(255, 255, 255, 0.55);
-      cursor: pointer;
-      display: inline-flex;
-      height: 28px;
-      justify-content: center;
-      padding: 0;
-      position: absolute;
-      right: 16px;
-      top: 16px;
-      transition: color 0.18s ease, background 0.18s ease;
-      width: 28px;
-    }
-
-    .you-loop-help-close svg {
-      height: 15px;
-      width: 15px;
-    }
-
-    .you-loop-help-close:hover {
-      background: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
-    }
-
-    /* The wordmark is the header hero. */
-    .you-loop-help-eyebrow {
-      color: #5eead4;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-    }
-
-    /* Tagline sits beneath the wordmark as a lighter supporting line. */
-    .you-loop-help-title {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.4;
-      margin: 6px 36px 0 0;
-    }
-
-    .you-loop-help-intro {
-      color: rgba(255, 255, 255, 0.62);
-      font-size: 12.5px;
-      line-height: 1.5;
-      margin: 8px 0 0;
-    }
-
-    .you-loop-help-section {
-      margin-top: 20px;
-    }
-
-    .you-loop-help-label {
-      color: #14b8a6;
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      margin: 0 0 10px;
-      text-transform: uppercase;
-    }
-
-    .you-loop-help-note {
-      color: rgba(255, 255, 255, 0.4);
-      font-weight: 500;
-      letter-spacing: 0.04em;
-      text-transform: none;
-    }
-
-    .you-loop-help-list {
-      display: flex;
-      flex-direction: column;
-      gap: 11px;
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-
-    .you-loop-help-row {
-      align-items: baseline;
-      display: grid;
-      gap: 6px 14px;
-      grid-template-columns: 96px 1fr;
-    }
-
-    /* Panel rows lead with the control's own glyph in a narrow column. */
-    .you-loop-help-row--panel {
-      align-items: start;
-      grid-template-columns: 30px 1fr;
-    }
-
-    .you-loop-help-ico {
-      align-items: center;
-      color: #5eead4;
-      display: inline-flex;
-      height: 17px;
-      justify-content: center;
-    }
-
-    .you-loop-help-ico svg {
-      height: 16px;
-      width: 16px;
-    }
-
-    .you-loop-help-ico-pair {
-      align-items: center;
-      color: #5eead4;
-      display: inline-flex;
-      gap: 1px;
-    }
-
-    .you-loop-help-ico-pair svg {
-      height: 12px;
-      width: 12px;
-    }
-
-    .you-loop-help-term {
-      color: rgba(255, 255, 255, 0.92);
-      font-size: 12.5px;
-      font-weight: 600;
-    }
-
-    .you-loop-help-desc {
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 12.5px;
-      line-height: 1.45;
-    }
-
-    .you-loop-help-body {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .you-loop-help-keys {
-      align-items: center;
-      display: flex;
-      gap: 7px;
-    }
-
-    .you-loop-kbd {
-      background: rgba(0, 0, 0, 0.34);
-      border-radius: 6px;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-      color: #5eead4;
-      display: inline-flex;
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-      font-weight: 700;
-      justify-content: center;
-      min-width: 24px;
-      padding: 4px 7px;
-    }
-
-    .you-loop-help-hold {
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 9.5px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .you-loop-help-foot {
-      border-top: 1px solid rgba(255, 255, 255, 0.07);
-      color: rgba(255, 255, 255, 0.38);
-      font-size: 11px;
-      margin: 20px 0 0;
-      padding-top: 12px;
-    }
-  `;
+  style.textContent = PAGE_UI_STYLES;
 
   document.head.append(style);
 }
@@ -1080,6 +527,12 @@ export function createPageUiElement(video: HTMLVideoElement) {
     if (getComputedStyle(timeline).position === "static") {
       timeline.style.position = "relative";
     }
+
+    // Our panel sits at max z-index, but that only competes within the progress
+    // bar's own stacking context. In fullscreen, a YouTube sibling otherwise
+    // paints over it; lifting the attach point's stacking context floats the
+    // whole subtree (panel included) above that sibling.
+    timeline.style.zIndex = "2147483647";
 
     if (panel.parentElement !== timeline) {
       timeline.append(panel);

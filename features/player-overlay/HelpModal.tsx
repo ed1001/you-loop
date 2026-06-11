@@ -124,7 +124,7 @@ const CONTROLS: Control[] = [
   {
     icon: SaveIcon,
     term: "Saved loops",
-    desc: "Save the current loop and zoom as a named loop for this video; keep several per video and apply or delete them anytime.",
+    desc: "Save the current loop and zoom as a named loop. Keep several per video — apply or delete them anytime — and browse every video you've saved loops on. They come back automatically next visit, last-used applied.",
   },
 ];
 
@@ -257,14 +257,6 @@ export function HelpModal({ open, container, onClose }: Props) {
               </li>
             ))}
           </ul>
-        </section>
-
-        <section className="you-loop-help-section">
-          <h3 className="you-loop-help-label">Memory</h3>
-          <p className="you-loop-help-memory">
-            Save as many named loops per video as you like. They come back
-            automatically next time you watch, with your last-used loop applied.
-          </p>
         </section>
 
         <p className="you-loop-help-foot">

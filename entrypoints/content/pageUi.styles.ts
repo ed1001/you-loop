@@ -611,11 +611,6 @@ export const PAGE_UI_STYLES = `
       z-index: 2;
     }
 
-    .you-loop-zoom-cursor:hover {
-      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.8),
-        0 0 10px rgba(94, 234, 212, 0.85);
-    }
-
     /* While hovering the zoom track, suppress YouTube's "most replayed" heatmap
        so it does not pop up and obscure the zoom timeline. */
     .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-container,
@@ -896,13 +891,6 @@ export const PAGE_UI_STYLES = `
       font-size: 11px;
       margin: 20px 0 0;
       padding-top: 12px;
-    }
-
-    .you-loop-help-memory {
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 12.5px;
-      line-height: 1.5;
-      margin: 0;
     }
 
     .you-loop-loops-toggle {

@@ -419,7 +419,7 @@ export function SavedLoopsModal({
                       type="button"
                       className="you-loop-lm-vopen"
                       disabled={isCurrent}
-                      title={isCurrent ? "Now playing" : `Open ${label}`}
+                      title={label}
                       aria-label={isCurrent ? `${label} (now playing)` : `Open ${label}`}
                       onClick={(e) => {
                         swallow(e);

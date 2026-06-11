@@ -315,6 +315,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     await removeLoop(videoId, id);
     savedLoops = savedLoops.filter((l) => l.id !== id);
     if (selectedLoopId === id) selectedLoopId = null;
+    // Removing the last loop deletes the video's entry, so refresh the index
+    // (this video drops off it once it has no loops left).
+    await refreshLibrary();
     render();
   };
 

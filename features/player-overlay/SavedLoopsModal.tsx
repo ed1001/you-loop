@@ -21,7 +21,6 @@ type Props = {
   currentSegment: LoopSegment | null;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
-  onReplace: (id: string) => void;
   onApply: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
@@ -50,7 +49,13 @@ function formatRange(segment: LoopSegment | null): string {
   return `${formatTime(segment.start)} – ${formatTime(segment.end)}`;
 }
 
-type SaveMode = "new" | "replace";
+// Auto-name an unnamed loop "loop#N" using the lowest N not already taken.
+function nextDefaultName(loops: SavedLoop[]): string {
+  const taken = new Set(loops.map((l) => l.name));
+  let n = 1;
+  while (taken.has(`loop#${n}`)) n += 1;
+  return `loop#${n}`;
+}
 
 export function SavedLoopsModal({
   open,
@@ -60,14 +65,11 @@ export function SavedLoopsModal({
   currentSegment,
   onClose,
   onSaveAsNew,
-  onReplace,
   onApply,
   onRename,
   onDelete,
 }: Props) {
-  const [mode, setMode] = useState<SaveMode>("new");
   const [newName, setNewName] = useState("");
-  const [replaceId, setReplaceId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
   const { mounted, closing } = useModalPresence(open, EXIT_MS);
@@ -77,8 +79,6 @@ export function SavedLoopsModal({
     if (!open) return;
     setNewName("");
     setRenamingId(null);
-    setMode(loops.length === 0 ? "new" : mode);
-    setReplaceId(selectedId ?? loops[0]?.id ?? null);
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -116,18 +116,10 @@ export function SavedLoopsModal({
 
   if (!mounted || container == null) return null;
 
-  const canSave = mode === "new" ? newName.trim() !== "" : replaceId != null;
-
   const handleSave = () => {
-    if (mode === "new") {
-      const name = newName.trim();
-      if (name === "") return;
-      onSaveAsNew(name);
-      setNewName("");
-    } else if (replaceId != null) {
-      // Overwrite the chosen loop; the modal stays open.
-      onReplace(replaceId);
-    }
+    const name = newName.trim() || nextDefaultName(loops);
+    onSaveAsNew(name);
+    setNewName("");
   };
 
   const commitRename = (id: string) => {
@@ -277,74 +269,27 @@ export function SavedLoopsModal({
         <section className="you-loop-lm-save">
           <h3 className="you-loop-lm-label">Save current loop</h3>
 
-          <label className="you-loop-lm-radio" data-active={mode === "new"}>
-            <input
-              type="radio"
-              name="you-loop-save-mode"
-              checked={mode === "new"}
-              onChange={() => setMode("new")}
-            />
-            <span className="you-loop-lm-radio-text">As new</span>
-            <input
-              className="you-loop-loops-input you-loop-lm-name"
-              data-loops-field="new"
-              type="text"
-              placeholder="name this loop"
-              maxLength={NAME_MAX_LENGTH}
-              value={newName}
-              onFocus={() => setMode("new")}
-              onPointerDown={stopOnly}
-              onMouseDown={stopOnly}
-              onChange={(e) => {
-                setMode("new");
-                setNewName(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSave();
-                }
-              }}
-            />
-          </label>
-
-          <label
-            className="you-loop-lm-radio"
-            data-active={mode === "replace"}
-            data-disabled={loops.length === 0}
-          >
-            <input
-              type="radio"
-              name="you-loop-save-mode"
-              checked={mode === "replace"}
-              disabled={loops.length === 0}
-              onChange={() => setMode("replace")}
-            />
-            <span className="you-loop-lm-radio-text">Replace</span>
-            <select
-              className="you-loop-lm-select"
-              value={replaceId ?? ""}
-              disabled={loops.length === 0}
-              onPointerDown={stopOnly}
-              onMouseDown={stopOnly}
-              onFocus={() => setMode("replace")}
-              onChange={(e) => {
-                setMode("replace");
-                setReplaceId(e.target.value);
-              }}
-            >
-              {loops.map((loop) => (
-                <option key={loop.id} value={loop.id}>
-                  {loop.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <input
+            className="you-loop-loops-input you-loop-lm-name"
+            data-loops-field="new"
+            type="text"
+            placeholder={nextDefaultName(loops)}
+            maxLength={NAME_MAX_LENGTH}
+            value={newName}
+            onPointerDown={stopOnly}
+            onMouseDown={stopOnly}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSave();
+              }
+            }}
+          />
 
           <button
             type="button"
             className="you-loop-lm-savebtn"
-            disabled={!canSave}
             onClick={(event) => {
               swallow(event);
               handleSave();

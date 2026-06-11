@@ -23,7 +23,6 @@ import {
   removeLoop,
   renameLoop,
   setLastUsed,
-  updateLoop,
   type SavedLoop,
   type VideoEntry
 } from "../../features/persistence/loopStore";
@@ -253,16 +252,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  const replaceLoop = async (id: string) => {
-    if (videoId == null || state.loopSegment == null) return;
-    await updateLoop(videoId, id, state.loopSegment, zoomLoop);
-    savedLoops = savedLoops.map((l) =>
-      l.id === id ? { ...l, main: state.loopSegment!, zoom: zoomLoop } : l
-    );
-    selectedLoopId = id;
-    render();
-  };
-
   const applyLoop = async (id: string) => {
     const loop = savedLoops.find((l) => l.id === id);
     if (loop == null) return;
@@ -359,7 +348,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
           onApplyLoop={applyLoop}
-          onReplaceLoop={replaceLoop}
           onRenameLoop={renameSavedLoop}
           onDeleteLoop={deleteSavedLoop}
         />

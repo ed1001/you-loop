@@ -27,7 +27,6 @@ type Props = {
   onCloseLoops: () => void;
   onSaveAsNew: (name: string) => void;
   onApplyLoop: (id: string) => void;
-  onReplaceLoop: (id: string) => void;
   onRenameLoop: (id: string, name: string) => void;
   onDeleteLoop: (id: string) => void;
 };
@@ -76,7 +75,6 @@ export function LoopPanel({
   onCloseLoops,
   onSaveAsNew,
   onApplyLoop,
-  onReplaceLoop,
   onRenameLoop,
   onDeleteLoop
 }: Props) {
@@ -127,193 +125,212 @@ export function LoopPanel({
         </svg>
       </button>
 
-      <div
-        className="you-loop-modes"
-        role="group"
-        aria-label="Playback mode"
-        data-disabled={!enabled}
-      >
-        {MODES.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={mode === value}
-            className="you-loop-mode-option"
-            data-active={mode === value}
-            disabled={!enabled}
-            onPointerDown={swallow}
-            onMouseDown={swallow}
-            onClick={(event) => {
-              swallow(event);
-              if (mode !== value) {
-                onToggleMode();
+      {/* Wordmark is absolutely centered over the pill so it never shifts as
+          the cluster animates — it only fades. Its width is instead reserved by
+          an empty spacer in the flow (below). */}
+      <span className="you-loop-wordmark" aria-hidden="true">you-loop</span>
+
+      {/* The spacer and control cluster sum their widths: spacer open when off,
+          controls open when on. Because the two widths add (rather than a
+          min-width racing the content), the pill resizes monotonically with no
+          bounce in either direction. */}
+      <div className="you-loop-center">
+        <div className="you-loop-wordmark-slot" aria-hidden="true" />
+
+        <div className="you-loop-cluster">
+          <div className="you-loop-cluster-inner">
+            <div
+              className="you-loop-modes"
+              role="group"
+              aria-label="Playback mode"
+              data-disabled={!enabled}
+            >
+              {MODES.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={mode === value}
+                  className="you-loop-mode-option"
+                  data-active={mode === value}
+                  disabled={!enabled}
+                  onPointerDown={swallow}
+                  onMouseDown={swallow}
+                  onClick={(event) => {
+                    swallow(event);
+                    if (mode !== value) {
+                      onToggleMode();
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+  
+            <div
+              className="you-loop-speed"
+              role="group"
+              aria-label="Playback speed"
+              data-disabled={!enabled}
+            >
+              <button
+                type="button"
+                className="you-loop-speed-step"
+                aria-label="Decrease speed"
+                disabled={!enabled || atMin}
+                onPointerDown={swallow}
+                onMouseDown={swallow}
+                onClick={(event) => {
+                  swallow(event);
+                  onSpeedDown();
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M6 12h12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+  
+              <button
+                type="button"
+                className="you-loop-speed-value"
+                aria-label={
+                  modified
+                    ? `Playback speed ${formatRate(playbackRate)}, click to reset to 1×`
+                    : `Playback speed ${formatRate(playbackRate)}`
+                }
+                title={modified ? "Reset to 1×" : undefined}
+                data-modified={modified}
+                data-pulse={pulse}
+                disabled={!enabled || !modified}
+                onPointerDown={swallow}
+                onMouseDown={swallow}
+                onClick={(event) => {
+                  swallow(event);
+                  if (!modified) return;
+                  onResetSpeed();
+                  setPulse(true);
+                }}
+                onAnimationEnd={() => setPulse(false)}
+              >
+                <span className="you-loop-speed-num">
+                  {Number(playbackRate.toFixed(2))}
+                  <span className="you-loop-speed-x">×</span>
+                </span>
+                <span className="you-loop-speed-reset" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path
+                      d="M5.5 9.5a7 7 0 1 1-1.1 4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M3 6.5v3.5h3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+  
+              <button
+                type="button"
+                className="you-loop-speed-step"
+                aria-label="Increase speed"
+                disabled={!enabled || atMax}
+                onPointerDown={swallow}
+                onMouseDown={swallow}
+                onClick={(event) => {
+                  swallow(event);
+                  onSpeedUp();
+                }}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M12 6v12M6 12h12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+  
+            <button
+              type="button"
+              role="switch"
+              aria-checked={zoomed}
+              aria-label={
+                zoomed ? "Hide loop zoom timeline" : "Show loop zoom timeline"
               }
-            }}
-          >
-            {label}
-          </button>
-        ))}
+              className="you-loop-zoom-toggle"
+              data-on={zoomed}
+              data-disabled={!enabled}
+              disabled={!enabled}
+              onPointerDown={swallow}
+              onMouseDown={swallow}
+              onClick={(event) => {
+                swallow(event);
+                onToggleZoom();
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle
+                  cx="10.5"
+                  cy="10.5"
+                  r="6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                />
+                <path
+                  d="M15 15l4.5 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+  
+            <button
+              type="button"
+              className="you-loop-loops-toggle"
+              aria-haspopup="dialog"
+              aria-expanded={loopsOpen}
+              aria-label="Saved loops"
+              disabled={!canSaveLoops}
+              onPointerDown={swallow}
+              onMouseDown={swallow}
+              onClick={(event) => {
+                swallow(event);
+                onToggleLoops();
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M7 4h10v16l-5-3.5L7 20z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
-
-      <div
-        className="you-loop-speed"
-        role="group"
-        aria-label="Playback speed"
-        data-disabled={!enabled}
-      >
-        <button
-          type="button"
-          className="you-loop-speed-step"
-          aria-label="Decrease speed"
-          disabled={!enabled || atMin}
-          onPointerDown={swallow}
-          onMouseDown={swallow}
-          onClick={(event) => {
-            swallow(event);
-            onSpeedDown();
-          }}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-              d="M6 12h12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          className="you-loop-speed-value"
-          aria-label={
-            modified
-              ? `Playback speed ${formatRate(playbackRate)}, click to reset to 1×`
-              : `Playback speed ${formatRate(playbackRate)}`
-          }
-          title={modified ? "Reset to 1×" : undefined}
-          data-modified={modified}
-          data-pulse={pulse}
-          disabled={!enabled || !modified}
-          onPointerDown={swallow}
-          onMouseDown={swallow}
-          onClick={(event) => {
-            swallow(event);
-            if (!modified) return;
-            onResetSpeed();
-            setPulse(true);
-          }}
-          onAnimationEnd={() => setPulse(false)}
-        >
-          <span className="you-loop-speed-num">
-            {Number(playbackRate.toFixed(2))}
-            <span className="you-loop-speed-x">×</span>
-          </span>
-          <span className="you-loop-speed-reset" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path
-                d="M5.5 9.5a7 7 0 1 1-1.1 4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M3 6.5v3.5h3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className="you-loop-speed-step"
-          aria-label="Increase speed"
-          disabled={!enabled || atMax}
-          onPointerDown={swallow}
-          onMouseDown={swallow}
-          onClick={(event) => {
-            swallow(event);
-            onSpeedUp();
-          }}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-              d="M12 6v12M6 12h12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={zoomed}
-        aria-label={zoomed ? "Hide loop zoom timeline" : "Show loop zoom timeline"}
-        className="you-loop-zoom-toggle"
-        data-on={zoomed}
-        data-disabled={!enabled}
-        disabled={!enabled}
-        onPointerDown={swallow}
-        onMouseDown={swallow}
-        onClick={(event) => {
-          swallow(event);
-          onToggleZoom();
-        }}
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle
-            cx="10.5"
-            cy="10.5"
-            r="6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-          />
-          <path
-            d="M15 15l4.5 4.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        className="you-loop-loops-toggle"
-        aria-haspopup="dialog"
-        aria-expanded={loopsOpen}
-        aria-label="Saved loops"
-        disabled={!canSaveLoops}
-        onPointerDown={swallow}
-        onMouseDown={swallow}
-        onClick={(event) => {
-          swallow(event);
-          onToggleLoops();
-        }}
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M7 4h10v16l-5-3.5L7 20z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
 
       <SavedLoopsModal
         open={loopsOpen && canSaveLoops}
@@ -323,7 +340,6 @@ export function LoopPanel({
         currentSegment={currentSegment}
         onClose={onCloseLoops}
         onSaveAsNew={onSaveAsNew}
-        onReplace={onReplaceLoop}
         onApply={onApplyLoop}
         onRename={onRenameLoop}
         onDelete={onDeleteLoop}

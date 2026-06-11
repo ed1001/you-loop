@@ -95,24 +95,6 @@ async function mutateEntry(
   await writeStore(a, store);
 }
 
-export async function updateLoop(
-  videoId: string,
-  loopId: string,
-  main: LoopSegment,
-  zoom: LoopSegment | null,
-  area?: StorageArea,
-  now: number = Date.now()
-): Promise<void> {
-  await mutateEntry(videoId, area, (entry) => {
-    entry.loops = entry.loops.map((l) =>
-      l.id === loopId ? { ...l, main, zoom } : l
-    );
-    entry.lastUsedId = loopId;
-    entry.lastSeen = now;
-  });
-}
-
-// fallow-ignore-next-line code-duplication -- minimal CRUD twin of updateLoop
 export async function renameLoop(
   videoId: string,
   loopId: string,

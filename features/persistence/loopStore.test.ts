@@ -4,7 +4,6 @@ import {
   SAVED_STORE_KEY,
   addLoop,
   loadEntry,
-  updateLoop,
   renameLoop,
   removeLoop,
   setLastUsed
@@ -53,20 +52,6 @@ describe("loopStore", () => {
   it("returns null for an unknown video", async () => {
     const area = makeArea();
     expect(await loadEntry("nope", area, 1000)).toBeNull();
-  });
-
-  it("overwrites a loop in place and sets it as last used", async () => {
-    const area = makeArea();
-    const { a, b } = await seedTwo(area);
-    await updateLoop("v", a.id, seg(5, 6), seg(5.2, 5.8), area, 30);
-
-    const entry = await loadEntry("v", area, 40);
-    expect(entry?.loops).toHaveLength(2);
-    const updated = entry?.loops.find((l) => l.id === a.id);
-    expect(updated?.main).toEqual(seg(5, 6));
-    expect(updated?.zoom).toEqual(seg(5.2, 5.8));
-    expect(entry?.lastUsedId).toBe(a.id);
-    expect(b.id).toBeTruthy();
   });
 
   it("renames a loop", async () => {

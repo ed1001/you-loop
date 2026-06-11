@@ -30,6 +30,23 @@ export const PAGE_UI_STYLES = `
       opacity: 1 !important;
     }
 
+    /* Hovering our panel or zoom timeline pins the overlay open, even if
+       YouTube's idle timer fires while the pointer sits still. The :has()
+       outranks the data-hidden rule, so the fade is suppressed. */
+    .you-loop-page-ui:has(.you-loop-panel:hover),
+    .you-loop-page-ui:has(.you-loop-zoom:hover) {
+      opacity: 1;
+    }
+
+    /* …and keep YouTube's bottom chrome (our parent) from fading out under us
+       while hovering, same as the scrubbing case above. */
+    .html5-video-player:has(.you-loop-panel:hover) .ytp-chrome-bottom,
+    .html5-video-player:has(.you-loop-panel:hover) .ytp-gradient-bottom,
+    .html5-video-player:has(.you-loop-zoom:hover) .ytp-chrome-bottom,
+    .html5-video-player:has(.you-loop-zoom:hover) .ytp-gradient-bottom {
+      opacity: 1 !important;
+    }
+
     .you-loop-timeline {
       height: 100%;
       margin: 0;
@@ -83,6 +100,96 @@ export const PAGE_UI_STYLES = `
       z-index: 2147483647;
     }
 
+    /* Middle wrapper holding the wordmark and the control cluster as two
+       independently-collapsing width slots. The panel sees one flex item
+       here, so the pill width is simply their sum — no min-width racing the
+       content, hence no bounce as it resizes. */
+    .you-loop-center {
+      align-items: center;
+      display: flex;
+      gap: 0;
+    }
+
+    /* Empty spacer that reserves the wordmark's footprint while off and folds
+       to nothing when on. Plain width animation (definite values) so the pill's
+       width = spacer + cluster stays monotonic — no bounce. */
+    .you-loop-wordmark-slot {
+      flex: none;
+      width: 0;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .you-loop-panel[data-on="false"] .you-loop-wordmark-slot {
+      width: 92px;
+    }
+
+    /* Brand wordmark: matches the help modal's eyebrow (teal, bold). Absolutely
+       centered over the whole pill so it never shifts as the cluster animates —
+       it only fades. */
+    .you-loop-wordmark {
+      color: #5eead4;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      left: 50%;
+      letter-spacing: -0.01em;
+      opacity: 0;
+      pointer-events: none;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.2s ease;
+      /* Own compositor layer so the centering doesn't re-rasterize (and jitter)
+         against the panel's animating width. */
+      will-change: transform;
+      white-space: nowrap;
+    }
+
+    /* Turning off, the wordmark may appear early (the pill is already wide
+       enough for it); it just trails the controls fading out. */
+    .you-loop-panel[data-on="false"] .you-loop-wordmark {
+      opacity: 1;
+      transition-delay: 0.06s;
+    }
+
+    /* Collapsible control cluster. The grid 1fr↔0fr trick animates the inner
+       row's width, which is what drives the pill's expand/collapse. */
+    .you-loop-cluster {
+      display: grid;
+      grid-template-columns: 1fr;
+      /* Controls fade in only once the slot has finished opening (delay ≈ the
+         width duration), so they never appear while the clip is still widening
+         — otherwise the last buttons read as sliding in. */
+      transition: grid-template-columns 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.16s ease 0.46s;
+    }
+
+    .you-loop-panel[data-on="false"] .you-loop-cluster {
+      grid-template-columns: 0fr;
+      opacity: 0;
+      /* Collapsing: controls fade out fast and first, before the slot narrows,
+         so they never look crushed. */
+      transition: grid-template-columns 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.12s ease;
+    }
+
+    /* overflow + min-width:0 let the grid column collapse to zero cleanly. */
+    .you-loop-cluster-inner {
+      align-items: center;
+      display: flex;
+      gap: 6px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* Keep each control at its intrinsic size while the column collapses — the
+       clip happens horizontally only. Without this the squeezed row rewraps and
+       the pill grows taller when off. */
+    .you-loop-cluster-inner > * {
+      flex: none;
+      white-space: nowrap;
+    }
+
     /* Power toggle: enables/disables the loop range. Icon only. */
     .you-loop-power {
       align-items: center;
@@ -96,7 +203,8 @@ export const PAGE_UI_STYLES = `
       height: 30px;
       justify-content: center;
       padding: 0;
-      transition: color 0.18s ease, background 0.18s ease;
+      transition: color 0.18s ease, background 0.18s ease,
+        transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       width: 30px;
     }
 
@@ -112,6 +220,17 @@ export const PAGE_UI_STYLES = `
     .you-loop-power[data-on="true"] {
       background: rgba(20, 184, 166, 0.18);
       color: #14b8a6;
+    }
+
+    /* The two outer buttons roll outward as the cluster opens (and back as it
+       closes) — left spins counter-clockwise, right clockwise, like wheels
+       tracking the pill's expansion. */
+    .you-loop-panel[data-on="true"] .you-loop-power {
+      transform: rotate(-360deg);
+    }
+
+    .you-loop-panel[data-on="true"] .you-loop-help-toggle {
+      transform: rotate(360deg);
     }
 
     /* Segmented mode control: a recessed well groups the two mutually
@@ -517,7 +636,8 @@ export const PAGE_UI_STYLES = `
       height: 30px;
       justify-content: center;
       padding: 0;
-      transition: color 0.18s ease, background 0.18s ease;
+      transition: color 0.18s ease, background 0.18s ease,
+        transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       width: 30px;
     }
 
@@ -814,6 +934,7 @@ export const PAGE_UI_STYLES = `
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 6px;
+      box-sizing: border-box;
       color: #fff;
       font-size: 12.5px;
       min-width: 0;
@@ -931,68 +1052,8 @@ export const PAGE_UI_STYLES = `
       padding: 14px 14px 14px;
     }
 
-    .you-loop-lm-radio {
-      align-items: center;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      gap: 10px;
-      padding: 6px 6px;
-    }
-
-    .you-loop-lm-radio + .you-loop-lm-radio {
-      margin-top: 2px;
-    }
-
-    .you-loop-lm-radio[data-active="true"] {
-      background: rgba(94, 234, 212, 0.08);
-    }
-
-    .you-loop-lm-radio[data-disabled="true"] {
-      cursor: default;
-      opacity: 0.4;
-    }
-
-    .you-loop-lm-radio input[type="radio"] {
-      accent-color: #5eead4;
-      flex: none;
-      height: 14px;
-      margin: 0;
-      width: 14px;
-    }
-
-    .you-loop-lm-radio-text {
-      color: rgba(255, 255, 255, 0.85);
-      flex: none;
-      font-size: 12.5px;
-      font-weight: 600;
-      width: 56px;
-    }
-
     .you-loop-lm-name {
-      flex: 1;
-    }
-
-    .you-loop-lm-name:disabled {
-      opacity: 0.4;
-    }
-
-    .you-loop-lm-select {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 6px;
-      color: #fff;
-      cursor: pointer;
-      flex: 1;
-      font-family: inherit;
-      font-size: 12.5px;
-      min-width: 0;
-      padding: 6px 8px;
-    }
-
-    .you-loop-lm-select:disabled {
-      cursor: default;
-      opacity: 0.4;
+      width: 100%;
     }
 
     .you-loop-lm-savebtn {
@@ -1009,14 +1070,8 @@ export const PAGE_UI_STYLES = `
       width: 100%;
     }
 
-    .you-loop-lm-savebtn:not(:disabled):hover {
+    .you-loop-lm-savebtn:hover {
       background: #7af0de;
-    }
-
-    .you-loop-lm-savebtn:disabled {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.4);
-      cursor: default;
     }
 
     .you-loop-lm-list {
@@ -1027,7 +1082,34 @@ export const PAGE_UI_STYLES = `
       margin: 0;
       max-height: 220px;
       overflow-y: auto;
-      padding: 0;
+      /* Reserve the gutter so rows don't reflow when the bar appears, and keep
+         row content clear of the thumb. */
+      scrollbar-gutter: stable;
+      padding: 0 6px 0 0;
+      /* Firefox: a slim, always-present bar (no overlay fade). */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(94, 234, 212, 0.4) rgba(255, 255, 255, 0.06);
+    }
+
+    /* Chromium: styling the scrollbar opts out of the macOS overlay bar that
+       fades away, so it stays visible whenever the list overflows — an obvious
+       cue that there are more loops below. */
+    .you-loop-lm-list::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .you-loop-lm-list::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+    }
+
+    .you-loop-lm-list::-webkit-scrollbar-thumb {
+      background: rgba(94, 234, 212, 0.38);
+      border-radius: 8px;
+    }
+
+    .you-loop-lm-list::-webkit-scrollbar-thumb:hover {
+      background: rgba(94, 234, 212, 0.6);
     }
 
     .you-loop-lm-empty {

@@ -40,25 +40,16 @@ export function enforceSegmentEnd(
     return { oneShotCompleted: state.oneShotCompleted };
   }
 
+  // Playback resumed after the one-shot already finished (the user pressed
+  // play): restart from the segment start instead of re-pausing at the end.
+  // Race-free — reads the live `paused` flag, so it does not depend on the
+  // ordering of the `play`/`timeupdate` events that resume fires.
+  if (state.oneShotCompleted && !video.paused) {
+    video.currentTime = start;
+    return { oneShotCompleted: false };
+  }
+
   video.currentTime = end;
   video.pause();
   return { oneShotCompleted: true };
-}
-
-export async function handleOneShotReplay(
-  video: HTMLVideoElement,
-  state: PlaybackState
-): Promise<boolean> {
-  if (
-    !state.enabled ||
-    state.playMode !== "one-shot" ||
-    !state.oneShotCompleted ||
-    !state.loopSegment
-  ) {
-    return false;
-  }
-
-  video.currentTime = state.loopSegment.start;
-  await video.play();
-  return true;
 }

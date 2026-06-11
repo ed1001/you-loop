@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  applyPlaybackState,
-  enforceSegmentEnd,
-  handleOneShotReplay
-} from "./controller";
+import { applyPlaybackState, enforceSegmentEnd } from "./controller";
 import { createInitialPlaybackState } from "./reducer";
 
 function video(overrides: Partial<HTMLVideoElement> = {}) {
@@ -105,16 +101,33 @@ describe("playback controller", () => {
     expect(element.currentTime).toBe(2);
   });
 
-  it("replays one-shot from segment start on play request", async () => {
-    const element = video({ currentTime: 8 });
-    await handleOneShotReplay(element, {
+  it("restarts a completed one-shot when playback resumes past the end", () => {
+    const element = video({ currentTime: 8.01, paused: false });
+    const result = enforceSegmentEnd(element, {
       ...createInitialPlaybackState(),
+      loopEnabled: true,
       loopSegment: { start: 5, end: 8 },
       playMode: "one-shot",
       oneShotCompleted: true
     });
 
     expect(element.currentTime).toBe(5);
-    expect(element.play).toHaveBeenCalled();
+    expect(element.pause).not.toHaveBeenCalled();
+    expect(result.oneShotCompleted).toBe(false);
+  });
+
+  it("keeps a completed one-shot paused at the end while still paused", () => {
+    const element = video({ currentTime: 8.01, paused: true });
+    const result = enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "one-shot",
+      oneShotCompleted: true
+    });
+
+    expect(element.currentTime).toBe(8);
+    expect(element.pause).toHaveBeenCalled();
+    expect(result.oneShotCompleted).toBe(true);
   });
 });

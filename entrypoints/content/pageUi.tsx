@@ -4,13 +4,14 @@ import {
   createInitialPlaybackState,
   playbackReducer
 } from "../../features/playback/reducer";
-import {
-  enforceSegmentEnd,
-  handleOneShotReplay
-} from "../../features/playback/controller";
-import type { PlaybackState } from "../../features/playback/types";
+import { enforceSegmentEnd } from "../../features/playback/controller";
+import type { LoopSegment, PlaybackState } from "../../features/playback/types";
 import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
 import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
+import {
+  padZoomRegion,
+  clampLoopToRegion
+} from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
@@ -34,6 +35,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
   let zoomed = false;
+  // The magnified window the zoom timeline spans while zoomed. Driven by the
+  // main timeline handles; the loop (state.loopSegment) is refined inside it.
+  let zoomRegion: LoopSegment | null = null;
 
   // Turn the loop on, seeding a default segment if none has been set yet.
   const enableLoop = () => {
@@ -51,6 +55,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (state.loopEnabled) {
       // Turning the loop off also closes the zoom timeline.
       zoomed = false;
+      zoomRegion = null;
       state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
     } else {
       enableLoop();
@@ -75,26 +80,51 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       enableLoop();
     }
     zoomed = !zoomed;
+    // Seed the magnified window from the current loop (plus padding) on open.
+    zoomRegion =
+      zoomed && state.loopSegment != null
+        ? padZoomRegion(state.loopSegment, getVideoDuration(video))
+        : null;
+    render();
+  };
+
+  // While zoomed, the main handles drive the zoom window (region) instead of
+  // the loop; refining the loop happens with the zoom cursors. Keep the loop
+  // inside the region as it shrinks.
+  const onRegionChange = (region: LoopSegment) => {
+    zoomRegion = region;
+    if (state.loopSegment != null) {
+      state = playbackReducer(state, {
+        type: "setLoopSegment",
+        segment: clampLoopToRegion(state.loopSegment, region)
+      });
+    }
+    render();
+  };
+
+  const onLoopChange = (segment: LoopSegment) => {
+    state = playbackReducer(state, { type: "setLoopSegment", segment });
     render();
   };
 
   const render = () => {
+    const zoomActive =
+      zoomed && state.loopEnabled && zoomRegion != null && state.loopSegment != null;
+
     root.render(
       <>
-        {zoomed && state.loopEnabled && (
+        {zoomActive && (
           <ZoomTimeline
             video={video}
-            duration={getVideoDuration(video)}
-            segment={state.loopSegment}
+            window={zoomRegion!}
+            loop={state.loopSegment!}
+            onLoopChange={onLoopChange}
           />
         )}
         <TimelineHandles
           duration={getVideoDuration(video)}
-          segment={state.loopSegment}
-          onSegmentChange={(segment) => {
-            state = playbackReducer(state, { type: "setLoopSegment", segment });
-            render();
-          }}
+          segment={zoomActive ? zoomRegion : state.loopSegment}
+          onSegmentChange={zoomActive ? onRegionChange : onLoopChange}
         />
         <LoopPanel
           enabled={state.loopEnabled}
@@ -109,7 +139,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   };
 
   // Loop the video back to the segment start (or pause for one-shot) as
-  // playback crosses the segment end. No-op until a segment is set.
+  // playback crosses the segment end. Also restarts a finished one-shot from
+  // the segment start when the user presses play again. No-op until a segment
+  // is set.
   const onTimeUpdate = () => {
     const result = enforceSegmentEnd(video, state);
     if (result.oneShotCompleted !== state.oneShotCompleted) {
@@ -120,28 +152,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   };
 
-  // After a one-shot finishes (paused at the segment end), pressing play
-  // restarts from the segment start instead of continuing past the end.
-  const onPlay = () => {
-    if (state.playMode !== "one-shot" || !state.oneShotCompleted) {
-      return;
-    }
-    void handleOneShotReplay(video, state);
-    state = playbackReducer(state, {
-      type: "markOneShotCompleted",
-      completed: false
-    });
-  };
-
   video.addEventListener("timeupdate", onTimeUpdate);
-  video.addEventListener("play", onPlay);
   render();
 
   return {
     root,
     stop: () => {
       video.removeEventListener("timeupdate", onTimeUpdate);
-      video.removeEventListener("play", onPlay);
     }
   };
 }
@@ -451,6 +468,48 @@ function ensureDocumentStyles() {
     .you-loop-zoom-track:hover .you-loop-zoom-playhead,
     .you-loop-zoom-track:active .you-loop-zoom-playhead {
       box-shadow: 0 0 10px rgba(94, 234, 212, 1);
+    }
+
+    /* Highlighted loop region between the two zoom cursors. */
+    .you-loop-zoom-fill {
+      background: linear-gradient(
+        180deg,
+        rgba(94, 234, 212, 0.45),
+        rgba(20, 184, 166, 0.6)
+      );
+      border-radius: 2px;
+      box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.55);
+      height: 100%;
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      will-change: left, width;
+    }
+
+    /* Loop refine cursors: taller teal handles straddling the track. */
+    .you-loop-zoom-cursor {
+      background: #14b8a6;
+      border: 2px solid #ffffff;
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.6),
+        0 2px 8px rgba(0, 0, 0, 0.45);
+      cursor: ew-resize;
+      height: 20px;
+      margin: 0;
+      padding: 0;
+      pointer-events: auto;
+      position: absolute;
+      top: 50%;
+      touch-action: none;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      will-change: left;
+      z-index: 2;
+    }
+
+    .you-loop-zoom-cursor:hover {
+      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.8),
+        0 0 10px rgba(94, 234, 212, 0.85);
     }
 
     /* While hovering the zoom track, suppress YouTube's "most replayed" heatmap

@@ -520,7 +520,7 @@ function ensureDocumentStyles() {
       cursor: pointer;
       display: inline-flex;
       flex: none;
-      height: 22px;
+      height: 27px;
       justify-content: center;
       padding: 0;
       transition: color 0.15s ease;

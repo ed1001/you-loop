@@ -71,13 +71,24 @@ describe("loop key handlers", () => {
     expect(vid.currentTime).toBe(7); // stays put
   });
 
-  it("ignores auto-repeat keydown while held", () => {
+  it("ignores auto-repeat keydown while held, without consuming the event", () => {
     const { vid, handlers } = setup();
     handlers.onKeyDown(keyEvent("d"));
-    handlers.onKeyDown(keyEvent("d", { repeat: true }));
+    const repeat = keyEvent("d", { repeat: true });
+    handlers.onKeyDown(repeat);
     expect(vid.play).toHaveBeenCalledTimes(1);
+    // Auto-repeat is ignored AND passed through (not preventDefault-ed).
+    expect(repeat.preventDefault).not.toHaveBeenCalled();
     handlers.onKeyUp(keyEvent("d"));
     expect(vid.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not act on or consume a keyup whose keydown was never tracked", () => {
+    const { vid, handlers } = setup();
+    const event = keyEvent("s");
+    handlers.onKeyUp(event);
+    expect(vid.pause).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it("no-ops when the loop is not active", () => {

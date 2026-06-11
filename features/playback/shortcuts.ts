@@ -50,12 +50,13 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     const key = event.key.toLowerCase();
     if (!HANDLED_KEYS.has(key)) return;
 
+    // Ignore OS auto-repeat, and a duplicate keydown with no intervening keyup
+    // (e.g. focus loss swallowed the keyup). Bail before resolveEvent so these
+    // events aren't consumed when we take no action.
+    if (event.repeat || held.has(key)) return;
+
     const segment = resolveEvent(event);
     if (segment == null) return;
-
-    // Ignore OS auto-repeat, and a duplicate keydown with no intervening keyup
-    // (e.g. focus loss swallowed the keyup).
-    if (event.repeat || held.has(key)) return;
     held.add(key);
 
     switch (key) {
@@ -77,9 +78,12 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     // Always clear held-state, even if gating now blocks the action, so a key
     // can't get stuck "held" across a loop toggle.
     const wasHeld = held.delete(key);
+    // Untracked keyup (we never acted on its keydown): bail before resolveEvent
+    // so we don't consume an event we aren't handling.
+    if (!wasHeld) return;
 
     const segment = resolveEvent(event);
-    if (segment == null || !wasHeld) return;
+    if (segment == null) return;
 
     switch (key) {
       case SNAP_BACK_KEY:

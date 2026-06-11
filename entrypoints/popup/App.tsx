@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 type PageUiMessage = {
-  type: "you-loop:set-page-ui-visible";
-  visible: boolean;
+  type: "setEnabled";
+  enabled: boolean;
 };
 
 async function sendPageUiToggle(visible: boolean) {
@@ -16,8 +16,8 @@ async function sendPageUiToggle(visible: boolean) {
   }
 
   const message = {
-    type: "you-loop:set-page-ui-visible",
-    visible,
+    type: "setEnabled",
+    enabled: visible,
   } satisfies PageUiMessage;
 
   await browser.tabs.sendMessage(activeTab.id, message);

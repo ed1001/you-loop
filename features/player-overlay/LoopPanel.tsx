@@ -77,6 +77,7 @@ export function LoopPanel({
             aria-pressed={mode === value}
             className="you-loop-mode-option"
             data-active={mode === value}
+            disabled={!enabled}
             onPointerDown={swallow}
             onMouseDown={swallow}
             onClick={(event) => {
@@ -101,6 +102,7 @@ export function LoopPanel({
         className="you-loop-zoom-toggle"
         data-on={zoomed}
         data-disabled={!enabled}
+        disabled={!enabled}
         onPointerDown={swallow}
         onMouseDown={swallow}
         onClick={(event) => {

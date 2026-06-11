@@ -13,6 +13,8 @@ import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
+// Must match the you-loop-zoom-out animation duration in the stylesheet.
+const ZOOM_EXIT_MS = 220;
 
 type MountedPageUi = {
   root: Root;
@@ -37,6 +39,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // obeys this only while zoom is active — turning magnify off reverts to the
   // main loop.
   let zoomLoop: LoopSegment | null = null;
+  // Kept mounted briefly after magnify turns off so the zoom strip can play its
+  // exit animation before unmounting.
+  let zoomClosing = false;
+  let zoomCloseTimer = 0;
 
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
@@ -55,10 +61,20 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     state = playbackReducer(state, { type: "setLoopEnabled", enabled: true });
   };
 
+  const clearZoomCloseTimer = () => {
+    if (zoomCloseTimer !== 0) {
+      window.clearTimeout(zoomCloseTimer);
+      zoomCloseTimer = 0;
+    }
+  };
+
   const toggleLoop = () => {
     if (state.loopEnabled) {
-      // Turning the loop off also closes the zoom timeline.
+      // Turning the loop off also closes the zoom timeline (no exit animation:
+      // the whole control is collapsing).
+      clearZoomCloseTimer();
       zoomed = false;
+      zoomClosing = false;
       zoomLoop = null;
       state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
     } else {
@@ -67,11 +83,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  // Changing any setting while the loop is off turns it on.
+  // Loop and one-shot are mutually exclusive; the controls are disabled while
+  // the loop is off, so these only fire when it is on.
   const toggleMode = () => {
-    if (!state.loopEnabled) {
-      enableLoop();
-    }
     state = playbackReducer(state, {
       type: "setPlayMode",
       mode: state.playMode === "loop" ? "one-shot" : "loop"
@@ -80,18 +94,28 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   };
 
   const toggleZoom = () => {
-    if (!state.loopEnabled) {
-      enableLoop();
-    }
-    zoomed = !zoomed;
-    // Keep the zoom cursors across toggles; only seed them to the full extent
-    // of the main loop (0–100%) the first time. Re-clamp in case the main loop
-    // moved while zoom was off.
-    if (zoomed && state.loopSegment != null) {
-      zoomLoop =
-        zoomLoop != null
-          ? clampLoopToRegion(zoomLoop, state.loopSegment)
-          : { ...state.loopSegment };
+    clearZoomCloseTimer();
+    if (zoomed) {
+      // Keep the strip mounted for the exit animation, then drop it.
+      zoomed = false;
+      zoomClosing = true;
+      zoomCloseTimer = window.setTimeout(() => {
+        zoomClosing = false;
+        zoomCloseTimer = 0;
+        render();
+      }, ZOOM_EXIT_MS);
+    } else {
+      zoomClosing = false;
+      zoomed = true;
+      // Keep the zoom cursors across toggles; only seed them to the full extent
+      // of the main loop (0–100%) the first time. Re-clamp in case the main
+      // loop moved while zoom was off.
+      if (state.loopSegment != null) {
+        zoomLoop =
+          zoomLoop != null
+            ? clampLoopToRegion(zoomLoop, state.loopSegment)
+            : { ...state.loopSegment };
+      }
     }
     render();
   };
@@ -115,24 +139,30 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   const render = () => {
     const duration = getVideoDuration(video);
-    const zoomActive =
-      zoomed && state.loopEnabled && state.loopSegment != null && zoomLoop != null;
+    const zoomVisible =
+      (zoomed || zoomClosing) &&
+      state.loopEnabled &&
+      state.loopSegment != null &&
+      zoomLoop != null;
 
     root.render(
       <>
-        {zoomActive && (
+        {zoomVisible && (
           <ZoomTimeline
             video={video}
             window={state.loopSegment!}
             loop={zoomLoop!}
             onLoopChange={onZoomLoopChange}
+            closing={zoomClosing}
           />
         )}
-        <TimelineHandles
-          duration={duration}
-          segment={state.loopSegment}
-          onSegmentChange={onMainLoopChange}
-        />
+        {state.loopEnabled && (
+          <TimelineHandles
+            duration={duration}
+            segment={state.loopSegment}
+            onSegmentChange={onMainLoopChange}
+          />
+        )}
         <LoopPanel
           enabled={state.loopEnabled}
           mode={state.playMode}
@@ -168,6 +198,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   return {
     root,
     stop: () => {
+      clearZoomCloseTimer();
       video.removeEventListener("timeupdate", onTimeUpdate);
     }
   };
@@ -297,16 +328,27 @@ function ensureDocumentStyles() {
       color: #14b8a6;
     }
 
-    /* Segmented mode control: both options always visible. */
+    /* Segmented mode control: a recessed well groups the two mutually
+       exclusive options (loop vs one-shot). */
     .you-loop-modes {
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
       display: flex;
       gap: 2px;
+      padding: 2px;
       transition: opacity 0.18s ease;
     }
 
-    /* Dimmed while the loop is off, but still clickable: interacting turns it on. */
+    /* Dimmed and inert while the loop is off. */
     .you-loop-modes[data-disabled="true"] {
       opacity: 0.4;
+    }
+
+    .you-loop-mode-option:disabled,
+    .you-loop-zoom-toggle:disabled {
+      cursor: default;
     }
 
     .you-loop-mode-option {
@@ -401,6 +443,23 @@ function ensureDocumentStyles() {
       to {
         opacity: 1;
         transform: translateY(0) scaleY(1);
+      }
+    }
+
+    /* Reverse of the entrance, played while the strip unmounts. */
+    .you-loop-zoom[data-closing="true"] {
+      animation: you-loop-zoom-out 0.22s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+      pointer-events: none;
+    }
+
+    @keyframes you-loop-zoom-out {
+      from {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(8px) scaleY(0.55);
       }
     }
 

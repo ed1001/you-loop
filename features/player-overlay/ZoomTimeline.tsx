@@ -15,6 +15,8 @@ type Props = {
   // The actual loop, refined by the cursors in here. Playback obeys this.
   loop: LoopSegment;
   onLoopChange: (loop: LoopSegment) => void;
+  // Plays the exit animation while the strip is unmounting.
+  closing?: boolean;
 };
 
 type Edge = "start" | "end";
@@ -33,7 +35,13 @@ function formatTime(seconds: number): string {
 // A magnified timeline that spans the zoom window across its whole width. The
 // loop cursors inside refine the loop with high precision; the playhead is
 // draggable to scrub the video within the window.
-export function ZoomTimeline({ video, window: win, loop, onLoopChange }: Props) {
+export function ZoomTimeline({
+  video,
+  window: win,
+  loop,
+  onLoopChange,
+  closing = false
+}: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLButtonElement>(null);
@@ -302,6 +310,7 @@ export function ZoomTimeline({ video, window: win, loop, onLoopChange }: Props) 
     <div
       className="you-loop-zoom"
       data-testid="zoom-timeline"
+      data-closing={closing ? "true" : undefined}
       role="group"
       aria-label={`Loop zoom from ${formatTime(win.start)} to ${formatTime(win.end)}`}
     >

@@ -1,7 +1,11 @@
 import { act } from "react";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setPageUiVisible } from "./pageUi";
+
+function enableLoop() {
+  fireEvent.click(screen.getByLabelText("Enable loop range"));
+}
 
 function mountYouTubePlayer() {
   const player = document.createElement("div");
@@ -34,6 +38,13 @@ describe("page UI", () => {
       setPageUiVisible(player, true);
     });
 
+    // Handles stay hidden until the loop is switched on.
+    expect(screen.queryByLabelText("Loop start")).not.toBeInTheDocument();
+
+    act(() => {
+      enableLoop();
+    });
+
     expect(screen.getByLabelText("Loop start")).toBeInTheDocument();
     expect(screen.getByLabelText("Loop end")).toBeInTheDocument();
   });
@@ -44,6 +55,12 @@ describe("page UI", () => {
     act(() => {
       setPageUiVisible(player, true);
     });
+    act(() => {
+      enableLoop();
+    });
+
+    expect(screen.getByLabelText("Loop start")).toBeInTheDocument();
+
     act(() => {
       setPageUiVisible(player, false);
     });

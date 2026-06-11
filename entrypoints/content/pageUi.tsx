@@ -380,7 +380,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           }
           loopsOpen={loopsOpen}
           savedLoops={savedLoops}
-          selectedLoopId={selectedLoopId}
+          // A drifted (dirty) selection no longer *is* the saved loop, so no
+          // row reads as selected until it's re-applied or saved anew.
+          selectedLoopId={loopDirty ? null : selectedLoopId}
           currentSegment={state.loopSegment}
           loopDirty={loopDirty}
           savedVideos={savedVideos}

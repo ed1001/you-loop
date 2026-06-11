@@ -1237,6 +1237,8 @@ export const PAGE_UI_STYLES = `
       padding: 3px;
     }
 
+    /* Active tab fades in its teal fill — same idiom as the panel's
+       LOOP/ONE-SHOT mode toggle, so the two segmented controls feel related. */
     .you-loop-lm-tab {
       background: transparent;
       border: 0;
@@ -1259,6 +1261,45 @@ export const PAGE_UI_STYLES = `
     .you-loop-lm-tab[data-active="true"] {
       background: #14b8a6;
       color: #06302b;
+    }
+
+    /* Tab panes fade both ways: the outgoing pane fades out drifting up
+       (data-leaving, while the switch is pending), then the incoming pane
+       mounts and fades in rising from below — one continuous upward motion. */
+    .you-loop-lm-pane {
+      animation: you-loop-pane-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    /* Duration must match PANE_EXIT_MS in SavedLoopsModal. */
+    .you-loop-lm-pane[data-leaving="true"] {
+      animation: you-loop-pane-out 0.18s ease both;
+      pointer-events: none;
+    }
+
+    @keyframes you-loop-pane-in {
+      from {
+        opacity: 0;
+        transform: translateY(7px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes you-loop-pane-out {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
     }
 
     /* ── Saved-videos index ───────────────────────────────────────────── */
@@ -1318,10 +1359,36 @@ export const PAGE_UI_STYLES = `
       gap: 8px;
     }
 
+    /* Recessed count chip, same vocabulary as the kbd keys and speed well. */
     .you-loop-lm-vcount {
-      font-size: 11.5px;
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+      font-size: 11px;
       font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      padding: 3px 9px;
+      transition: color 0.15s ease;
+      white-space: nowrap;
     }
+
+    .you-loop-lm-vopen:not(:disabled):hover .you-loop-lm-vcount {
+      color: #5eead4;
+    }
+
+    /* Rows cascade in as the pane mounts — a quick stagger that makes the
+       library feel assembled rather than dumped. Capped after the first rows
+       so long lists don't keep the tail invisible. */
+    .you-loop-lm-vrow {
+      animation: you-loop-pane-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .you-loop-lm-vrow:nth-child(2) { animation-delay: 0.035s; }
+    .you-loop-lm-vrow:nth-child(3) { animation-delay: 0.07s; }
+    .you-loop-lm-vrow:nth-child(4) { animation-delay: 0.105s; }
+    .you-loop-lm-vrow:nth-child(5) { animation-delay: 0.14s; }
+    .you-loop-lm-vrow:nth-child(n + 6) { animation-delay: 0.17s; }
 
     .you-loop-lm-vnow {
       background: rgba(94, 234, 212, 0.16);

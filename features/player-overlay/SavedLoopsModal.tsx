@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
@@ -10,6 +10,11 @@ import { useModalPresence } from "./useModalPresence";
 const EXIT_MS = 200;
 // Loop names are short labels; keep them from overrunning the row.
 const NAME_MAX_LENGTH = 40;
+// Card height tween on tab switch; matches the pane crossfade's feel.
+const HEIGHT_MS = 260;
+// Outgoing pane fade; must match the you-loop-pane-out duration so the swap
+// lands exactly as the old pane finishes fading.
+const PANE_EXIT_MS = 180;
 
 type Props = {
   open: boolean;
@@ -75,11 +80,67 @@ export function SavedLoopsModal({
 }: Props) {
   const [newName, setNewName] = useState("");
   const [tab, setTab] = useState<Tab>("video");
+  // Two-phase tab switch: a pending tab means the current pane is fading out;
+  // the content swaps (and the new pane fades in) once the exit completes. The
+  // tab pill highlights the pending tab immediately so the click feels instant.
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  // Card height at the moment of a tab switch, captured before React swaps the
+  // pane, so the height tween below knows where to animate from.
+  const heightBeforeSwitch = useRef<number | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   const selectedRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
   const [fadeBottom, setFadeBottom] = useState(false);
   const { mounted, closing } = useModalPresence(open, EXIT_MS);
+
+  const activeTab = pendingTab ?? tab;
+
+  const switchTab = (next: Tab) => {
+    if (next === activeTab) return;
+    // Re-targeting mid-exit just updates the destination; the running fade-out
+    // finishes and the swap lands on the latest choice.
+    setPendingTab(next);
+  };
+
+  // Once the outgoing pane has faded, swap the content. The height is captured
+  // here (not at click time) so the tween starts from the still-current layout.
+  useEffect(() => {
+    if (pendingTab == null) return;
+    const timer = window.setTimeout(() => {
+      heightBeforeSwitch.current = cardRef.current?.offsetHeight ?? null;
+      setTab(pendingTab);
+      setPendingTab(null);
+    }, PANE_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [pendingTab]);
+
+  // The card's height is content-driven (auto), so a tab switch would snap it.
+  // FLIP-style tween: pin the pre-switch height, let the new pane render, then
+  // transition to the new natural height and release back to auto.
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    const from = heightBeforeSwitch.current;
+    heightBeforeSwitch.current = null;
+    if (card == null || from == null) return;
+    const to = card.offsetHeight;
+    if (from === to) return;
+
+    card.style.height = `${from}px`;
+    card.style.overflow = "hidden";
+    void card.offsetHeight; // commit the start height before transitioning
+    card.style.transition = `height ${HEIGHT_MS}ms cubic-bezier(0.32, 0.72, 0.25, 1)`;
+    card.style.height = `${to}px`;
+
+    // Timer (not transitionend) so the cleanup is immune to interrupted or
+    // swallowed transition events.
+    const timer = window.setTimeout(() => {
+      card.style.height = "";
+      card.style.overflow = "";
+      card.style.transition = "";
+    }, HEIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [tab]);
 
   // Bring the currently-selected loop into view each time the modal opens, so
   // it's visible even when the list overflows.
@@ -110,6 +171,7 @@ export function SavedLoopsModal({
     if (!open) return;
     setNewName("");
     setTab("video");
+    setPendingTab(null);
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -167,6 +229,7 @@ export function SavedLoopsModal({
       }}
     >
       <div
+        ref={cardRef}
         className="you-loop-lm-card"
         data-closing={closing}
         role="dialog"
@@ -209,12 +272,12 @@ export function SavedLoopsModal({
           <button
             type="button"
             role="tab"
-            aria-selected={tab === "video"}
+            aria-selected={activeTab === "video"}
             className="you-loop-lm-tab"
-            data-active={tab === "video"}
+            data-active={activeTab === "video"}
             onClick={(e) => {
               swallow(e);
-              setTab("video");
+              switchTab("video");
             }}
           >
             This video
@@ -222,20 +285,26 @@ export function SavedLoopsModal({
           <button
             type="button"
             role="tab"
-            aria-selected={tab === "library"}
+            aria-selected={activeTab === "library"}
             className="you-loop-lm-tab"
-            data-active={tab === "library"}
+            data-active={activeTab === "library"}
             onClick={(e) => {
               swallow(e);
-              setTab("library");
+              switchTab("library");
             }}
           >
             Saved videos
           </button>
         </nav>
 
+        {/* key remounts the pane on tab change so its enter animation replays:
+            content crossfades and rises instead of snapping. */}
         {tab === "video" && (
-        <>
+        <div
+          className="you-loop-lm-pane"
+          key="video"
+          data-leaving={pendingTab != null}
+        >
         <section className="you-loop-lm-list-wrap">
           <h3 className="you-loop-lm-label">Your loops</h3>
           <ul
@@ -323,10 +392,15 @@ export function SavedLoopsModal({
             Save
           </button>
         </section>
-        </>
+        </div>
         )}
 
         {tab === "library" && (
+        <div
+          className="you-loop-lm-pane"
+          key="library"
+          data-leaving={pendingTab != null}
+        >
         <section className="you-loop-lm-videos-wrap">
           {savedVideos.length === 0 ? (
             <p className="you-loop-lm-empty">
@@ -381,6 +455,7 @@ export function SavedLoopsModal({
             </ul>
           )}
         </section>
+        </div>
         )}
       </div>
     </div>,

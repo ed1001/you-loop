@@ -5,7 +5,7 @@ This file gives coding agents project-specific context. Keep it short and update
 ## Project Overview
 
 - Primary app or package: `you-loop` — a WXT browser extension (Chrome MV3 / Firefox) giving precise loop and playback-rate controls for YouTube.
-- Main entry points: `entrypoints/content.ts` (content script, mounts overlay), `entrypoints/popup/App.tsx` (toolbar popup), `entrypoints/background.ts` (background).
+- Main entry points: `entrypoints/content.ts` (content script, mounts the on-page overlay), `entrypoints/background.ts` (background).
 - Important directories:
   - `features/playback/` — pure playback logic: `reducer.ts` (state), `controller.ts` (apply state / enforce loop segment to a `<video>`), `types.ts`.
   - `features/player-overlay/` — React overlay UI (`TimelineHandles.tsx`, css).

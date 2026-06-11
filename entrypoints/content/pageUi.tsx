@@ -81,6 +81,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       zoomClosing = false;
       zoomLoop = null;
       state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
+      // Speed control is tied to the loop being on: turning the loop off snaps
+      // playback back to 1× and hands rate control back to YouTube.
+      state = playbackReducer(state, { type: "resetPlaybackRate" });
+      applyPlaybackState(video, state);
     } else {
       enableLoop();
     }
@@ -217,7 +221,25 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   };
 
+  // Keep the panel honest about the live playback rate. YouTube persists its
+  // own speed across reloads and writes video.playbackRate directly (native
+  // speed menu), so reflect whatever the video reports rather than overriding
+  // it. We never write back here — this is display-only sync.
+  const onRateChange = () => {
+    if (video.playbackRate === state.playbackRate) return;
+    state = playbackReducer(state, {
+      type: "setPlaybackRate",
+      rate: video.playbackRate
+    });
+    render();
+  };
+
+  // Seed from the video's current rate on mount (catches YouTube's restored
+  // speed), then track native changes.
+  onRateChange();
+
   video.addEventListener("timeupdate", onTimeUpdate);
+  video.addEventListener("ratechange", onRateChange);
   render();
 
   return {
@@ -225,6 +247,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     stop: () => {
       clearZoomCloseTimer();
       video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("ratechange", onRateChange);
     }
   };
 }
@@ -641,8 +664,8 @@ function ensureDocumentStyles() {
       transition: opacity 0.15s ease;
       width: 20px;
       will-change: left;
-      /* Sit above the loop cursors so it stays visible in front of them. */
-      z-index: 3;
+      /* Sit behind the loop cursors so the larger playhead does not obscure them. */
+      z-index: 1;
     }
 
     /* Highlighted loop region between the two zoom cursors. */

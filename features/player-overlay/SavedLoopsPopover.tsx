@@ -1,11 +1,16 @@
-import { useState } from "react";
-import type { MouseEvent, PointerEvent } from "react";
+import { useLayoutEffect, useState } from "react";
+import type { MouseEvent, PointerEvent, RefObject } from "react";
+import { createPortal } from "react-dom";
 import type { SavedLoop } from "../persistence/loopStore";
 
 type Props = {
   loops: SavedLoop[];
   selectedId: string | null;
   dirty: boolean;
+  // Portaled out of YouTube's progress bar so its mouse events don't bubble
+  // into the scrubber (preview/seek). Positioned above this anchor.
+  container: HTMLElement | null;
+  anchorRef: RefObject<HTMLElement | null>;
   onSaveAsNew: (name: string) => void;
   onUpdateSelected: () => void;
   onApply: (id: string) => void;
@@ -13,6 +18,8 @@ type Props = {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
 };
+
+const POPOVER_WIDTH = 240;
 
 const swallow = (event: MouseEvent | PointerEvent) => {
   event.preventDefault();
@@ -23,6 +30,8 @@ export function SavedLoopsPopover({
   loops,
   selectedId,
   dirty,
+  container,
+  anchorRef,
   onSaveAsNew,
   onUpdateSelected,
   onApply,
@@ -33,6 +42,19 @@ export function SavedLoopsPopover({
   const [newName, setNewName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+
+  // Anchor the popover's bottom-right just above the toggle button. Fixed
+  // positioning relative to the viewport (the player chrome doesn't scroll).
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (anchor == null) return;
+    const rect = anchor.getBoundingClientRect();
+    setPos({
+      left: Math.max(8, rect.right - POPOVER_WIDTH),
+      bottom: window.innerHeight - rect.top + 10
+    });
+  }, [anchorRef, loops.length, dirty]);
 
   const selected = loops.find((l) => l.id === selectedId) ?? null;
 
@@ -49,11 +71,21 @@ export function SavedLoopsPopover({
     setRenamingId(null);
   };
 
-  return (
+  // No player root yet: nothing to portal into. `pos` fills in on the first
+  // layout effect; until then the popover renders hidden to avoid a flash at
+  // the wrong spot.
+  if (container == null) return null;
+
+  return createPortal(
     <div
       className="you-loop-loops-popover"
       role="dialog"
       aria-label="Saved loops"
+      style={{
+        left: pos?.left ?? 0,
+        bottom: pos?.bottom ?? 0,
+        visibility: pos == null ? "hidden" : "visible"
+      }}
       onPointerDown={swallow}
       onMouseDown={swallow}
       onClick={swallow}
@@ -182,6 +214,7 @@ export function SavedLoopsPopover({
           </li>
         ))}
       </ul>
-    </div>
+    </div>,
+    container
   );
 }

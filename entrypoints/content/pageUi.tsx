@@ -367,6 +367,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             render();
           }}
           canSaveLoops={state.loopEnabled && videoId != null}
+          loopsContainer={
+            video.closest(".html5-video-player") as HTMLElement | null
+          }
           loopsOpen={loopsOpen}
           loopsDirty={isLoopsDirty()}
           savedLoops={savedLoops}
@@ -1314,7 +1317,6 @@ function ensureDocumentStyles() {
       background: rgba(18, 18, 18, 0.97);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 10px;
-      bottom: calc(100% + 10px);
       box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
       color: #fff;
       display: flex;
@@ -1322,10 +1324,9 @@ function ensureDocumentStyles() {
       gap: 8px;
       padding: 10px;
       pointer-events: auto;
-      position: absolute;
-      right: 0;
+      position: fixed;
       width: 240px;
-      z-index: 2;
+      z-index: 2147483647;
     }
 
     .you-loop-loops-new {
@@ -1503,6 +1504,12 @@ export function createPageUiElement(video: HTMLVideoElement) {
     if (getComputedStyle(timeline).position === "static") {
       timeline.style.position = "relative";
     }
+
+    // Our panel sits at max z-index, but that only competes within the progress
+    // bar's own stacking context. In fullscreen, a YouTube sibling otherwise
+    // paints over it; lifting the attach point's stacking context floats the
+    // whole subtree (panel included) above that sibling.
+    timeline.style.zIndex = "2147483647";
 
     if (panel.parentElement !== timeline) {
       timeline.append(panel);

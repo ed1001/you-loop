@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import type { PlayMode } from "../playback/types";
 import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
@@ -18,6 +18,7 @@ type Props = {
   onResetSpeed: () => void;
   onShowHelp: () => void;
   canSaveLoops: boolean;
+  loopsContainer: HTMLElement | null;
   loopsOpen: boolean;
   loopsDirty: boolean;
   savedLoops: SavedLoop[];
@@ -59,6 +60,7 @@ export function LoopPanel({
   onResetSpeed,
   onShowHelp,
   canSaveLoops,
+  loopsContainer,
   loopsOpen,
   loopsDirty,
   savedLoops,
@@ -76,6 +78,7 @@ export function LoopPanel({
   const modified = playbackRate !== 1;
   // Brief pulse so a reset click reads as a deliberate snap back to 1×.
   const [pulse, setPulse] = useState(false);
+  const loopsToggleRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="you-loop-panel" data-on={enabled}>
@@ -276,6 +279,7 @@ export function LoopPanel({
 
       <div className="you-loop-loops">
         <button
+          ref={loopsToggleRef}
           type="button"
           className="you-loop-loops-toggle"
           aria-haspopup="dialog"
@@ -305,6 +309,8 @@ export function LoopPanel({
             loops={savedLoops}
             selectedId={selectedLoopId}
             dirty={loopsDirty}
+            container={loopsContainer}
+            anchorRef={loopsToggleRef}
             onSaveAsNew={onSaveAsNew}
             onUpdateSelected={onUpdateSelected}
             onApply={onApplyLoop}

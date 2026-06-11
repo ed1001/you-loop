@@ -1,43 +1,53 @@
+import { act } from "react";
 import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setPageUiVisible } from "./pageUi";
+
+function mountYouTubePlayer() {
+  const player = document.createElement("div");
+  player.className = "html5-video-player";
+
+  const video = document.createElement("video");
+  Object.defineProperty(video, "duration", {
+    configurable: true,
+    value: 120
+  });
+
+  const progressBar = document.createElement("div");
+  progressBar.className = "ytp-progress-bar";
+
+  player.append(video, progressBar);
+  document.body.append(player);
+
+  return { player, progressBar };
+}
 
 describe("page UI", () => {
   afterEach(() => {
     document.body.innerHTML = "";
   });
 
-  it("shows player overlay controls when enabled on a page with a video", () => {
-    const host = document.createElement("div");
-    const video = document.createElement("video");
-    Object.defineProperty(video, "duration", {
-      configurable: true,
-      value: 120
+  it("mounts loop timeline handles in the player progress bar when enabled", () => {
+    const { player } = mountYouTubePlayer();
+
+    act(() => {
+      setPageUiVisible(player, true);
     });
-    document.body.append(host, video);
 
-    setPageUiVisible(host, true);
-
-    expect(
-      screen.getByLabelText("You Loop controls")
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Loop start")).toBeInTheDocument();
+    expect(screen.getByLabelText("Loop end")).toBeInTheDocument();
   });
 
-  it("removes player overlay controls when disabled", () => {
-    const host = document.createElement("div");
-    const video = document.createElement("video");
-    Object.defineProperty(video, "duration", {
-      configurable: true,
-      value: 120
+  it("removes the timeline handles when disabled", () => {
+    const { player } = mountYouTubePlayer();
+
+    act(() => {
+      setPageUiVisible(player, true);
     });
-    document.body.append(host, video);
+    act(() => {
+      setPageUiVisible(player, false);
+    });
 
-    setPageUiVisible(host, true);
-    setPageUiVisible(host, false);
-
-    expect(
-      screen.queryByLabelText("You Loop controls")
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Loop start")).not.toBeInTheDocument();
   });
-
 });

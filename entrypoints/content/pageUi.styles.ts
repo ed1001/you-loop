@@ -184,7 +184,8 @@ export const PAGE_UI_STYLES = `
     }
 
     .you-loop-zoom-toggle:not(:disabled):hover {
-      color: rgba(255, 255, 255, 0.85);
+      background: rgba(20, 184, 166, 0.18);
+      color: #14b8a6;
     }
 
     .you-loop-zoom-toggle[data-on="true"] {

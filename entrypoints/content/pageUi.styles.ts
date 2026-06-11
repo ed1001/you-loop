@@ -778,15 +778,19 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-loops-toggle {
       align-items: center;
-      background: transparent;
+      background: rgba(255, 255, 255, 0.08);
       border: 0;
-      color: rgba(255, 255, 255, 0.78);
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
       cursor: pointer;
       display: inline-flex;
-      height: 24px;
+      flex: none;
+      height: 30px;
       justify-content: center;
       padding: 0;
-      width: 24px;
+      position: relative;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 30px;
     }
 
     .you-loop-loops-toggle svg {
@@ -795,7 +799,8 @@ export const PAGE_UI_STYLES = `
     }
 
     .you-loop-loops-toggle:not(:disabled):hover {
-      color: #ffffff;
+      background: rgba(20, 184, 166, 0.18);
+      color: #14b8a6;
     }
 
     .you-loop-loops-toggle:disabled {

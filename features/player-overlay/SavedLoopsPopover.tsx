@@ -26,6 +26,13 @@ const swallow = (event: MouseEvent | PointerEvent) => {
   event.stopPropagation();
 };
 
+// Inputs need focus on click, so we must NOT preventDefault their mousedown
+// (that cancels focus). Stop propagation only, to keep the event off YouTube's
+// scrubber while still letting the field focus and receive keystrokes.
+const stopOnly = (event: MouseEvent | PointerEvent) => {
+  event.stopPropagation();
+};
+
 export function SavedLoopsPopover({
   loops,
   selectedId,
@@ -96,8 +103,11 @@ export function SavedLoopsPopover({
           type="text"
           placeholder="Name this loop"
           value={newName}
+          onPointerDown={stopOnly}
+          onMouseDown={stopOnly}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => {
+            e.stopPropagation();
             if (e.key === "Enter") {
               e.preventDefault();
               commitNew();
@@ -146,9 +156,12 @@ export function SavedLoopsPopover({
                 type="text"
                 autoFocus
                 value={renameText}
+                onPointerDown={stopOnly}
+                onMouseDown={stopOnly}
                 onChange={(e) => setRenameText(e.target.value)}
                 onBlur={() => commitRename(loop.id)}
                 onKeyDown={(e) => {
+                  e.stopPropagation();
                   if (e.key === "Enter") {
                     e.preventDefault();
                     commitRename(loop.id);

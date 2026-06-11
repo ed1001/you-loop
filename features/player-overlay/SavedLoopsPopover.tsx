@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent, RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { SavedLoop } from "../persistence/loopStore";
@@ -78,6 +78,66 @@ export function SavedLoopsPopover({
     setRenamingId(null);
   };
 
+  // Latest values for the native key guard below (its listener is bound once).
+  const newNameRef = useRef(newName);
+  newNameRef.current = newName;
+  const renameTextRef = useRef(renameText);
+  renameTextRef.current = renameText;
+  const renamingIdRef = useRef(renamingId);
+  renamingIdRef.current = renamingId;
+
+  // YouTube (and our own loop shortcuts) listen for keys in the capture phase
+  // on document/body/player, which run before React's bubble-phase handlers —
+  // so a typed key fires a video shortcut before we can stop it. Guard from
+  // `window` (above document) in the capture phase: for our inputs, stop
+  // propagation so no downstream shortcut handler sees the key. We don't
+  // preventDefault, so the character still types and onChange still fires.
+  // Enter/Escape are handled here too, since this guard also blocks React's
+  // own onKeyDown for these inputs.
+  useEffect(() => {
+    const submit = (isRename: boolean) => {
+      if (isRename && renamingIdRef.current != null) {
+        const name = renameTextRef.current.trim();
+        if (name !== "") onRename(renamingIdRef.current, name);
+        setRenamingId(null);
+        return;
+      }
+      const name = newNameRef.current.trim();
+      if (name !== "") {
+        onSaveAsNew(name);
+        setNewName("");
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.classList.contains("you-loop-loops-input")
+      ) {
+        return;
+      }
+      event.stopPropagation();
+      if (event.type !== "keydown") return;
+
+      const isRename = target.dataset.loopsField === "rename";
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submit(isRename);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        if (isRename) setRenamingId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKey, true);
+    window.addEventListener("keypress", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKey, true);
+      window.removeEventListener("keypress", onKey, true);
+    };
+  }, [onRename, onSaveAsNew]);
+
   // No player root yet: nothing to portal into. `pos` fills in on the first
   // layout effect; until then the popover renders hidden to avoid a flash at
   // the wrong spot.
@@ -100,19 +160,13 @@ export function SavedLoopsPopover({
       <div className="you-loop-loops-new">
         <input
           className="you-loop-loops-input"
+          data-loops-field="new"
           type="text"
           placeholder="Name this loop"
           value={newName}
           onPointerDown={stopOnly}
           onMouseDown={stopOnly}
           onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commitNew();
-            }
-          }}
         />
         <button
           type="button"
@@ -153,6 +207,7 @@ export function SavedLoopsPopover({
             {renamingId === loop.id ? (
               <input
                 className="you-loop-loops-input"
+                data-loops-field="rename"
                 type="text"
                 autoFocus
                 value={renameText}
@@ -160,17 +215,6 @@ export function SavedLoopsPopover({
                 onMouseDown={stopOnly}
                 onChange={(e) => setRenameText(e.target.value)}
                 onBlur={() => commitRename(loop.id)}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    commitRename(loop.id);
-                  }
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setRenamingId(null);
-                  }
-                }}
               />
             ) : (
               <button

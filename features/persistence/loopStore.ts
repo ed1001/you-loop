@@ -91,6 +91,22 @@ export async function addLoop(
   return loop;
 }
 
+// Read-modify-write a single video's entry. No-op (no write) when the video
+// has no saved entry. `apply` mutates the entry in place; it receives the whole
+// store too so it can delete the entry when the last loop is removed.
+async function mutateEntry(
+  videoId: string,
+  area: StorageArea | undefined,
+  apply: (entry: VideoEntry, store: SavedStore) => void
+): Promise<void> {
+  const a = resolveArea(area);
+  const store = await readStore(a);
+  const entry = store[videoId];
+  if (!entry) return;
+  apply(entry, store);
+  await writeStore(a, store);
+}
+
 export async function updateLoop(
   videoId: string,
   loopId: string,
@@ -99,16 +115,13 @@ export async function updateLoop(
   area?: StorageArea,
   now: number = Date.now()
 ): Promise<void> {
-  const a = resolveArea(area);
-  const store = await readStore(a);
-  const entry = store[videoId];
-  if (!entry) return;
-  entry.loops = entry.loops.map((l) =>
-    l.id === loopId ? { ...l, main, zoom } : l
-  );
-  entry.lastUsedId = loopId;
-  entry.lastSeen = now;
-  await writeStore(a, store);
+  await mutateEntry(videoId, area, (entry) => {
+    entry.loops = entry.loops.map((l) =>
+      l.id === loopId ? { ...l, main, zoom } : l
+    );
+    entry.lastUsedId = loopId;
+    entry.lastSeen = now;
+  });
 }
 
 export async function renameLoop(
@@ -118,13 +131,10 @@ export async function renameLoop(
   area?: StorageArea,
   now: number = Date.now()
 ): Promise<void> {
-  const a = resolveArea(area);
-  const store = await readStore(a);
-  const entry = store[videoId];
-  if (!entry) return;
-  entry.loops = entry.loops.map((l) => (l.id === loopId ? { ...l, name } : l));
-  entry.lastSeen = now;
-  await writeStore(a, store);
+  await mutateEntry(videoId, area, (entry) => {
+    entry.loops = entry.loops.map((l) => (l.id === loopId ? { ...l, name } : l));
+    entry.lastSeen = now;
+  });
 }
 
 export async function removeLoop(
@@ -133,19 +143,15 @@ export async function removeLoop(
   area?: StorageArea,
   now: number = Date.now()
 ): Promise<void> {
-  const a = resolveArea(area);
-  const store = await readStore(a);
-  const entry = store[videoId];
-  if (!entry) return;
-  entry.loops = entry.loops.filter((l) => l.id !== loopId);
-  if (entry.lastUsedId === loopId) entry.lastUsedId = null;
-  if (entry.loops.length === 0) {
-    delete store[videoId];
-  } else {
-    entry.lastSeen = now;
-    store[videoId] = entry;
-  }
-  await writeStore(a, store);
+  await mutateEntry(videoId, area, (entry, store) => {
+    entry.loops = entry.loops.filter((l) => l.id !== loopId);
+    if (entry.lastUsedId === loopId) entry.lastUsedId = null;
+    if (entry.loops.length === 0) {
+      delete store[videoId];
+    } else {
+      entry.lastSeen = now;
+    }
+  });
 }
 
 export async function setLastUsed(
@@ -154,11 +160,8 @@ export async function setLastUsed(
   area?: StorageArea,
   now: number = Date.now()
 ): Promise<void> {
-  const a = resolveArea(area);
-  const store = await readStore(a);
-  const entry = store[videoId];
-  if (!entry) return;
-  entry.lastUsedId = loopId;
-  entry.lastSeen = now;
-  await writeStore(a, store);
+  await mutateEntry(videoId, area, (entry) => {
+    entry.lastUsedId = loopId;
+    entry.lastSeen = now;
+  });
 }

@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
-import type { SavedLoop } from "../persistence/loopStore";
+import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
 import { useModalPresence } from "./useModalPresence";
 
 // Must match the you-loop-help-sink duration so the card finishes its exit
@@ -19,12 +19,21 @@ type Props = {
   loops: SavedLoop[];
   selectedId: string | null;
   currentSegment: LoopSegment | null;
+  // False when the current selection already matches the selected saved loop,
+  // so there's nothing new to save.
+  dirty: boolean;
+  // The cross-video index for the "Saved videos" tab; includes the current
+  // video (flagged via currentVideoId so its row reads "Playing").
+  savedVideos: SavedVideo[];
+  currentVideoId: string | null;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
   onApply: (id: string) => void;
-  onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
+  onOpenVideo: (videoId: string) => void;
 };
+
+type Tab = "video" | "library";
 
 const swallow = (event: MouseEvent | PointerEvent) => {
   event.preventDefault();
@@ -49,36 +58,58 @@ function formatRange(segment: LoopSegment | null): string {
   return `${formatTime(segment.start)} – ${formatTime(segment.end)}`;
 }
 
-// Auto-name an unnamed loop "loop#N" using the lowest N not already taken.
-function nextDefaultName(loops: SavedLoop[]): string {
-  const taken = new Set(loops.map((l) => l.name));
-  let n = 1;
-  while (taken.has(`loop#${n}`)) n += 1;
-  return `loop#${n}`;
-}
-
 export function SavedLoopsModal({
   open,
   container,
   loops,
   selectedId,
   currentSegment,
+  dirty,
+  savedVideos,
+  currentVideoId,
   onClose,
   onSaveAsNew,
   onApply,
-  onRename,
   onDelete,
+  onOpenVideo,
 }: Props) {
   const [newName, setNewName] = useState("");
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameText, setRenameText] = useState("");
+  const [tab, setTab] = useState<Tab>("video");
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const selectedRowRef = useRef<HTMLLIElement | null>(null);
+  const [fadeTop, setFadeTop] = useState(false);
+  const [fadeBottom, setFadeBottom] = useState(false);
   const { mounted, closing } = useModalPresence(open, EXIT_MS);
 
-  // Seed the save form each time the modal opens.
+  // Bring the currently-selected loop into view each time the modal opens, so
+  // it's visible even when the list overflows.
+  useEffect(() => {
+    if (!open || !mounted || tab !== "video") return;
+    selectedRowRef.current?.scrollIntoView({ block: "nearest" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mounted, tab]);
+
+  // Fade whichever edge has clipped rows beyond it (content above when scrolled
+  // down, content below when not at the end), as an obvious "more here" cue
+  // without dimming a fully-visible first/last row.
+  const updateFade = () => {
+    const el = listRef.current;
+    if (el == null) return;
+    setFadeTop(el.scrollTop > 1);
+    setFadeBottom(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+  };
+
+  // Re-measure when the modal opens, the tab changes, or the list contents do.
+  useEffect(() => {
+    updateFade();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, open, tab, loops.length]);
+
+  // Seed the save form and reset to the per-video tab each time it opens.
   useEffect(() => {
     if (!open) return;
     setNewName("");
-    setRenamingId(null);
+    setTab("video");
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -116,16 +147,12 @@ export function SavedLoopsModal({
 
   if (!mounted || container == null) return null;
 
-  const handleSave = () => {
-    const name = newName.trim() || nextDefaultName(loops);
-    onSaveAsNew(name);
-    setNewName("");
-  };
+  const canSave = newName.trim() !== "" && dirty;
 
-  const commitRename = (id: string) => {
-    const name = renameText.trim();
-    if (name !== "") onRename(id, name);
-    setRenamingId(null);
+  const handleSave = () => {
+    if (!canSave) return;
+    onSaveAsNew(newName.trim());
+    setNewName("");
   };
 
   return createPortal(
@@ -172,13 +199,52 @@ export function SavedLoopsModal({
         <header className="you-loop-lm-head">
           <h2 className="you-loop-lm-title">Saved loops</h2>
           <p className="you-loop-lm-sub">
-            Current selection · {formatRange(currentSegment)}
+            {tab === "video"
+              ? `Current selection · ${formatRange(currentSegment)}`
+              : `${savedVideos.length} ${savedVideos.length === 1 ? "video" : "videos"} with saved loops`}
           </p>
         </header>
 
+        <nav className="you-loop-lm-tabs" role="tablist" aria-label="Saved loops view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "video"}
+            className="you-loop-lm-tab"
+            data-active={tab === "video"}
+            onClick={(e) => {
+              swallow(e);
+              setTab("video");
+            }}
+          >
+            This video
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "library"}
+            className="you-loop-lm-tab"
+            data-active={tab === "library"}
+            onClick={(e) => {
+              swallow(e);
+              setTab("library");
+            }}
+          >
+            Saved videos
+          </button>
+        </nav>
+
+        {tab === "video" && (
+        <>
         <section className="you-loop-lm-list-wrap">
           <h3 className="you-loop-lm-label">Your loops</h3>
-          <ul className="you-loop-lm-list">
+          <ul
+            className="you-loop-lm-list"
+            ref={listRef}
+            data-fade-top={fadeTop}
+            data-fade-bottom={fadeBottom}
+            onScroll={updateFade}
+          >
             {loops.length === 0 && (
               <li className="you-loop-lm-empty">
                 No saved loops yet. Save the current selection below.
@@ -187,68 +253,25 @@ export function SavedLoopsModal({
             {loops.map((loop) => (
               <li
                 key={loop.id}
+                ref={loop.id === selectedId ? selectedRowRef : undefined}
                 className="you-loop-lm-row"
                 data-selected={loop.id === selectedId}
               >
-                {renamingId === loop.id ? (
-                  <input
-                    className="you-loop-loops-input you-loop-lm-rename"
-                    data-loops-field="rename"
-                    type="text"
-                    autoFocus
-                    maxLength={NAME_MAX_LENGTH}
-                    value={renameText}
-                    onPointerDown={stopOnly}
-                    onMouseDown={stopOnly}
-                    onChange={(e) => setRenameText(e.target.value)}
-                    onBlur={() => commitRename(loop.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        commitRename(loop.id);
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        setRenamingId(null);
-                      }
-                    }}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="you-loop-lm-apply"
-                    onClick={(e) => {
-                      swallow(e);
-                      onApply(loop.id);
-                    }}
-                  >
-                    <span className="you-loop-lm-name-text">
-                      <span
-                        className="you-loop-lm-dot"
-                        data-on={loop.id === selectedId}
-                        aria-hidden="true"
-                      />
-                      {loop.name}
-                    </span>
-                    <span className="you-loop-lm-range">
-                      {formatRange(loop.main)}
-                    </span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="you-loop-lm-apply"
+                  onClick={(e) => {
+                    swallow(e);
+                    onApply(loop.id);
+                  }}
+                >
+                  <span className="you-loop-lm-name-text">{loop.name}</span>
+                  <span className="you-loop-lm-range">
+                    {formatRange(loop.main)}
+                  </span>
+                </button>
 
                 <span className="you-loop-lm-actions">
-                  <button
-                    type="button"
-                    aria-label={`Rename ${loop.name}`}
-                    title="Rename"
-                    onClick={(e) => {
-                      swallow(e);
-                      setRenamingId(loop.id);
-                      setRenameText(loop.name);
-                    }}
-                  >
-                    ✎
-                  </button>
                   <button
                     type="button"
                     aria-label={`Delete ${loop.name}`}
@@ -266,16 +289,17 @@ export function SavedLoopsModal({
           </ul>
         </section>
 
-        <section className="you-loop-lm-save">
+        <section className="you-loop-lm-save" data-disabled={!dirty}>
           <h3 className="you-loop-lm-label">Save current loop</h3>
 
           <input
             className="you-loop-loops-input you-loop-lm-name"
             data-loops-field="new"
             type="text"
-            placeholder={nextDefaultName(loops)}
+            placeholder={dirty ? "name this loop" : "current loop already saved"}
             maxLength={NAME_MAX_LENGTH}
             value={newName}
+            disabled={!dirty}
             onPointerDown={stopOnly}
             onMouseDown={stopOnly}
             onChange={(e) => setNewName(e.target.value)}
@@ -290,6 +314,7 @@ export function SavedLoopsModal({
           <button
             type="button"
             className="you-loop-lm-savebtn"
+            disabled={!canSave}
             onClick={(event) => {
               swallow(event);
               handleSave();
@@ -298,6 +323,65 @@ export function SavedLoopsModal({
             Save
           </button>
         </section>
+        </>
+        )}
+
+        {tab === "library" && (
+        <section className="you-loop-lm-videos-wrap">
+          {savedVideos.length === 0 ? (
+            <p className="you-loop-lm-empty">
+              No saved videos yet. Loops you save are listed here, by video.
+            </p>
+          ) : (
+            <ul className="you-loop-lm-vlist">
+              {savedVideos.map((video) => {
+                const isCurrent = video.videoId === currentVideoId;
+                const label = video.title ?? video.videoId;
+                return (
+                  <li key={video.videoId} className="you-loop-lm-vrow" data-current={isCurrent}>
+                    <button
+                      type="button"
+                      className="you-loop-lm-vopen"
+                      disabled={isCurrent}
+                      title={isCurrent ? "Now playing" : `Open ${label}`}
+                      aria-label={isCurrent ? `${label} (now playing)` : `Open ${label}`}
+                      onClick={(e) => {
+                        swallow(e);
+                        onOpenVideo(video.videoId);
+                      }}
+                    >
+                      <span className="you-loop-lm-vname">{label}</span>
+                      <span className="you-loop-lm-vmeta">
+                        {isCurrent && <span className="you-loop-lm-vnow">Playing</span>}
+                        <span className="you-loop-lm-vcount">
+                          {video.count} {video.count === 1 ? "loop" : "loops"}
+                        </span>
+                        {!isCurrent && (
+                          <svg
+                            className="you-loop-lm-vgo"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <path
+                              d="M9 6l6 6-6 6"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+        )}
       </div>
     </div>,
     container,

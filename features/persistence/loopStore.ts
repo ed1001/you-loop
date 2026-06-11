@@ -13,9 +13,22 @@ export type VideoEntry = {
   loops: SavedLoop[];
   lastUsedId: string | null;
   lastSeen: number;
+  // The video's title, captured on visit. Optional: entries saved before
+  // titles were tracked (or where capture failed) simply lack it, and the
+  // cross-video list falls back to the id.
+  title?: string;
 };
 
 export type SavedStore = Record<string, VideoEntry>;
+
+// A one-line summary of a saved video, for the cross-video index. Derived from
+// the store; never persisted in this shape.
+export type SavedVideo = {
+  videoId: string;
+  title?: string;
+  count: number;
+  lastSeen: number;
+};
 
 export type StorageArea = {
   get(key: string): Promise<Record<string, unknown>>;
@@ -47,16 +60,35 @@ async function writeStore(area: StorageArea, store: SavedStore): Promise<void> {
 export async function loadEntry(
   videoId: string,
   area?: StorageArea,
-  now: number = Date.now()
+  now: number = Date.now(),
+  title?: string
 ): Promise<VideoEntry | null> {
   const a = resolveArea(area);
   const store = await readStore(a);
   const entry = store[videoId];
   if (!entry) return null;
   entry.lastSeen = now; // touch-on-access: records when last revisited
+  // Backfill the title on visit, so entries saved before titles were tracked
+  // gain one (and any rename is picked up). Only overwrite with a real value.
+  if (title != null && title !== "") entry.title = title;
   store[videoId] = entry;
   await writeStore(a, store);
   return entry;
+}
+
+// All saved videos as one-line summaries, most-recently-seen first. Powers the
+// cross-video index in the saved-loops modal.
+export async function listEntries(area?: StorageArea): Promise<SavedVideo[]> {
+  const a = resolveArea(area);
+  const store = await readStore(a);
+  return Object.entries(store)
+    .map(([videoId, entry]) => ({
+      videoId,
+      title: entry.title,
+      count: entry.loops.length,
+      lastSeen: entry.lastSeen
+    }))
+    .sort((x, y) => y.lastSeen - x.lastSeen);
 }
 
 export async function addLoop(
@@ -93,19 +125,6 @@ async function mutateEntry(
   if (!entry) return;
   apply(entry, store);
   await writeStore(a, store);
-}
-
-export async function renameLoop(
-  videoId: string,
-  loopId: string,
-  name: string,
-  area?: StorageArea,
-  now: number = Date.now()
-): Promise<void> {
-  await mutateEntry(videoId, area, (entry) => {
-    entry.loops = entry.loops.map((l) => (l.id === loopId ? { ...l, name } : l));
-    entry.lastSeen = now;
-  });
 }
 
 export async function removeLoop(

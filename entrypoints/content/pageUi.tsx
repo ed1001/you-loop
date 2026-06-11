@@ -546,6 +546,7 @@ function ensureDocumentStyles() {
       border: 0;
       color: rgba(255, 255, 255, 0.78);
       cursor: pointer;
+      display: grid;
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
       font-size: 12px;
       font-variant-numeric: tabular-nums;
@@ -553,8 +554,27 @@ function ensureDocumentStyles() {
       letter-spacing: 0.01em;
       min-width: 30px;
       padding: 0;
+      place-items: center;
       text-align: center;
       transition: color 0.15s ease;
+    }
+
+    /* Number and reset glyph occupy the same cell so swapping them on hover
+       never shifts the panel's width. */
+    .you-loop-speed-num,
+    .you-loop-speed-reset {
+      grid-area: 1 / 1;
+      transition: opacity 0.12s ease;
+    }
+
+    .you-loop-speed-reset {
+      display: inline-flex;
+      opacity: 0;
+    }
+
+    .you-loop-speed-reset svg {
+      height: 14px;
+      width: 14px;
     }
 
     .you-loop-speed-value:not(:disabled):hover {
@@ -573,6 +593,33 @@ function ensureDocumentStyles() {
 
     .you-loop-speed-value[data-modified="true"] {
       color: #5eead4;
+    }
+
+    /* Once the rate is off 1×, hovering the value reveals the reset glyph so
+       the click-to-reset affordance is discoverable exactly when it matters. */
+    .you-loop-speed-value[data-modified="true"]:not(:disabled):hover .you-loop-speed-num {
+      opacity: 0;
+    }
+
+    .you-loop-speed-value[data-modified="true"]:not(:disabled):hover .you-loop-speed-reset {
+      opacity: 1;
+    }
+
+    /* Snap-back pulse confirms the reset click landed. */
+    .you-loop-speed-value[data-pulse="true"] {
+      animation: you-loop-speed-pulse 0.32s ease;
+    }
+
+    @keyframes you-loop-speed-pulse {
+      0% {
+        transform: scale(1);
+      }
+      35% {
+        transform: scale(1.28);
+      }
+      100% {
+        transform: scale(1);
+      }
     }
 
     /* Full-width timeline floating above the native scrubber, mapping just the
@@ -927,7 +974,7 @@ function ensureDocumentStyles() {
     }
 
     .you-loop-help-row {
-      align-items: baseline;
+      align-items: start;
       display: grid;
       gap: 6px 14px;
       grid-template-columns: 96px 1fr;

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import type { PlayMode } from "../playback/types";
 import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
@@ -46,6 +47,9 @@ export function LoopPanel({
 }: Props) {
   const atMin = playbackRate <= MIN_PLAYBACK_RATE;
   const atMax = playbackRate >= MAX_PLAYBACK_RATE;
+  const modified = playbackRate !== 1;
+  // Brief pulse so a reset click reads as a deliberate snap back to 1×.
+  const [pulse, setPulse] = useState(false);
 
   return (
     <div className="you-loop-panel" data-on={enabled}>
@@ -141,18 +145,48 @@ export function LoopPanel({
         <button
           type="button"
           className="you-loop-speed-value"
-          aria-label={`Playback speed ${formatRate(playbackRate)}, click to reset`}
-          data-modified={playbackRate !== 1}
-          disabled={!enabled}
+          aria-label={
+            modified
+              ? `Playback speed ${formatRate(playbackRate)}, click to reset to 1×`
+              : `Playback speed ${formatRate(playbackRate)}`
+          }
+          title={modified ? "Reset to 1×" : undefined}
+          data-modified={modified}
+          data-pulse={pulse}
+          disabled={!enabled || !modified}
           onPointerDown={swallow}
           onMouseDown={swallow}
           onClick={(event) => {
             swallow(event);
+            if (!modified) return;
             onResetSpeed();
+            setPulse(true);
           }}
+          onAnimationEnd={() => setPulse(false)}
         >
-          {Number(playbackRate.toFixed(2))}
-          <span className="you-loop-speed-x">×</span>
+          <span className="you-loop-speed-num">
+            {Number(playbackRate.toFixed(2))}
+            <span className="you-loop-speed-x">×</span>
+          </span>
+          <span className="you-loop-speed-reset" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path
+                d="M5.5 9.5a7 7 0 1 1-1.1 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M3 6.5v3.5h3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </button>
 
         <button

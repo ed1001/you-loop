@@ -873,20 +873,21 @@ function ensureDocumentStyles() {
       color: #ffffff;
     }
 
+    /* The wordmark is the header hero. */
     .you-loop-help-eyebrow {
-      color: #14b8a6;
-      font-size: 11px;
+      color: #5eead4;
+      font-size: 22px;
       font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      letter-spacing: -0.01em;
     }
 
+    /* Tagline sits beneath the wordmark as a lighter supporting line. */
     .you-loop-help-title {
-      color: #5eead4;
-      font-size: 18px;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
       font-weight: 600;
-      line-height: 1.25;
-      margin: 8px 36px 0 0;
+      line-height: 1.4;
+      margin: 6px 36px 0 0;
     }
 
     .you-loop-help-intro {

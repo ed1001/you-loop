@@ -23,7 +23,7 @@ function mountYouTubePlayer() {
   player.append(video, progressBar);
   document.body.append(player);
 
-  return { player, progressBar };
+  return { player, progressBar, video };
 }
 
 describe("page UI", () => {
@@ -66,5 +66,27 @@ describe("page UI", () => {
     });
 
     expect(screen.queryByLabelText("Loop start")).not.toBeInTheDocument();
+  });
+
+  it("changes the video playback rate from the speed stepper", () => {
+    const { player, video } = mountYouTubePlayer();
+
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    act(() => {
+      enableLoop();
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Increase speed"));
+      fireEvent.click(screen.getByLabelText("Increase speed"));
+    });
+    expect(video.playbackRate).toBeCloseTo(1.5);
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText(/click to reset/));
+    });
+    expect(video.playbackRate).toBeCloseTo(1);
   });
 });

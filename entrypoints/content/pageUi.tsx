@@ -2,9 +2,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { findYouTubeVideo } from "../../adapters/youtube/adapter";
 import {
   createInitialPlaybackState,
-  playbackReducer
+  playbackReducer,
+  PLAYBACK_RATE_STEP
 } from "../../features/playback/reducer";
-import { enforceSegmentEnd } from "../../features/playback/controller";
+import {
+  applyPlaybackState,
+  enforceSegmentEnd
+} from "../../features/playback/controller";
 import type { LoopSegment, PlaybackState } from "../../features/playback/types";
 import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
 import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
@@ -137,6 +141,23 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  // Speed control: independent of the loop. Apply the rate straight to the
+  // video so it takes effect immediately.
+  const stepSpeed = (delta: number) => {
+    state = playbackReducer(state, {
+      type: "setPlaybackRate",
+      rate: Number((state.playbackRate + delta).toFixed(2))
+    });
+    applyPlaybackState(video, state);
+    render();
+  };
+
+  const resetSpeed = () => {
+    state = playbackReducer(state, { type: "resetPlaybackRate" });
+    applyPlaybackState(video, state);
+    render();
+  };
+
   const render = () => {
     const duration = getVideoDuration(video);
     const zoomVisible =
@@ -167,9 +188,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           enabled={state.loopEnabled}
           mode={state.playMode}
           zoomed={zoomed}
+          playbackRate={state.playbackRate}
           onToggleEnabled={toggleLoop}
           onToggleMode={toggleMode}
           onToggleZoom={toggleZoom}
+          onSpeedDown={() => stepSpeed(-PLAYBACK_RATE_STEP)}
+          onSpeedUp={() => stepSpeed(PLAYBACK_RATE_STEP)}
+          onResetSpeed={resetSpeed}
         />
       </>
     );
@@ -409,6 +434,87 @@ function ensureDocumentStyles() {
     /* Dimmed while the loop is off, but still clickable: interacting turns it on. */
     .you-loop-zoom-toggle[data-disabled="true"] {
       opacity: 0.4;
+    }
+
+    /* Speed stepper: a compact recessed pill —  ‹ 1× ›  (independent of loop). */
+    .you-loop-speed {
+      align-items: center;
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: flex;
+      gap: 0;
+      padding: 2px;
+      transition: opacity 0.18s ease;
+    }
+
+    .you-loop-speed[data-disabled="true"] {
+      opacity: 0.4;
+    }
+
+    .you-loop-speed-step {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      height: 22px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.15s ease;
+      width: 20px;
+    }
+
+    .you-loop-speed-step svg {
+      height: 13px;
+      width: 13px;
+    }
+
+    .you-loop-speed-step:not(:disabled):hover {
+      color: #5eead4;
+    }
+
+    .you-loop-speed-step:disabled {
+      cursor: default;
+      opacity: 0.3;
+    }
+
+    .you-loop-speed-value {
+      background: transparent;
+      border: 0;
+      color: rgba(255, 255, 255, 0.78);
+      cursor: pointer;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      min-width: 30px;
+      padding: 0;
+      text-align: center;
+      transition: color 0.15s ease;
+    }
+
+    .you-loop-speed-value:not(:disabled):hover {
+      color: #ffffff;
+    }
+
+    .you-loop-speed-value:disabled {
+      cursor: default;
+    }
+
+    /* The × sits a touch larger than the number. */
+    .you-loop-speed-x {
+      font-size: 13px;
+      margin-left: 0.5px;
+    }
+
+    .you-loop-speed-value[data-modified="true"] {
+      color: #5eead4;
     }
 
     /* Full-width timeline floating above the native scrubber, mapping just the

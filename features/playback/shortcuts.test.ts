@@ -60,9 +60,12 @@ describe("loop key handlers", () => {
   });
 
   it("push-to-hear (d) plays from current position, pauses in place on release", () => {
-    const { vid, handlers } = setup();
+    const { vid, resetOneShot, handlers } = setup();
     handlers.onKeyDown(keyEvent("d"));
     expect(vid.play).toHaveBeenCalledTimes(1);
+    // Clears a stale one-shot completion so this fresh play isn't misread as
+    // resuming a finished one-shot (which would jump back to the start).
+    expect(resetOneShot).toHaveBeenCalledTimes(1);
     expect(vid.currentTime).toBe(6); // unchanged
 
     vid.currentTime = 7;

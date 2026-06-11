@@ -59,10 +59,15 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     if (segment == null) return;
     held.add(key);
 
+    // Every shortcut here starts a fresh play, so clear any prior one-shot
+    // completion. Otherwise enforceSegmentEnd treats reaching the end as
+    // "resuming a finished one-shot" and jumps back to the start (a spurious
+    // repeat) instead of stopping.
+    deps.resetOneShot();
+
     switch (key) {
       case RESTART_KEY:
       case SNAP_BACK_KEY:
-        deps.resetOneShot();
         deps.video.currentTime = segment.start;
         void deps.video.play();
         break;

@@ -52,11 +52,13 @@ supplies the closures below.
 
 `start` / `end` are read from `getSegment()` at the moment the key fires.
 
+Every keydown that starts playback first calls `resetOneShot()` (see "End-of-loop while held" for why).
+
 | Key | keydown | keyup |
 |-----|---------|-------|
 | `a` restart | `resetOneShot()`; `currentTime = start`; `play()` | — |
 | `s` snap-back (hold) | first press only: `resetOneShot()`; `currentTime = start`; `play()` | `pause()`; `currentTime = start` |
-| `d` push-to-hear (hold) | first press only: `play()` (current position) | `pause()` (position unchanged) |
+| `d` push-to-hear (hold) | first press only: `resetOneShot()`; `play()` (current position) | `pause()` (position unchanged) |
 
 ### Gating (applies to every key)
 
@@ -82,8 +84,11 @@ controller.ts`), called on `timeupdate` while `loopEnabled` is true, already:
 - **loop mode** — wraps back to the segment start at the end, and
 - **one-shot mode** — pauses at the segment end.
 
-This is reused as-is. `a` and `s` call `resetOneShot()` precisely so a prior
-one-shot completion is cleared and the segment replays from the top.
+This is reused as-is. Every play-initiating keydown (`a`, `s`, **and** `d`)
+calls `resetOneShot()` first. Without it, a stale completion flag from an
+earlier pass makes `enforceSegmentEnd` treat the new play as "resuming a
+finished one-shot" and jump back to the start — a spurious repeat at the end of
+a one-shot. Clearing the flag makes each pass stop cleanly at the end.
 
 ## Testing
 

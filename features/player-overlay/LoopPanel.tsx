@@ -92,8 +92,6 @@ export function LoopPanel({
         ))}
       </div>
 
-      <span className="you-loop-divider" aria-hidden="true" />
-
       <button
         type="button"
         role="switch"

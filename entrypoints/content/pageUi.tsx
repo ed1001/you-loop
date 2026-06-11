@@ -283,7 +283,7 @@ function ensureDocumentStyles() {
 
     .you-loop-panel {
       align-items: center;
-      background: rgba(15, 15, 15, 0.86);
+      background: rgba(38, 38, 42, 0.9);
       border-radius: 999px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
       display: flex;
@@ -366,21 +366,13 @@ function ensureDocumentStyles() {
       transition: background 0.18s ease, color 0.18s ease;
     }
 
-    .you-loop-mode-option:hover {
+    .you-loop-mode-option:not(:disabled):hover {
       color: rgba(255, 255, 255, 0.92);
     }
 
     .you-loop-mode-option[data-active="true"] {
       background: #14b8a6;
       color: #0a0a0a;
-    }
-
-    /* Thin separator between mode control and zoom toggle. */
-    .you-loop-divider {
-      background: rgba(255, 255, 255, 0.14);
-      flex: none;
-      height: 18px;
-      width: 1px;
     }
 
     /* Magnifying-glass toggle for the zoom timeline. */
@@ -405,7 +397,7 @@ function ensureDocumentStyles() {
       width: 16px;
     }
 
-    .you-loop-zoom-toggle:hover {
+    .you-loop-zoom-toggle:not(:disabled):hover {
       color: rgba(255, 255, 255, 0.85);
     }
 
@@ -532,8 +524,9 @@ function ensureDocumentStyles() {
 
     .you-loop-zoom-playhead {
       background: #f8fafc;
-      border-radius: 2px;
-      box-shadow: 0 0 6px rgba(94, 234, 212, 0.9);
+      border-radius: 3px;
+      box-shadow: 0 0 7px rgba(94, 234, 212, 0.95),
+        0 0 0 1px rgba(8, 12, 14, 0.55);
       height: 100%;
       left: 0;
       pointer-events: none;
@@ -541,8 +534,10 @@ function ensureDocumentStyles() {
       top: 0;
       transform: translateX(-50%);
       transition: opacity 0.15s ease, box-shadow 0.15s ease;
-      width: 3px;
+      width: 5px;
       will-change: left;
+      /* Sit above the loop cursors so it stays visible behind them. */
+      z-index: 3;
     }
 
     /* Grab knob sitting above the playhead bar. */
@@ -552,12 +547,12 @@ function ensureDocumentStyles() {
       box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.5),
         0 1px 4px rgba(0, 0, 0, 0.5);
       content: "";
-      height: 9px;
+      height: 11px;
       left: 50%;
       position: absolute;
-      top: -6px;
+      top: -7px;
       transform: translateX(-50%);
-      width: 9px;
+      width: 11px;
     }
 
     .you-loop-zoom-track:hover .you-loop-zoom-playhead,

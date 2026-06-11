@@ -88,9 +88,9 @@ describe("playback controller", () => {
     expect(result.oneShotCompleted).toBe(false);
   });
 
-  it("does not re-snap a completed one-shot back into the segment", () => {
+  it("snaps to the start when scrubbed before the region, even once completed", () => {
     const element = video({ currentTime: 2 });
-    enforceSegmentEnd(element, {
+    const result = enforceSegmentEnd(element, {
       ...createInitialPlaybackState(),
       loopEnabled: true,
       loopSegment: { start: 5, end: 8 },
@@ -98,7 +98,8 @@ describe("playback controller", () => {
       oneShotCompleted: true
     });
 
-    expect(element.currentTime).toBe(2);
+    expect(element.currentTime).toBe(5);
+    expect(result.oneShotCompleted).toBe(false);
   });
 
   it("restarts a completed one-shot when playback resumes past the end", () => {

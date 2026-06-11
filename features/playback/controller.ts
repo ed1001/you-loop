@@ -29,9 +29,10 @@ export function enforceSegmentEnd(
     return { oneShotCompleted: false };
   }
 
-  // Restrict the front edge like loop mode: snap in from before the start.
-  // Skip once completed so we don't yank the paused playhead back in.
-  if (!state.oneShotCompleted && video.currentTime < start) {
+  // Restrict the front edge like loop mode: anywhere before the start snaps to
+  // the start (scrubbing the playhead before the region then playing should not
+  // play the pre-region stretch).
+  if (video.currentTime < start) {
     video.currentTime = start;
     return { oneShotCompleted: false };
   }

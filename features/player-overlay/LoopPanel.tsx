@@ -4,8 +4,10 @@ import type { PlayMode } from "../playback/types";
 type Props = {
   enabled: boolean;
   mode: PlayMode;
+  zoomed: boolean;
   onToggleEnabled: () => void;
   onToggleMode: () => void;
+  onToggleZoom: () => void;
 };
 
 // YouTube binds mouse/pointer handlers on the progress bar; these controls are
@@ -20,7 +22,14 @@ const MODES: { value: PlayMode; label: string }[] = [
   { value: "one-shot", label: "One-shot" }
 ];
 
-export function LoopPanel({ enabled, mode, onToggleEnabled, onToggleMode }: Props) {
+export function LoopPanel({
+  enabled,
+  mode,
+  zoomed,
+  onToggleEnabled,
+  onToggleMode,
+  onToggleZoom
+}: Props) {
   return (
     <div className="you-loop-panel" data-on={enabled}>
       <button
@@ -81,6 +90,43 @@ export function LoopPanel({ enabled, mode, onToggleEnabled, onToggleMode }: Prop
           </button>
         ))}
       </div>
+
+      <span className="you-loop-divider" aria-hidden="true" />
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={zoomed}
+        aria-label={zoomed ? "Hide loop zoom timeline" : "Show loop zoom timeline"}
+        className="you-loop-zoom-toggle"
+        data-on={zoomed}
+        data-disabled={!enabled}
+        disabled={!enabled}
+        onPointerDown={swallow}
+        onMouseDown={swallow}
+        onClick={(event) => {
+          swallow(event);
+          onToggleZoom();
+        }}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle
+            cx="10.5"
+            cy="10.5"
+            r="6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+          />
+          <path
+            d="M15 15l4.5 4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
 import { enforceSegmentEnd } from "../../features/playback/controller";
 import type { PlaybackState } from "../../features/playback/types";
 import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
+import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
@@ -29,6 +30,7 @@ function getVideoDuration(video: HTMLVideoElement): number {
 function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
+  let zoomed = false;
 
   const toggleLoop = () => {
     const nextEnabled = !state.loopEnabled;
@@ -40,6 +42,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         type: "setLoopSegment",
         segment: { start: duration * 0.25, end: duration * 0.5 }
       });
+    }
+
+    // Turning the loop off also closes the zoom timeline.
+    if (!nextEnabled) {
+      zoomed = false;
     }
 
     state = playbackReducer(state, {
@@ -57,9 +64,25 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  const toggleZoom = () => {
+    // Zoom only makes sense while the loop is on.
+    if (!state.loopEnabled) {
+      return;
+    }
+    zoomed = !zoomed;
+    render();
+  };
+
   const render = () => {
     root.render(
       <>
+        {zoomed && state.loopEnabled && (
+          <ZoomTimeline
+            video={video}
+            duration={getVideoDuration(video)}
+            segment={state.loopSegment}
+          />
+        )}
         <TimelineHandles
           duration={getVideoDuration(video)}
           segment={state.loopSegment}
@@ -71,8 +94,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         <LoopPanel
           enabled={state.loopEnabled}
           mode={state.playMode}
+          zoomed={zoomed}
           onToggleEnabled={toggleLoop}
           onToggleMode={toggleMode}
+          onToggleZoom={toggleZoom}
         />
       </>
     );
@@ -123,6 +148,20 @@ function ensureDocumentStyles() {
 
     .you-loop-page-ui[data-hidden="true"] {
       opacity: 0;
+    }
+
+    /* While scrubbing the zoom timeline, stay visible even if YouTube autohides
+       its controls (e.g. idle timer firing while the pointer is held still). */
+    .you-loop-page-ui[data-dragging="true"] {
+      opacity: 1;
+    }
+
+    /* Our overlay lives inside .ytp-chrome-bottom; if YouTube fades that parent,
+       the overlay fades with it. Force it (and the bottom gradient) visible
+       while scrubbing the zoom timeline. */
+    .html5-video-player[data-you-loop-scrubbing="true"] .ytp-chrome-bottom,
+    .html5-video-player[data-you-loop-scrubbing="true"] .ytp-gradient-bottom {
+      opacity: 1 !important;
     }
 
     .you-loop-timeline {
@@ -242,6 +281,165 @@ function ensureDocumentStyles() {
     .you-loop-mode-option[data-active="true"] {
       background: #14b8a6;
       color: #0a0a0a;
+    }
+
+    /* Thin separator between mode control and zoom toggle. */
+    .you-loop-divider {
+      background: rgba(255, 255, 255, 0.14);
+      flex: none;
+      height: 18px;
+      width: 1px;
+    }
+
+    /* Magnifying-glass toggle for the zoom timeline. */
+    .you-loop-zoom-toggle {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      height: 30px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 30px;
+    }
+
+    .you-loop-zoom-toggle svg {
+      height: 16px;
+      width: 16px;
+    }
+
+    .you-loop-zoom-toggle:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .you-loop-zoom-toggle[data-on="true"] {
+      background: rgba(20, 184, 166, 0.18);
+      color: #14b8a6;
+    }
+
+    .you-loop-zoom-toggle[data-disabled="true"] {
+      cursor: default;
+      opacity: 0.4;
+    }
+
+    .you-loop-zoom-toggle[data-disabled="true"]:hover {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    /* Full-width timeline floating above the native scrubber, mapping just the
+       loop range across its whole width. */
+    .you-loop-zoom {
+      align-items: center;
+      animation: you-loop-zoom-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      bottom: 100%;
+      display: flex;
+      gap: 10px;
+      left: 0;
+      margin-bottom: 14px;
+      pointer-events: none;
+      position: absolute;
+      transform-origin: center bottom;
+      width: 100%;
+    }
+
+    @keyframes you-loop-zoom-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scaleY(0.55);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+      }
+    }
+
+    .you-loop-zoom-time {
+      color: #5eead4;
+      flex: none;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    }
+
+    .you-loop-zoom-track {
+      background: linear-gradient(
+        180deg,
+        rgba(20, 184, 166, 0.16),
+        rgba(20, 184, 166, 0.3)
+      );
+      border: 1px solid rgba(94, 234, 212, 0.45);
+      border-radius: 3px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+      cursor: ew-resize;
+      flex: 1;
+      height: 10px;
+      pointer-events: auto;
+      position: relative;
+      touch-action: none;
+    }
+
+    /* Faint tick hatch for a sense of magnified scale. */
+    .you-loop-zoom-track::before {
+      background-image: repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.1) 0 1px,
+        transparent 1px 24px
+      );
+      content: "";
+      inset: 0;
+      position: absolute;
+    }
+
+    .you-loop-zoom-playhead {
+      background: #f8fafc;
+      border-radius: 2px;
+      box-shadow: 0 0 6px rgba(94, 234, 212, 0.9);
+      height: 100%;
+      left: 0;
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      transition: opacity 0.15s ease, box-shadow 0.15s ease;
+      width: 3px;
+      will-change: left;
+    }
+
+    /* Grab knob sitting above the playhead bar. */
+    .you-loop-zoom-playhead::after {
+      background: #f8fafc;
+      border-radius: 50%;
+      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.5),
+        0 1px 4px rgba(0, 0, 0, 0.5);
+      content: "";
+      height: 9px;
+      left: 50%;
+      position: absolute;
+      top: -6px;
+      transform: translateX(-50%);
+      width: 9px;
+    }
+
+    .you-loop-zoom-track:hover .you-loop-zoom-playhead,
+    .you-loop-zoom-track:active .you-loop-zoom-playhead {
+      box-shadow: 0 0 10px rgba(94, 234, 212, 1);
+    }
+
+    /* While hovering the zoom track, suppress YouTube's "most replayed" heatmap
+       so it does not pop up and obscure the zoom timeline. */
+    .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-container,
+    .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-edu {
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
   `;
 

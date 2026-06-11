@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent, type MouseEvent } from "react";
+import { useLayoutEffect, useRef, type PointerEvent, type MouseEvent } from "react";
 import type { LoopSegment } from "../playback/types";
 
 type Props = {
@@ -60,6 +60,14 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       rangeRef.current.style.width = `${end - start}%`;
     }
   };
+
+  // Keep the range highlight synced with committed state (and resize).
+  useLayoutEffect(() => {
+    if (draggingRef.current == null) {
+      paint(committed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [committed.start, committed.end, safeDuration]);
 
   // Block YouTube's scrubber: it binds mousedown/click on the progress bar.
   const blockMouse = (event: MouseEvent) => {

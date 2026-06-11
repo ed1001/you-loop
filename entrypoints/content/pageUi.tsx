@@ -7,7 +7,7 @@ import {
 import { enforceSegmentEnd } from "../../features/playback/controller";
 import type { PlaybackState } from "../../features/playback/types";
 import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
-import { LoopSwitch } from "../../features/player-overlay/LoopSwitch";
+import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
@@ -49,6 +49,14 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  const toggleMode = () => {
+    state = playbackReducer(state, {
+      type: "setPlayMode",
+      mode: state.playMode === "loop" ? "one-shot" : "loop"
+    });
+    render();
+  };
+
   const render = () => {
     root.render(
       <>
@@ -60,7 +68,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             render();
           }}
         />
-        <LoopSwitch enabled={state.loopEnabled} onToggle={toggleLoop} />
+        <LoopPanel
+          enabled={state.loopEnabled}
+          mode={state.playMode}
+          onToggleEnabled={toggleLoop}
+          onToggleMode={toggleMode}
+        />
       </>
     );
   };
@@ -104,7 +117,6 @@ function ensureDocumentStyles() {
       overflow: visible;
       pointer-events: none;
       position: absolute;
-      z-index: 2147483647;
       opacity: 1;
       transition: opacity 0.25s cubic-bezier(0, 0, 0.2, 1);
     }
@@ -121,14 +133,15 @@ function ensureDocumentStyles() {
       width: 100%;
     }
 
+    /* Teal band over the progress bar marking the loop segment. */
     .you-loop-loop-range {
+      background: rgba(20, 184, 166, 0.55);
+      border-radius: 1px;
+      height: 9px;
+      pointer-events: none;
       position: absolute;
       top: 50%;
-      height: 6px;
       transform: translateY(-50%);
-      background: rgba(20, 184, 166, 0.45);
-      border-radius: 3px;
-      pointer-events: none;
     }
 
     .you-loop-handle {
@@ -146,61 +159,89 @@ function ensureDocumentStyles() {
       touch-action: none;
       transform: translate(-50%, -50%);
       width: 10px;
+      z-index: 2147483647;
     }
 
     .you-loop-panel {
+      align-items: center;
+      background: rgba(15, 15, 15, 0.86);
+      border-radius: 999px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      display: flex;
+      gap: 6px;
+      left: 50%;
+      padding: 4px;
+      pointer-events: auto;
       position: absolute;
       top: 100%;
-      left: 50%;
       transform: translate(-50%, 12px);
-      pointer-events: auto;
+      z-index: 2147483647;
     }
 
-    .you-loop-switch {
+    /* Power toggle: enables/disables the loop range. Icon only. */
+    .you-loop-power {
       align-items: center;
-      background: rgba(15, 15, 15, 0.82);
+      background: rgba(255, 255, 255, 0.08);
       border: 0;
-      border-radius: 999px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
-      color: #f1f1f1;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
       cursor: pointer;
       display: inline-flex;
-      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      gap: 8px;
-      letter-spacing: 0.03em;
-      padding: 6px 14px 6px 8px;
-      text-transform: uppercase;
-    }
-
-    .you-loop-switch-track {
-      background: rgba(255, 255, 255, 0.28);
-      border-radius: 999px;
       flex: none;
-      height: 18px;
-      position: relative;
-      transition: background 0.18s ease;
-      width: 32px;
+      height: 30px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 30px;
     }
 
-    .you-loop-switch-thumb {
-      background: #ffffff;
-      border-radius: 50%;
-      height: 14px;
-      left: 2px;
-      position: absolute;
-      top: 2px;
-      transition: transform 0.18s ease;
-      width: 14px;
+    .you-loop-power svg {
+      height: 17px;
+      width: 17px;
     }
 
-    .you-loop-switch[data-on="true"] .you-loop-switch-track {
+    .you-loop-power:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .you-loop-power[data-on="true"] {
+      background: rgba(20, 184, 166, 0.18);
+      color: #14b8a6;
+    }
+
+    /* Segmented mode control: both options always visible. */
+    .you-loop-modes {
+      display: flex;
+      gap: 2px;
+      transition: opacity 0.18s ease;
+    }
+
+    .you-loop-modes[data-disabled="true"] {
+      opacity: 0.4;
+    }
+
+    .you-loop-mode-option {
+      background: transparent;
+      border: 0;
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.62);
+      cursor: pointer;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 7px 14px;
+      text-transform: uppercase;
+      transition: background 0.18s ease, color 0.18s ease;
+    }
+
+    .you-loop-mode-option:hover {
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .you-loop-mode-option[data-active="true"] {
       background: #14b8a6;
-    }
-
-    .you-loop-switch[data-on="true"] .you-loop-switch-thumb {
-      transform: translateX(14px);
+      color: #0a0a0a;
     }
   `;
 

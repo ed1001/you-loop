@@ -272,7 +272,7 @@ export function HelpModal({ open, container, onClose }: Props) {
           <h3 className="you-loop-help-label">Memory</h3>
           <p className="you-loop-help-memory">
             Saved loops restore automatically when you return to a video — the
-            last one you used applies. The last 200 videos are kept; past that
+            last one you used applies. The last 1000 videos are kept; past that
             the oldest is dropped first, and revisiting a video moves it back to
             newest so it survives longer.
           </p>

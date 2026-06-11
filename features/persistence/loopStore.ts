@@ -1,7 +1,9 @@
 import type { LoopSegment } from "../playback/types";
 
 export const SAVED_STORE_KEY = "you-loop:saved";
-export const MAX_SAVED_VIDEOS = 200;
+// Entries are tiny (~1KB/video), so this is a runaway-growth backstop rather
+// than a storage limit — well under browser.storage.local's quota.
+export const MAX_SAVED_VIDEOS = 1000;
 
 export type SavedLoop = {
   id: string;

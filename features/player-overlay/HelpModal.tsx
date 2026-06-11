@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import type { MouseEvent, PointerEvent } from "react";
+import { useEffect, useState } from "react";
+import type { MouseEvent, PointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 type Props = {
@@ -9,6 +9,10 @@ type Props = {
   onClose: () => void;
 };
 
+// Must match the you-loop-help-sink animation duration in the stylesheet so the
+// card finishes its exit animation before it unmounts.
+const HELP_EXIT_MS = 200;
+
 // Our overlay lives inside YouTube's progress bar, which binds its own pointer
 // handlers; swallow events so interacting with the modal never scrubs the video.
 const swallow = (event: MouseEvent | PointerEvent) => {
@@ -16,20 +20,87 @@ const swallow = (event: MouseEvent | PointerEvent) => {
   event.stopPropagation();
 };
 
+// Panel-control glyphs, mirrored from the actual controls in LoopPanel so the
+// docs read like the panel.
+const PowerIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M12 3.5v7"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+    />
+    <path
+      d="M7.6 6.6a7 7 0 1 0 8.8 0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const SpeedIcon = (
+  <span className="you-loop-help-ico-pair">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M6 12h12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+    </svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M12 6v12M6 12h12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  </span>
+);
+
+const ZoomIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <circle
+      cx="10.5"
+      cy="10.5"
+      r="6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+    />
+    <path
+      d="M15 15l4.5 4.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 type Shortcut = { keys: string; hold?: boolean; name: string; desc: string };
-type Control = { term: string; desc: string };
+type Control = { icon: ReactNode; term: string; desc: string };
 
 const CONTROLS: Control[] = [
-  { term: "Power", desc: "Turn the loop range on or off." },
+  { icon: PowerIcon, term: "Power", desc: "Turn the loop range on or off." },
   {
+    icon: null,
     term: "Loop / One-shot",
     desc: "Loop repeats the range; one-shot plays it through once and stops."
   },
   {
-    term: "Speed − ＋",
+    icon: SpeedIcon,
+    term: "Speed",
     desc: "Step playback speed up or down. Resets to 1× when the loop turns off."
   },
   {
+    icon: ZoomIcon,
     term: "Zoom",
     desc: "Magnify the looped region for finer, more precise sub-loops."
   }
@@ -52,6 +123,22 @@ const SHORTCUTS: Shortcut[] = [
 ];
 
 export function HelpModal({ open, container, onClose }: Props) {
+  // Stay mounted briefly after `open` flips false so the card can play its exit
+  // animation before unmounting.
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false);
+      setMounted(true);
+      return;
+    }
+    setClosing(true);
+    const timer = setTimeout(() => setMounted(false), HELP_EXIT_MS);
+    return () => clearTimeout(timer);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -65,11 +152,12 @@ export function HelpModal({ open, container, onClose }: Props) {
     return () => document.removeEventListener("keydown", onKey, true);
   }, [open, onClose]);
 
-  if (!open || container == null) return null;
+  if (!mounted || container == null) return null;
 
   return createPortal(
     <div
       className="you-loop-help-backdrop"
+      data-closing={closing}
       onPointerDown={swallow}
       onMouseDown={swallow}
       onClick={(event) => {
@@ -79,6 +167,7 @@ export function HelpModal({ open, container, onClose }: Props) {
     >
       <div
         className="you-loop-help-card"
+        data-closing={closing}
         role="dialog"
         aria-modal="true"
         aria-label="you-loop help"
@@ -114,8 +203,9 @@ export function HelpModal({ open, container, onClose }: Props) {
             Loop, zoom &amp; rehearse any section of a video
           </h2>
           <p className="you-loop-help-intro">
-            Set a range on the timeline, then refine it, repeat it, slow it
-            down, and drive playback straight from the keyboard.
+            Set a loop range on the timeline, zoom in for more granular control
+            of the region, repeat or slow it down, and drive playback straight
+            from the keyboard.
           </p>
         </div>
 
@@ -123,19 +213,22 @@ export function HelpModal({ open, container, onClose }: Props) {
           <h3 className="you-loop-help-label">Panel</h3>
           <ul className="you-loop-help-list">
             {CONTROLS.map((control) => (
-              <li key={control.term} className="you-loop-help-row">
-                <span className="you-loop-help-term">{control.term}</span>
-                <span className="you-loop-help-desc">{control.desc}</span>
+              <li
+                key={control.term}
+                className="you-loop-help-row you-loop-help-row--panel"
+              >
+                <span className="you-loop-help-ico">{control.icon}</span>
+                <span className="you-loop-help-body">
+                  <span className="you-loop-help-term">{control.term}</span>
+                  <span className="you-loop-help-desc">{control.desc}</span>
+                </span>
               </li>
             ))}
           </ul>
         </section>
 
         <section className="you-loop-help-section">
-          <h3 className="you-loop-help-label">
-            Keyboard
-            <span className="you-loop-help-note"> — while the loop is on</span>
-          </h3>
+          <h3 className="you-loop-help-label">Keyboard</h3>
           <ul className="you-loop-help-list">
             {SHORTCUTS.map((shortcut) => (
               <li key={shortcut.keys} className="you-loop-help-row">

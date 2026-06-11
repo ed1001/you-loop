@@ -800,6 +800,15 @@ function ensureDocumentStyles() {
       to { opacity: 1; }
     }
 
+    .you-loop-help-backdrop[data-closing="true"] {
+      animation: you-loop-help-fade-out 0.18s ease both;
+    }
+
+    @keyframes you-loop-help-fade-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
     .you-loop-help-card {
       animation: you-loop-help-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
       background: rgba(28, 28, 32, 0.82);
@@ -825,6 +834,15 @@ function ensureDocumentStyles() {
     @keyframes you-loop-help-rise {
       from { opacity: 0; transform: translateY(10px) scale(0.97); }
       to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .you-loop-help-card[data-closing="true"] {
+      animation: you-loop-help-sink 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+    }
+
+    @keyframes you-loop-help-sink {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(8px) scale(0.97); }
     }
 
     .you-loop-help-close {
@@ -912,6 +930,37 @@ function ensureDocumentStyles() {
       display: grid;
       gap: 6px 14px;
       grid-template-columns: 96px 1fr;
+    }
+
+    /* Panel rows lead with the control's own glyph in a narrow column. */
+    .you-loop-help-row--panel {
+      align-items: start;
+      grid-template-columns: 30px 1fr;
+    }
+
+    .you-loop-help-ico {
+      align-items: center;
+      color: #5eead4;
+      display: inline-flex;
+      height: 17px;
+      justify-content: center;
+    }
+
+    .you-loop-help-ico svg {
+      height: 16px;
+      width: 16px;
+    }
+
+    .you-loop-help-ico-pair {
+      align-items: center;
+      color: #5eead4;
+      display: inline-flex;
+      gap: 1px;
+    }
+
+    .you-loop-help-ico-pair svg {
+      height: 12px;
+      width: 12px;
     }
 
     .you-loop-help-term {

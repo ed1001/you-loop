@@ -19,13 +19,11 @@ import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
-  countVideos,
   loadEntry,
   removeLoop,
   renameLoop,
   setLastUsed,
   updateLoop,
-  MAX_SAVED_VIDEOS,
   type SavedLoop,
   type VideoEntry
 } from "../../features/persistence/loopStore";
@@ -80,8 +78,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
-  // Count of distinct videos with saved loops, for the at-capacity notice.
-  let savedVideoCount = 0;
 
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
@@ -245,7 +241,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     } else {
       seedDefaultLoop(duration);
     }
-    savedVideoCount = await countVideos();
     render();
   };
 
@@ -254,7 +249,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
-    savedVideoCount = await countVideos();
     // Stay open so the new loop appears in the list as confirmation.
     render();
   };
@@ -298,7 +292,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     await removeLoop(videoId, id);
     savedLoops = savedLoops.filter((l) => l.id !== id);
     if (selectedLoopId === id) selectedLoopId = null;
-    savedVideoCount = await countVideos();
     render();
   };
 
@@ -359,9 +352,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             video.closest(".html5-video-player") as HTMLElement | null
           }
           loopsOpen={loopsOpen}
-          atVideoLimit={
-            savedVideoCount >= MAX_SAVED_VIDEOS && savedLoops.length === 0
-          }
           savedLoops={savedLoops}
           selectedLoopId={selectedLoopId}
           currentSegment={state.loopSegment}

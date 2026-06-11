@@ -1,9 +1,6 @@
 import type { LoopSegment } from "../playback/types";
 
 export const SAVED_STORE_KEY = "you-loop:saved";
-// Entries are tiny (~1KB/video), so this is a runaway-growth backstop rather
-// than a storage limit — well under browser.storage.local's quota.
-export const MAX_SAVED_VIDEOS = 1000;
 
 export type SavedLoop = {
   id: string;
@@ -47,21 +44,6 @@ async function writeStore(area: StorageArea, store: SavedStore): Promise<void> {
   }
 }
 
-// Drop the least-recently-seen videos once the cap is exceeded.
-function evict(store: SavedStore): void {
-  const ids = Object.keys(store);
-  if (ids.length <= MAX_SAVED_VIDEOS) return;
-  const byOldest = ids.sort((a, b) => store[a].lastSeen - store[b].lastSeen);
-  for (const id of byOldest.slice(0, ids.length - MAX_SAVED_VIDEOS)) {
-    delete store[id];
-  }
-}
-
-export async function countVideos(area?: StorageArea): Promise<number> {
-  const store = await readStore(resolveArea(area));
-  return Object.keys(store).length;
-}
-
 export async function loadEntry(
   videoId: string,
   area?: StorageArea,
@@ -71,7 +53,7 @@ export async function loadEntry(
   const store = await readStore(a);
   const entry = store[videoId];
   if (!entry) return null;
-  entry.lastSeen = now; // touch-on-access: revisiting refreshes LRU place
+  entry.lastSeen = now; // touch-on-access: records when last revisited
   store[videoId] = entry;
   await writeStore(a, store);
   return entry;
@@ -93,7 +75,6 @@ export async function addLoop(
   entry.lastUsedId = loop.id;
   entry.lastSeen = now;
   store[videoId] = entry;
-  evict(store);
   await writeStore(a, store);
   return loop;
 }

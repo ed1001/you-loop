@@ -7,8 +7,7 @@ import {
   updateLoop,
   renameLoop,
   removeLoop,
-  setLastUsed,
-  MAX_SAVED_VIDEOS
+  setLastUsed
 } from "./loopStore";
 
 // In-memory stub of the browser.storage.local area.
@@ -96,23 +95,5 @@ describe("loopStore", () => {
     await removeLoop("v", a.id, area, 30);
     const entry = await loadEntry("v", area, 40);
     expect(entry?.lastUsedId).toBeNull();
-  });
-
-  it("evicts the least-recently-seen video beyond the cap", async () => {
-    const area = makeArea();
-    // Fill exactly to the cap, each with an increasing lastSeen.
-    for (let i = 0; i < MAX_SAVED_VIDEOS; i++) {
-      await addLoop(`v${i}`, "L", seg(1, 2), null, area, i + 1);
-    }
-    // Touch v0 so it is no longer the oldest.
-    await loadEntry("v0", area, 10_000);
-    // One more distinct video overflows the cap.
-    await addLoop("vNew", "L", seg(1, 2), null, area, 10_001);
-
-    const store = area.dump();
-    expect(Object.keys(store)).toHaveLength(MAX_SAVED_VIDEOS);
-    expect(store["v0"]).toBeDefined(); // spared by the touch
-    expect(store["v1"]).toBeUndefined(); // now the oldest, evicted
-    expect(store["vNew"]).toBeDefined();
   });
 });

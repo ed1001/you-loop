@@ -19,9 +19,6 @@ type Props = {
   loops: SavedLoop[];
   selectedId: string | null;
   currentSegment: LoopSegment | null;
-  // At the saved-video cap and this video isn't saved yet, so saving a new
-  // loop here will evict the oldest video.
-  atVideoLimit: boolean;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
   onReplace: (id: string) => void;
@@ -61,7 +58,6 @@ export function SavedLoopsModal({
   loops,
   selectedId,
   currentSegment,
-  atVideoLimit,
   onClose,
   onSaveAsNew,
   onReplace,
@@ -344,16 +340,6 @@ export function SavedLoopsModal({
               ))}
             </select>
           </label>
-
-          {atVideoLimit && mode === "new" && (
-            <p className="you-loop-lm-warn">
-              You've saved loops for the maximum number of videos. Saving here
-              drops your least-recently-used video. You've saved the maximun
-              number of loops, you can either delete some to free up space or
-              just save and the last used loop across all videos will be deleted
-              to make room for this one.
-            </p>
-          )}
 
           <button
             type="button"

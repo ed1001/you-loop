@@ -20,7 +20,6 @@ type Props = {
   canSaveLoops: boolean;
   loopsContainer: HTMLElement | null;
   loopsOpen: boolean;
-  atVideoLimit: boolean;
   savedLoops: SavedLoop[];
   selectedLoopId: string | null;
   currentSegment: LoopSegment | null;
@@ -70,7 +69,6 @@ export function LoopPanel({
   canSaveLoops,
   loopsContainer,
   loopsOpen,
-  atVideoLimit,
   savedLoops,
   selectedLoopId,
   currentSegment,
@@ -323,7 +321,6 @@ export function LoopPanel({
         loops={savedLoops}
         selectedId={selectedLoopId}
         currentSegment={currentSegment}
-        atVideoLimit={atVideoLimit}
         onClose={onCloseLoops}
         onSaveAsNew={onSaveAsNew}
         onReplace={onReplaceLoop}

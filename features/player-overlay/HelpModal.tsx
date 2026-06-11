@@ -84,6 +84,18 @@ const ZoomIcon = (
   </svg>
 );
 
+const SaveIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M7 4h10v16l-5-3.5L7 20z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 type Shortcut = { keys: string; hold?: boolean; name: string; desc: string };
 type Control = { icon: ReactNode; term: string; desc: string };
 
@@ -103,6 +115,11 @@ const CONTROLS: Control[] = [
     icon: ZoomIcon,
     term: "Zoom",
     desc: "Magnify the looped region for finer, more precise sub-loop. (Useful for longer videos)",
+  },
+  {
+    icon: SaveIcon,
+    term: "Saved loops",
+    desc: "Save the current loop and zoom as a named loop for this video; keep several per video, replace or rename them anytime.",
   },
 ];
 
@@ -249,6 +266,16 @@ export function HelpModal({ open, container, onClose }: Props) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="you-loop-help-section">
+          <h3 className="you-loop-help-label">Memory</h3>
+          <p className="you-loop-help-memory">
+            Saved loops restore automatically when you return to a video — the
+            last one you used applies. The last 200 videos are kept; past that
+            the oldest is dropped first, and revisiting a video moves it back to
+            newest so it survives longer.
+          </p>
         </section>
 
         <p className="you-loop-help-foot">

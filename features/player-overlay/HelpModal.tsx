@@ -101,7 +101,11 @@ type Shortcut = { keys: string; hold?: boolean; name: string; desc: string };
 type Control = { icon: ReactNode; term: string; desc: string };
 
 const CONTROLS: Control[] = [
-  { icon: PowerIcon, term: "Power", desc: "Activate/deactivate You-Loop" },
+  {
+    icon: PowerIcon,
+    term: "Power",
+    desc: "Turn you-loop on or off. Your loop range is kept while off.",
+  },
   {
     icon: null,
     term: "Loop / One-shot",
@@ -110,12 +114,12 @@ const CONTROLS: Control[] = [
   {
     icon: SpeedIcon,
     term: "Speed",
-    desc: "Step playback speed up or down. Resets to 1× when you click the center or when deactivating You-Loop.",
+    desc: "Step playback speed up or down. Click the readout to snap back to 1×; turning you-loop off also resets it.",
   },
   {
     icon: ZoomIcon,
     term: "Zoom",
-    desc: "Magnify the looped region for finer, more precise sub-loop. (Useful for longer videos)",
+    desc: "Magnify the looped region to fine-tune a precise sub-loop — handy on long videos.",
   },
   {
     icon: SaveIcon,

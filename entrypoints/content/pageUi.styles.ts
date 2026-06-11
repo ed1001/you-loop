@@ -123,9 +123,12 @@ export const PAGE_UI_STYLES = `
       width: 92px;
     }
 
-    /* Brand wordmark: matches the help modal's eyebrow (teal, bold). Absolutely
-       centered over the whole pill so it never shifts as the cluster animates —
-       it only fades. */
+    /* Brand wordmark: matches the help modal's eyebrow (teal, bold). A sibling
+       of the pill anchored to the page-ui overlay — whose width never animates
+       — at the pill's fixed center: top 100% + 12px panel offset + 19px (half
+       the 38px pill). Inside the pill, left:50% would re-resolve against the
+       animating width every frame and the rounding makes the text shimmer;
+       anchored here it is computed once, perfectly still, and only fades. */
     .you-loop-wordmark {
       color: #5eead4;
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
@@ -136,18 +139,16 @@ export const PAGE_UI_STYLES = `
       opacity: 0;
       pointer-events: none;
       position: absolute;
-      top: 50%;
+      top: calc(100% + 31px);
       transform: translate(-50%, -50%);
       transition: opacity 0.2s ease;
-      /* Own compositor layer so the centering doesn't re-rasterize (and jitter)
-         against the panel's animating width. */
-      will-change: transform;
       white-space: nowrap;
+      z-index: 2147483647;
     }
 
     /* Turning off, the wordmark may appear early (the pill is already wide
        enough for it); it just trails the controls fading out. */
-    .you-loop-panel[data-on="false"] .you-loop-wordmark {
+    .you-loop-wordmark[data-on="false"] {
       opacity: 1;
       transition-delay: 0.06s;
     }
@@ -1083,6 +1084,7 @@ export const PAGE_UI_STYLES = `
       font-weight: 700;
       margin-top: 12px;
       padding: 8px 14px;
+      transition: background 0.15s ease;
       width: 100%;
     }
 
@@ -1221,9 +1223,11 @@ export const PAGE_UI_STYLES = `
       padding: 5px 6px;
     }
 
+    /* Delete is destructive: hover shifts to red so it never reads as just
+       another neutral action. */
     .you-loop-lm-actions button:hover {
-      background: rgba(255, 255, 255, 0.12);
-      color: #fff;
+      background: rgba(248, 113, 113, 0.14);
+      color: #f87171;
     }
 
     /* ── View tabs: per-video loops vs the cross-video index ──────────── */
@@ -1423,5 +1427,54 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-lm-card[data-closing="true"] {
       animation: you-loop-help-sink 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+    }
+
+    /* ── Shared chrome polish ──────────────────────────────────────────── */
+
+    /* Keyboard focus: a teal ring on anything focusable in our UI. Mouse
+       clicks don't show it (focus-visible), so pointer use stays clean. */
+    .you-loop-page-ui button:focus-visible,
+    .you-loop-help-backdrop button:focus-visible,
+    .you-loop-lm-backdrop button:focus-visible,
+    .you-loop-lm-backdrop input:focus-visible {
+      outline: 2px solid rgba(94, 234, 212, 0.85);
+      outline-offset: 2px;
+    }
+
+    /* Slim, recessed scrollbars inside the modals — the default chrome bar
+       reads as a foreign element on the dark glass. */
+    .you-loop-lm-list::-webkit-scrollbar,
+    .you-loop-lm-vlist::-webkit-scrollbar,
+    .you-loop-lm-card::-webkit-scrollbar,
+    .you-loop-help-card::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .you-loop-lm-list::-webkit-scrollbar-thumb,
+    .you-loop-lm-vlist::-webkit-scrollbar-thumb,
+    .you-loop-lm-card::-webkit-scrollbar-thumb,
+    .you-loop-help-card::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+    }
+
+    .you-loop-lm-list::-webkit-scrollbar-thumb:hover,
+    .you-loop-lm-vlist::-webkit-scrollbar-thumb:hover,
+    .you-loop-lm-card::-webkit-scrollbar-thumb:hover,
+    .you-loop-help-card::-webkit-scrollbar-thumb:hover {
+      background: rgba(94, 234, 212, 0.4);
+    }
+
+    /* Respect reduced-motion: collapse every entrance/exit/tween to instant.
+       The !important also overrides the JS-driven card height transition. */
+    @media (prefers-reduced-motion: reduce) {
+      .you-loop-page-ui *,
+      .you-loop-help-backdrop,
+      .you-loop-help-backdrop *,
+      .you-loop-lm-backdrop,
+      .you-loop-lm-backdrop * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
     }
 `;

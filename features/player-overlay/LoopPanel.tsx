@@ -91,6 +91,7 @@ export function LoopPanel({
   const [pulse, setPulse] = useState(false);
 
   return (
+    <>
     <div
       className="you-loop-panel"
       data-on={enabled}
@@ -130,11 +131,6 @@ export function LoopPanel({
           />
         </svg>
       </button>
-
-      {/* Wordmark is absolutely centered over the pill so it never shifts as
-          the cluster animates — it only fades. Its width is instead reserved by
-          an empty spacer in the flow (below). */}
-      <span className="you-loop-wordmark" aria-hidden="true">you-loop</span>
 
       {/* The spacer and control cluster sum their widths: spacer open when off,
           controls open when on. Because the two widths add (rather than a
@@ -386,5 +382,17 @@ export function LoopPanel({
         </svg>
       </button>
     </div>
+
+    {/* The wordmark lives OUTSIDE the pill, anchored to the page-ui overlay
+        (whose width never animates) at the pill's fixed center. Inside the
+        pill, `left: 50%` re-resolves against the animating width every frame
+        and the sub-pixel rounding makes the text shimmer; out here its
+        position is computed once, so it is perfectly still and only fades.
+        Rendered after the pill so it paints on top of the pill background;
+        its footprint inside the pill is reserved by the spacer slot above. */}
+    <span className="you-loop-wordmark" data-on={enabled} aria-hidden="true">
+      you-loop
+    </span>
+    </>
   );
 }

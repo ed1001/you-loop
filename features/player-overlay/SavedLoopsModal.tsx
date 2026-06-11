@@ -329,6 +329,8 @@ export function SavedLoopsModal({
                 <button
                   type="button"
                   className="you-loop-lm-apply"
+                  title={`Apply “${loop.name}”`}
+                  aria-label={`Apply ${loop.name}`}
                   onClick={(e) => {
                     swallow(e);
                     onApply(loop.id);
@@ -365,7 +367,7 @@ export function SavedLoopsModal({
             className="you-loop-loops-input you-loop-lm-name"
             data-loops-field="new"
             type="text"
-            placeholder={dirty ? "name this loop" : "current loop already saved"}
+            placeholder={dirty ? "Name this loop" : "Current loop already saved"}
             maxLength={NAME_MAX_LENGTH}
             value={newName}
             disabled={!dirty}
@@ -404,7 +406,7 @@ export function SavedLoopsModal({
         <section className="you-loop-lm-videos-wrap">
           {savedVideos.length === 0 ? (
             <p className="you-loop-lm-empty">
-              No saved videos yet. Loops you save are listed here, by video.
+              No saved videos yet. Videos with saved loops appear here.
             </p>
           ) : (
             <ul className="you-loop-lm-vlist">

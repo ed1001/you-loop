@@ -1082,12 +1082,18 @@ export const PAGE_UI_STYLES = `
       white-space: nowrap;
     }
 
+    /* Always reserves its slot so the name doesn't shift when selected. */
     .you-loop-lm-dot {
       background: #5eead4;
       border-radius: 50%;
       flex: none;
       height: 6px;
+      visibility: hidden;
       width: 6px;
+    }
+
+    .you-loop-lm-dot[data-on="true"] {
+      visibility: visible;
     }
 
     .you-loop-lm-range {
@@ -1129,16 +1135,5 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-lm-card[data-closing="true"] {
       animation: you-loop-help-sink 0.2s cubic-bezier(0.4, 0, 1, 1) both;
-    }
-
-    /* Teal confirmation pulse when a loop is applied or overwritten. */
-    .you-loop-lm-row[data-flash="true"] {
-      animation: you-loop-lm-flash 0.34s ease;
-    }
-
-    @keyframes you-loop-lm-flash {
-      0% { background: rgba(94, 234, 212, 0); }
-      35% { background: rgba(94, 234, 212, 0.22); }
-      100% { background: rgba(94, 234, 212, 0); }
     }
 `;

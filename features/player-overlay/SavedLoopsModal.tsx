@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
 import type { SavedLoop } from "../persistence/loopStore";
 
-// A row flashes teal for this long; on apply, the modal then plays its exit.
-const FLASH_MS = 340;
 // Must match the you-loop-help-sink duration so the card finishes its exit
 // before it unmounts.
 const EXIT_MS = 200;
@@ -73,9 +71,6 @@ export function SavedLoopsModal({
   // animation before unmounting (mirrors HelpModal).
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
-  // The loop id currently playing a teal confirmation flash.
-  const [flashId, setFlashId] = useState<string | null>(null);
-  const flashTimer = useRef(0);
 
   useEffect(() => {
     if (open) {
@@ -98,15 +93,6 @@ export function SavedLoopsModal({
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
-
-  // Briefly tint a loop teal to confirm it was applied or overwritten.
-  const flash = (id: string) => {
-    setFlashId(id);
-    window.clearTimeout(flashTimer.current);
-    flashTimer.current = window.setTimeout(() => setFlashId(null), FLASH_MS);
-  };
 
   // Block YouTube's capture-phase shortcut handlers while interacting with the
   // modal: stop propagation from window (above document) without preventDefault
@@ -150,17 +136,9 @@ export function SavedLoopsModal({
       onSaveAsNew(name);
       setNewName("");
     } else if (replaceId != null) {
-      // Overwrite the chosen loop, flash it, and keep the modal open.
+      // Overwrite the chosen loop; the modal stays open.
       onReplace(replaceId);
-      flash(replaceId);
     }
-  };
-
-  // Apply the loop and flash it; the modal stays open so you can keep
-  // switching, comparing, or managing.
-  const handleApply = (id: string) => {
-    onApply(id);
-    flash(id);
   };
 
   const commitRename = (id: string) => {
@@ -230,7 +208,6 @@ export function SavedLoopsModal({
                 key={loop.id}
                 className="you-loop-lm-row"
                 data-selected={loop.id === selectedId}
-                data-flash={loop.id === flashId}
               >
                 {renamingId === loop.id ? (
                   <input
@@ -260,16 +237,15 @@ export function SavedLoopsModal({
                     className="you-loop-lm-apply"
                     onClick={(e) => {
                       swallow(e);
-                      handleApply(loop.id);
+                      onApply(loop.id);
                     }}
                   >
                     <span className="you-loop-lm-name-text">
-                      {loop.id === selectedId && (
-                        <span
-                          className="you-loop-lm-dot"
-                          aria-hidden="true"
-                        />
-                      )}
+                      <span
+                        className="you-loop-lm-dot"
+                        data-on={loop.id === selectedId}
+                        aria-hidden="true"
+                      />
                       {loop.name}
                     </span>
                     <span className="you-loop-lm-range">

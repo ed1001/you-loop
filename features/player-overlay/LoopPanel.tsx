@@ -3,7 +3,7 @@ import type { MouseEvent, PointerEvent } from "react";
 import type { LoopSegment, PlayMode } from "../playback/types";
 import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
 import { SavedLoopsModal } from "./SavedLoopsModal";
-import type { SavedLoop } from "../persistence/loopStore";
+import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
 
 type Props = {
   enabled: boolean;
@@ -23,12 +23,15 @@ type Props = {
   savedLoops: SavedLoop[];
   selectedLoopId: string | null;
   currentSegment: LoopSegment | null;
+  loopDirty: boolean;
+  savedVideos: SavedVideo[];
+  currentVideoId: string | null;
   onToggleLoops: () => void;
   onCloseLoops: () => void;
   onSaveAsNew: (name: string) => void;
   onApplyLoop: (id: string) => void;
-  onRenameLoop: (id: string, name: string) => void;
   onDeleteLoop: (id: string) => void;
+  onOpenVideo: (videoId: string) => void;
 };
 
 // YouTube binds mouse/pointer handlers on the progress bar; these controls are
@@ -71,12 +74,15 @@ export function LoopPanel({
   savedLoops,
   selectedLoopId,
   currentSegment,
+  loopDirty,
+  savedVideos,
+  currentVideoId,
   onToggleLoops,
   onCloseLoops,
   onSaveAsNew,
   onApplyLoop,
-  onRenameLoop,
-  onDeleteLoop
+  onDeleteLoop,
+  onOpenVideo
 }: Props) {
   const atMin = playbackRate <= MIN_PLAYBACK_RATE;
   const atMax = playbackRate >= MAX_PLAYBACK_RATE;
@@ -338,11 +344,14 @@ export function LoopPanel({
         loops={savedLoops}
         selectedId={selectedLoopId}
         currentSegment={currentSegment}
+        dirty={loopDirty}
+        savedVideos={savedVideos}
+        currentVideoId={currentVideoId}
         onClose={onCloseLoops}
         onSaveAsNew={onSaveAsNew}
         onApply={onApplyLoop}
-        onRename={onRenameLoop}
         onDelete={onDeleteLoop}
+        onOpenVideo={onOpenVideo}
       />
 
       <button

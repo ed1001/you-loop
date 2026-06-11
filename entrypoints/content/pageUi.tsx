@@ -1,5 +1,5 @@
 import { createRoot, type Root } from "react-dom/client";
-import { findYouTubeVideo } from "../../adapters/youtube/adapter";
+import { findYouTubeVideo, getVideoTitle } from "../../adapters/youtube/adapter";
 import {
   createInitialPlaybackState,
   defaultLoopSegment,
@@ -19,11 +19,12 @@ import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
+  listEntries,
   loadEntry,
   removeLoop,
-  renameLoop,
   setLastUsed,
   type SavedLoop,
+  type SavedVideo,
   type VideoEntry
 } from "../../features/persistence/loopStore";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
@@ -40,6 +41,27 @@ type MountedPageUi = {
 };
 
 const mountedPageUis = new WeakMap<Element, MountedPageUi>();
+
+// Two loop segments are equal when both null or both endpoints match.
+function segmentsEqual(a: LoopSegment | null, b: LoopSegment | null): boolean {
+  if (a == null || b == null) return a === b;
+  return a.start === b.start && a.end === b.end;
+}
+
+// The save button is live only when the current selection differs from the
+// saved loop it came from: no source loop means a fresh, savable selection; an
+// exact match (both main and zoom) means there's nothing new to save.
+function isLoopDirty(
+  source: SavedLoop | undefined,
+  segment: LoopSegment | null,
+  zoom: LoopSegment | null
+): boolean {
+  if (segment == null) return false;
+  if (source == null) return true;
+  return (
+    !segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)
+  );
+}
 
 function getVideoDuration(video: HTMLVideoElement): number {
   return Number.isFinite(video.duration) && video.duration > 0
@@ -77,6 +99,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
+  // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
+  // when the modal opens and after a save (so the list reflects new titles).
+  let savedVideos: SavedVideo[] = [];
 
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
@@ -104,12 +129,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   const toggleLoop = () => {
     if (state.loopEnabled) {
-      // Turning the loop off also closes the zoom timeline (no exit animation:
-      // the whole control is collapsing).
+      // Turning the loop off hides the zoom timeline (render gates it on
+      // loopEnabled) but keeps `zoomed`/`zoomLoop` so the zoom sub-region
+      // resumes when the loop is turned back on, instead of being lost.
       clearZoomCloseTimer();
-      zoomed = false;
       zoomClosing = false;
-      zoomLoop = null;
       state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
       // Speed control is tied to the loop being on: turning the loop off snaps
       // playback back to 1× and hands rate control back to YouTube.
@@ -232,7 +256,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       return;
     }
 
-    const entry = await loadEntry(id);
+    const entry = await loadEntry(id, undefined, undefined, getVideoTitle() ?? undefined);
     if (videoId !== id) return; // navigated away mid-await
 
     if (entry != null && entry.loops.length > 0) {
@@ -248,8 +272,25 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
+    // Persist the title now so this video shows a name in the index without
+    // waiting for a later revisit to backfill it.
+    await loadEntry(videoId, undefined, undefined, getVideoTitle() ?? undefined);
+    await refreshLibrary();
     // Stay open so the new loop appears in the list as confirmation.
     render();
+  };
+
+  // Reload the cross-video index from storage.
+  const refreshLibrary = async () => {
+    savedVideos = await listEntries();
+    render();
+  };
+
+  // Jump to another saved video; its last-used loop auto-applies on load. A
+  // full navigation (rather than SPA trickery) is the robust path here.
+  const openVideo = (id: string) => {
+    if (id === videoId) return;
+    window.location.assign(`https://www.youtube.com/watch?v=${id}`);
   };
 
   const applyLoop = async (id: string) => {
@@ -269,13 +310,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  const renameSavedLoop = async (id: string, name: string) => {
-    if (videoId == null) return;
-    await renameLoop(videoId, id, name);
-    savedLoops = savedLoops.map((l) => (l.id === id ? { ...l, name } : l));
-    render();
-  };
-
   const deleteSavedLoop = async (id: string) => {
     if (videoId == null) return;
     await removeLoop(videoId, id);
@@ -286,6 +320,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   const toggleLoops = () => {
     loopsOpen = !loopsOpen;
+    // Refresh the index as the modal opens so the "Saved videos" tab is current.
+    if (loopsOpen) void refreshLibrary();
     render();
   };
 
@@ -297,6 +333,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   const render = () => {
     const duration = getVideoDuration(video);
+    const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
+    const loopDirty = isLoopDirty(selectedLoop, state.loopSegment, zoomLoop);
     const zoomVisible =
       (zoomed || zoomClosing) &&
       state.loopEnabled &&
@@ -344,12 +382,15 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           savedLoops={savedLoops}
           selectedLoopId={selectedLoopId}
           currentSegment={state.loopSegment}
+          loopDirty={loopDirty}
+          savedVideos={savedVideos}
+          currentVideoId={videoId}
           onToggleLoops={toggleLoops}
           onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
           onApplyLoop={applyLoop}
-          onRenameLoop={renameSavedLoop}
           onDeleteLoop={deleteSavedLoop}
+          onOpenVideo={openVideo}
         />
         <HelpModal
           open={helpOpen}

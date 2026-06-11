@@ -623,6 +623,13 @@ export const PAGE_UI_STYLES = `
       pointer-events: none !important;
     }
 
+    /* In fullscreen, YouTube's "more videos" grid toggle sits bottom-center —
+       the exact spot as our panel — and paints over it. Suppress it while our
+       overlay is mounted; it returns if the extension UI is gone. */
+    .html5-video-player:has(.you-loop-panel) .ytp-fullscreen-grid-buttons-container {
+      display: none !important;
+    }
+
     /* ---- Help: info toggle + docs modal ---- */
     .you-loop-help-toggle {
       align-items: center;
@@ -1052,8 +1059,17 @@ export const PAGE_UI_STYLES = `
       padding: 14px 14px 14px;
     }
 
+    /* Nothing new to save: dim the whole card so it reads as inactive. */
+    .you-loop-lm-save[data-disabled="true"] {
+      opacity: 0.5;
+    }
+
     .you-loop-lm-name {
       width: 100%;
+    }
+
+    .you-loop-lm-name:disabled {
+      cursor: default;
     }
 
     .you-loop-lm-savebtn {
@@ -1070,46 +1086,60 @@ export const PAGE_UI_STYLES = `
       width: 100%;
     }
 
-    .you-loop-lm-savebtn:hover {
+    .you-loop-lm-savebtn:not(:disabled):hover {
       background: #7af0de;
+    }
+
+    .you-loop-lm-savebtn:disabled {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.4);
+      cursor: default;
     }
 
     .you-loop-lm-list {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 6px;
       list-style: none;
       margin: 0;
       max-height: 220px;
       overflow-y: auto;
-      /* Reserve the gutter so rows don't reflow when the bar appears, and keep
-         row content clear of the thumb. */
-      scrollbar-gutter: stable;
-      padding: 0 6px 0 0;
-      /* Firefox: a slim, always-present bar (no overlay fade). */
-      scrollbar-width: thin;
-      scrollbar-color: rgba(94, 234, 212, 0.4) rgba(255, 255, 255, 0.06);
+      padding: 0;
     }
 
-    /* Chromium: styling the scrollbar opts out of the macOS overlay bar that
-       fades away, so it stays visible whenever the list overflows — an obvious
-       cue that there are more loops below. */
-    .you-loop-lm-list::-webkit-scrollbar {
-      width: 8px;
+    /* Fade whichever edge has clipped rows beyond it so the partial rows signal
+       there's more to scroll. Toggled from JS (the modal measures scroll
+       position); a mask keeps it working over the translucent card without
+       painting an opaque overlay. Each edge combination needs its own gradient. */
+    .you-loop-lm-list[data-fade-bottom="true"] {
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        #000 calc(100% - 28px),
+        transparent
+      );
+      mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
     }
 
-    .you-loop-lm-list::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
+    .you-loop-lm-list[data-fade-top="true"] {
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
+      mask-image: linear-gradient(to bottom, transparent, #000 28px);
     }
 
-    .you-loop-lm-list::-webkit-scrollbar-thumb {
-      background: rgba(94, 234, 212, 0.38);
-      border-radius: 8px;
-    }
-
-    .you-loop-lm-list::-webkit-scrollbar-thumb:hover {
-      background: rgba(94, 234, 212, 0.6);
+    .you-loop-lm-list[data-fade-top="true"][data-fade-bottom="true"] {
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 28px,
+        #000 calc(100% - 28px),
+        transparent
+      );
+      mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 28px,
+        #000 calc(100% - 28px),
+        transparent
+      );
     }
 
     .you-loop-lm-empty {
@@ -1120,15 +1150,25 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-lm-row {
       align-items: center;
+      /* Subtle outline on every saved loop; the selected one turns teal. */
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 8px;
       display: flex;
       gap: 6px;
       padding: 3px 6px 3px 4px;
+      transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
     }
 
-    .you-loop-lm-row:hover,
+    .you-loop-lm-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
     .you-loop-lm-row[data-selected="true"] {
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(94, 234, 212, 0.08);
+      border-color: #5eead4;
     }
 
     .you-loop-lm-apply {
@@ -1158,29 +1198,11 @@ export const PAGE_UI_STYLES = `
       white-space: nowrap;
     }
 
-    /* Always reserves its slot so the name doesn't shift when selected. */
-    .you-loop-lm-dot {
-      background: #5eead4;
-      border-radius: 50%;
-      flex: none;
-      height: 6px;
-      visibility: hidden;
-      width: 6px;
-    }
-
-    .you-loop-lm-dot[data-on="true"] {
-      visibility: visible;
-    }
-
     .you-loop-lm-range {
       color: rgba(255, 255, 255, 0.45);
       flex: none;
       font-size: 11.5px;
       font-variant-numeric: tabular-nums;
-    }
-
-    .you-loop-lm-rename {
-      flex: 1;
     }
 
     .you-loop-lm-actions {
@@ -1202,6 +1224,129 @@ export const PAGE_UI_STYLES = `
     .you-loop-lm-actions button:hover {
       background: rgba(255, 255, 255, 0.12);
       color: #fff;
+    }
+
+    /* ── View tabs: per-video loops vs the cross-video index ──────────── */
+    .you-loop-lm-tabs {
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+    }
+
+    .you-loop-lm-tab {
+      background: transparent;
+      border: 0;
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      flex: 1;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 7px 12px;
+      transition: background 0.18s ease, color 0.18s ease;
+    }
+
+    .you-loop-lm-tab:hover:not([data-active="true"]) {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .you-loop-lm-tab[data-active="true"] {
+      background: #14b8a6;
+      color: #06302b;
+    }
+
+    /* ── Saved-videos index ───────────────────────────────────────────── */
+    .you-loop-lm-vlist {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      list-style: none;
+      margin: 0;
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .you-loop-lm-vopen {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      font-family: inherit;
+      gap: 12px;
+      justify-content: space-between;
+      padding: 11px 12px;
+      text-align: left;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      width: 100%;
+    }
+
+    .you-loop-lm-vopen:not(:disabled):hover {
+      background: rgba(94, 234, 212, 0.07);
+      border-color: rgba(94, 234, 212, 0.5);
+    }
+
+    /* The currently-playing video stays listed but isn't a navigation target. */
+    .you-loop-lm-vrow[data-current="true"] .you-loop-lm-vopen {
+      border-color: rgba(94, 234, 212, 0.35);
+      cursor: default;
+    }
+
+    .you-loop-lm-vname {
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .you-loop-lm-vmeta {
+      align-items: center;
+      color: rgba(255, 255, 255, 0.5);
+      display: inline-flex;
+      flex: none;
+      gap: 8px;
+    }
+
+    .you-loop-lm-vcount {
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .you-loop-lm-vnow {
+      background: rgba(94, 234, 212, 0.16);
+      border-radius: 999px;
+      color: #5eead4;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      text-transform: uppercase;
+    }
+
+    /* A teal chevron slides in on hover, signalling the row navigates. */
+    .you-loop-lm-vgo {
+      color: rgba(94, 234, 212, 0.7);
+      height: 16px;
+      opacity: 0;
+      transform: translateX(-3px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      width: 16px;
+    }
+
+    .you-loop-lm-vopen:hover .you-loop-lm-vgo {
+      opacity: 1;
+      transform: translateX(0);
     }
 
     /* Reuse the help modal's exit keyframes for the close animation. */

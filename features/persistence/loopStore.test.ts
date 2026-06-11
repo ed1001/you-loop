@@ -3,8 +3,8 @@ import type { StorageArea, SavedStore } from "./loopStore";
 import {
   SAVED_STORE_KEY,
   addLoop,
+  listEntries,
   loadEntry,
-  renameLoop,
   removeLoop,
   setLastUsed
 } from "./loopStore";
@@ -54,14 +54,6 @@ describe("loopStore", () => {
     expect(await loadEntry("nope", area, 1000)).toBeNull();
   });
 
-  it("renames a loop", async () => {
-    const area = makeArea();
-    const loop = await addLoop("v", "Old", seg(1, 2), null, area, 10);
-    await renameLoop("v", loop.id, "New", area, 20);
-    const entry = await loadEntry("v", area, 30);
-    expect(entry?.loops[0].name).toBe("New");
-  });
-
   it("removes a loop, deleting the entry when the last one goes", async () => {
     const area = makeArea();
     const { a, b } = await seedTwo(area);
@@ -80,5 +72,30 @@ describe("loopStore", () => {
     await removeLoop("v", a.id, area, 30);
     const entry = await loadEntry("v", area, 40);
     expect(entry?.lastUsedId).toBeNull();
+  });
+
+  it("backfills the title on load, without clobbering it on a later titleless visit", async () => {
+    const area = makeArea();
+    await addLoop("v", "A", seg(1, 2), null, area, 10);
+
+    const titled = await loadEntry("v", area, 20, "My Song");
+    expect(titled?.title).toBe("My Song");
+
+    // A later visit that can't read a title leaves the stored one intact.
+    const untouched = await loadEntry("v", area, 30);
+    expect(untouched?.title).toBe("My Song");
+  });
+
+  it("lists saved videos, most-recently-seen first, with loop counts", async () => {
+    const area = makeArea();
+    await addLoop("old", "A", seg(1, 2), null, area, 100);
+    await addLoop("new", "A", seg(1, 2), null, area, 200);
+    await addLoop("new", "B", seg(3, 4), null, area, 210);
+    await loadEntry("old", area, 100, "Old Video");
+
+    const list = await listEntries(area);
+    expect(list.map((v) => v.videoId)).toEqual(["new", "old"]);
+    expect(list[0]).toMatchObject({ videoId: "new", count: 2 });
+    expect(list[1]).toMatchObject({ videoId: "old", count: 1, title: "Old Video" });
   });
 });

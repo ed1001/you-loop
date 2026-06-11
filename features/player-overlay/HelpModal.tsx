@@ -120,7 +120,7 @@ const CONTROLS: Control[] = [
   {
     icon: SaveIcon,
     term: "Saved loops",
-    desc: "Save the current loop and zoom as a named loop for this video; keep several per video, rename them anytime.",
+    desc: "Save the current loop and zoom as a named loop for this video; keep several per video and apply or delete them anytime.",
   },
 ];
 

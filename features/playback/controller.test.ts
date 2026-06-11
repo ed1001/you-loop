@@ -78,6 +78,33 @@ describe("playback controller", () => {
     expect(result.oneShotCompleted).toBe(true);
   });
 
+  it("snaps one-shot into the segment from before the start", () => {
+    const element = video({ currentTime: 2 });
+    const result = enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "one-shot"
+    });
+
+    expect(element.currentTime).toBe(5);
+    expect(element.pause).not.toHaveBeenCalled();
+    expect(result.oneShotCompleted).toBe(false);
+  });
+
+  it("does not re-snap a completed one-shot back into the segment", () => {
+    const element = video({ currentTime: 2 });
+    enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "one-shot",
+      oneShotCompleted: true
+    });
+
+    expect(element.currentTime).toBe(2);
+  });
+
   it("replays one-shot from segment start on play request", async () => {
     const element = video({ currentTime: 8 });
     await handleOneShotReplay(element, {

@@ -29,6 +29,13 @@ export function enforceSegmentEnd(
     return { oneShotCompleted: false };
   }
 
+  // Restrict the front edge like loop mode: snap in from before the start.
+  // Skip once completed so we don't yank the paused playhead back in.
+  if (!state.oneShotCompleted && video.currentTime < start) {
+    video.currentTime = start;
+    return { oneShotCompleted: false };
+  }
+
   if (video.currentTime < end) {
     return { oneShotCompleted: state.oneShotCompleted };
   }

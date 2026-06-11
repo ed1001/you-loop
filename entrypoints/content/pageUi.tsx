@@ -4,7 +4,10 @@ import {
   createInitialPlaybackState,
   playbackReducer
 } from "../../features/playback/reducer";
-import { enforceSegmentEnd } from "../../features/playback/controller";
+import {
+  enforceSegmentEnd,
+  handleOneShotReplay
+} from "../../features/playback/controller";
 import type { PlaybackState } from "../../features/playback/types";
 import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
 import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
@@ -32,31 +35,34 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let state: PlaybackState = createInitialPlaybackState();
   let zoomed = false;
 
-  const toggleLoop = () => {
-    const nextEnabled = !state.loopEnabled;
-
-    // Seed a default segment so turning loop on has something to loop.
-    if (nextEnabled && state.loopSegment == null) {
+  // Turn the loop on, seeding a default segment if none has been set yet.
+  const enableLoop = () => {
+    if (state.loopSegment == null) {
       const duration = getVideoDuration(video);
       state = playbackReducer(state, {
         type: "setLoopSegment",
         segment: { start: duration * 0.25, end: duration * 0.5 }
       });
     }
+    state = playbackReducer(state, { type: "setLoopEnabled", enabled: true });
+  };
 
-    // Turning the loop off also closes the zoom timeline.
-    if (!nextEnabled) {
+  const toggleLoop = () => {
+    if (state.loopEnabled) {
+      // Turning the loop off also closes the zoom timeline.
       zoomed = false;
+      state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
+    } else {
+      enableLoop();
     }
-
-    state = playbackReducer(state, {
-      type: "setLoopEnabled",
-      enabled: nextEnabled
-    });
     render();
   };
 
+  // Changing any setting while the loop is off turns it on.
   const toggleMode = () => {
+    if (!state.loopEnabled) {
+      enableLoop();
+    }
     state = playbackReducer(state, {
       type: "setPlayMode",
       mode: state.playMode === "loop" ? "one-shot" : "loop"
@@ -65,9 +71,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   };
 
   const toggleZoom = () => {
-    // Zoom only makes sense while the loop is on.
     if (!state.loopEnabled) {
-      return;
+      enableLoop();
     }
     zoomed = !zoomed;
     render();
@@ -115,12 +120,29 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   };
 
+  // After a one-shot finishes (paused at the segment end), pressing play
+  // restarts from the segment start instead of continuing past the end.
+  const onPlay = () => {
+    if (state.playMode !== "one-shot" || !state.oneShotCompleted) {
+      return;
+    }
+    void handleOneShotReplay(video, state);
+    state = playbackReducer(state, {
+      type: "markOneShotCompleted",
+      completed: false
+    });
+  };
+
   video.addEventListener("timeupdate", onTimeUpdate);
+  video.addEventListener("play", onPlay);
   render();
 
   return {
     root,
-    stop: () => video.removeEventListener("timeupdate", onTimeUpdate)
+    stop: () => {
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("play", onPlay);
+    }
   };
 }
 
@@ -255,6 +277,7 @@ function ensureDocumentStyles() {
       transition: opacity 0.18s ease;
     }
 
+    /* Dimmed while the loop is off, but still clickable: interacting turns it on. */
     .you-loop-modes[data-disabled="true"] {
       opacity: 0.4;
     }
@@ -322,13 +345,9 @@ function ensureDocumentStyles() {
       color: #14b8a6;
     }
 
+    /* Dimmed while the loop is off, but still clickable: interacting turns it on. */
     .you-loop-zoom-toggle[data-disabled="true"] {
-      cursor: default;
       opacity: 0.4;
-    }
-
-    .you-loop-zoom-toggle[data-disabled="true"]:hover {
-      color: rgba(255, 255, 255, 0.55);
     }
 
     /* Full-width timeline floating above the native scrubber, mapping just the

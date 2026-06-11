@@ -13,6 +13,7 @@ type Props = {
   onSpeedDown: () => void;
   onSpeedUp: () => void;
   onResetSpeed: () => void;
+  onShowHelp: () => void;
 };
 
 // YouTube binds mouse/pointer handlers on the progress bar; these controls are
@@ -40,7 +41,8 @@ export function LoopPanel({
   onToggleZoom,
   onSpeedDown,
   onSpeedUp,
-  onResetSpeed
+  onResetSpeed,
+  onShowHelp
 }: Props) {
   const atMin = playbackRate <= MIN_PLAYBACK_RATE;
   const atMax = playbackRate >= MAX_PLAYBACK_RATE;
@@ -209,6 +211,38 @@ export function LoopPanel({
             strokeWidth="2.2"
             strokeLinecap="round"
           />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        className="you-loop-help-toggle"
+        aria-haspopup="dialog"
+        aria-label="Show help"
+        onPointerDown={swallow}
+        onMouseDown={swallow}
+        onClick={(event) => {
+          swallow(event);
+          onShowHelp();
+        }}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+          <path
+            d="M12 11v5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+          <circle cx="12" cy="7.6" r="1.05" fill="currentColor" />
         </svg>
       </button>
     </div>

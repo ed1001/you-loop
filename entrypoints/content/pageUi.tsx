@@ -15,6 +15,7 @@ import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
 import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
+import { HelpModal } from "../../features/player-overlay/HelpModal";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
@@ -39,6 +40,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
   let zoomed = false;
+  let helpOpen = false;
   // The refined sub-region while zoomed. The zoom timeline spans the main loop
   // (state.loopSegment); the zoom cursors pick a sub-region inside it. Playback
   // obeys this only while zoom is active — turning magnify off reverts to the
@@ -200,6 +202,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onSpeedDown={() => stepSpeed(-PLAYBACK_RATE_STEP)}
           onSpeedUp={() => stepSpeed(PLAYBACK_RATE_STEP)}
           onResetSpeed={resetSpeed}
+          onShowHelp={() => {
+            helpOpen = true;
+            render();
+          }}
+        />
+        <HelpModal
+          open={helpOpen}
+          container={video.closest(".html5-video-player") as HTMLElement | null}
+          onClose={() => {
+            helpOpen = false;
+            render();
+          }}
         />
       </>
     );
@@ -737,6 +751,222 @@ function ensureDocumentStyles() {
     .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-edu {
       opacity: 0 !important;
       pointer-events: none !important;
+    }
+
+    /* ---- Help: info toggle + docs modal ---- */
+    .you-loop-help-toggle {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      height: 30px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 30px;
+    }
+
+    .you-loop-help-toggle svg {
+      height: 16px;
+      width: 16px;
+    }
+
+    .you-loop-help-toggle:hover {
+      background: rgba(20, 184, 166, 0.18);
+      color: #14b8a6;
+    }
+
+    .you-loop-help-backdrop {
+      align-items: center;
+      animation: you-loop-help-fade 0.18s ease both;
+      background: rgba(0, 0, 0, 0.5);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      padding: 24px;
+      pointer-events: auto;
+      position: absolute;
+      z-index: 2147483647;
+    }
+
+    @keyframes you-loop-help-fade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .you-loop-help-card {
+      animation: you-loop-help-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+      background: rgba(28, 28, 32, 0.82);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      backdrop-filter: blur(18px) saturate(1.2);
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      border-radius: 16px;
+      box-shadow:
+        0 0 0 1px rgba(20, 184, 166, 0.16),
+        0 24px 70px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      box-sizing: border-box;
+      color: rgba(255, 255, 255, 0.78);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      max-height: calc(100% - 48px);
+      max-width: 440px;
+      overflow-y: auto;
+      padding: 26px 28px 22px;
+      position: relative;
+      width: 100%;
+    }
+
+    @keyframes you-loop-help-rise {
+      from { opacity: 0; transform: translateY(10px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .you-loop-help-close {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.06);
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: inline-flex;
+      height: 28px;
+      justify-content: center;
+      padding: 0;
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 28px;
+    }
+
+    .you-loop-help-close svg {
+      height: 15px;
+      width: 15px;
+    }
+
+    .you-loop-help-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .you-loop-help-eyebrow {
+      color: #14b8a6;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .you-loop-help-title {
+      color: #5eead4;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.25;
+      margin: 8px 36px 0 0;
+    }
+
+    .you-loop-help-intro {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin: 8px 0 0;
+    }
+
+    .you-loop-help-section {
+      margin-top: 20px;
+    }
+
+    .you-loop-help-label {
+      color: #14b8a6;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+    }
+
+    .you-loop-help-note {
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    .you-loop-help-list {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .you-loop-help-row {
+      align-items: baseline;
+      display: grid;
+      gap: 6px 14px;
+      grid-template-columns: 96px 1fr;
+    }
+
+    .you-loop-help-term {
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .you-loop-help-desc {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .you-loop-help-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .you-loop-help-keys {
+      align-items: center;
+      display: flex;
+      gap: 7px;
+    }
+
+    .you-loop-kbd {
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 6px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+      color: #5eead4;
+      display: inline-flex;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      justify-content: center;
+      min-width: 24px;
+      padding: 4px 7px;
+    }
+
+    .you-loop-help-hold {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .you-loop-help-foot {
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.38);
+      font-size: 11px;
+      margin: 20px 0 0;
+      padding-top: 12px;
     }
   `;
 

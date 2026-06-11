@@ -32,10 +32,16 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
   let zoomed = false;
-  // The magnified window the zoom timeline spans while zoomed: a snapshot of
-  // the loop when zoom opened. The zoom cursors then refine the loop to any
-  // sub-region inside it; the main handles can grow/shrink the window live.
-  let zoomWindow: LoopSegment | null = null;
+  // The refined sub-region while zoomed. The zoom timeline spans the main loop
+  // (state.loopSegment); the zoom cursors pick a sub-region inside it. Playback
+  // obeys this only while zoom is active — turning magnify off reverts to the
+  // main loop.
+  let zoomLoop: LoopSegment | null = null;
+
+  // The loop playback actually obeys: the zoom sub-region while magnified,
+  // otherwise the main loop.
+  const effectiveSegment = (): LoopSegment | null =>
+    zoomed && zoomLoop != null ? zoomLoop : state.loopSegment;
 
   // Turn the loop on, seeding a default segment if none has been set yet.
   const enableLoop = () => {
@@ -53,7 +59,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (state.loopEnabled) {
       // Turning the loop off also closes the zoom timeline.
       zoomed = false;
-      zoomWindow = null;
+      zoomLoop = null;
       state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
     } else {
       enableLoop();
@@ -78,51 +84,54 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       enableLoop();
     }
     zoomed = !zoomed;
-    // Snapshot the loop as the magnified window so the zoom cursors start at
-    // its full extent (0–100%). The main handles stay put on toggle.
-    zoomWindow =
-      zoomed && state.loopSegment != null ? { ...state.loopSegment } : null;
-    render();
-  };
-
-  // While zoomed the main handles drive the magnified window; refining the loop
-  // to a sub-region happens with the zoom cursors. Keep the loop inside the
-  // window as it shrinks.
-  const onWindowChange = (region: LoopSegment) => {
-    zoomWindow = region;
-    if (state.loopSegment != null) {
-      state = playbackReducer(state, {
-        type: "setLoopSegment",
-        segment: clampLoopToRegion(state.loopSegment, region)
-      });
+    // Keep the zoom cursors across toggles; only seed them to the full extent
+    // of the main loop (0–100%) the first time. Re-clamp in case the main loop
+    // moved while zoom was off.
+    if (zoomed && state.loopSegment != null) {
+      zoomLoop =
+        zoomLoop != null
+          ? clampLoopToRegion(zoomLoop, state.loopSegment)
+          : { ...state.loopSegment };
     }
     render();
   };
 
-  const onLoopChange = (segment: LoopSegment) => {
+  // The main handles always edit the main loop (the window the zoom timeline
+  // spans). Slide the zoom sub-region to stay inside it.
+  const onMainLoopChange = (segment: LoopSegment) => {
     state = playbackReducer(state, { type: "setLoopSegment", segment });
+    if (zoomLoop != null && state.loopSegment != null) {
+      zoomLoop = clampLoopToRegion(zoomLoop, state.loopSegment);
+    }
+    render();
+  };
+
+  // The zoom cursors refine the sub-region; it applies to playback only while
+  // magnified.
+  const onZoomLoopChange = (segment: LoopSegment) => {
+    zoomLoop = segment;
     render();
   };
 
   const render = () => {
     const duration = getVideoDuration(video);
     const zoomActive =
-      zoomed && state.loopEnabled && zoomWindow != null && state.loopSegment != null;
+      zoomed && state.loopEnabled && state.loopSegment != null && zoomLoop != null;
 
     root.render(
       <>
         {zoomActive && (
           <ZoomTimeline
             video={video}
-            window={zoomWindow!}
-            loop={state.loopSegment!}
-            onLoopChange={onLoopChange}
+            window={state.loopSegment!}
+            loop={zoomLoop!}
+            onLoopChange={onZoomLoopChange}
           />
         )}
         <TimelineHandles
           duration={duration}
-          segment={zoomActive ? zoomWindow : state.loopSegment}
-          onSegmentChange={zoomActive ? onWindowChange : onLoopChange}
+          segment={state.loopSegment}
+          onSegmentChange={onMainLoopChange}
         />
         <LoopPanel
           enabled={state.loopEnabled}
@@ -141,7 +150,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // the segment start when the user presses play again. No-op until a segment
   // is set.
   const onTimeUpdate = () => {
-    const result = enforceSegmentEnd(video, state);
+    const result = enforceSegmentEnd(video, {
+      ...state,
+      loopSegment: effectiveSegment()
+    });
     if (result.oneShotCompleted !== state.oneShotCompleted) {
       state = playbackReducer(state, {
         type: "markOneShotCompleted",

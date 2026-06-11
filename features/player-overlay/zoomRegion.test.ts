@@ -7,14 +7,18 @@ describe("clampLoopToRegion", () => {
     expect(loop).toEqual({ start: 40, end: 60 });
   });
 
-  it("pulls a loop edge back inside a shrunken window", () => {
-    const loop = clampLoopToRegion({ start: 40, end: 60 }, { start: 45, end: 55 });
-    expect(loop).toEqual({ start: 45, end: 55 });
+  it("slides the loop right (keeping length) when the window start passes it", () => {
+    const loop = clampLoopToRegion({ start: 40, end: 60 }, { start: 50, end: 90 });
+    expect(loop).toEqual({ start: 50, end: 70 });
   });
 
-  it("preserves the minimum duration when the loop sits entirely outside", () => {
-    const loop = clampLoopToRegion({ start: 10, end: 20 }, { start: 50, end: 80 });
-    expect(loop.start).toBe(50);
-    expect(loop.end).toBeCloseTo(50.1, 5);
+  it("slides the loop left (keeping length) when the window end passes it", () => {
+    const loop = clampLoopToRegion({ start: 40, end: 60 }, { start: 10, end: 55 });
+    expect(loop).toEqual({ start: 35, end: 55 });
+  });
+
+  it("shrinks the loop only when the window is shorter than it", () => {
+    const loop = clampLoopToRegion({ start: 40, end: 60 }, { start: 45, end: 55 });
+    expect(loop).toEqual({ start: 45, end: 55 });
   });
 });

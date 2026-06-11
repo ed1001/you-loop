@@ -2,6 +2,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { findYouTubeVideo } from "../../adapters/youtube/adapter";
 import {
   createInitialPlaybackState,
+  defaultLoopSegment,
   playbackReducer,
   PLAYBACK_RATE_STEP
 } from "../../features/playback/reducer";
@@ -16,6 +17,15 @@ import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
+import {
+  addLoop,
+  loadEntry,
+  removeLoop,
+  renameLoop,
+  setLastUsed,
+  updateLoop,
+  type SavedLoop
+} from "../../features/persistence/loopStore";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
@@ -36,6 +46,25 @@ function getVideoDuration(video: HTMLVideoElement): number {
     : 1;
 }
 
+// True once the video reports a real, finite duration (metadata loaded).
+function hasKnownDuration(video: HTMLVideoElement): boolean {
+  return Number.isFinite(video.duration) && video.duration > 0;
+}
+
+// The watch page's video id, or null off a watch page (saving disabled then).
+function currentVideoId(): string | null {
+  return new URLSearchParams(window.location.search).get("v");
+}
+
+// Loop positions match within rounding tolerance (segments round to 3 dp).
+function segmentsEqual(
+  a: LoopSegment | null,
+  b: LoopSegment | null
+): boolean {
+  if (a == null || b == null) return a === b;
+  return Math.abs(a.start - b.start) < 1e-3 && Math.abs(a.end - b.end) < 1e-3;
+}
+
 function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
@@ -51,18 +80,24 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let zoomClosing = false;
   let zoomCloseTimer = 0;
 
+  // Per-video saved loops, persisted to extension storage.
+  let videoId: string | null = currentVideoId();
+  let savedLoops: SavedLoop[] = [];
+  let selectedLoopId: string | null = null;
+  let loopsOpen = false;
+
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
   const effectiveSegment = (): LoopSegment | null =>
     zoomed && zoomLoop != null ? zoomLoop : state.loopSegment;
 
-  // Turn the loop on, seeding a default segment if none has been set yet.
+  // Turn the loop on. Positions are normally pre-seeded by loadForVideo; the
+  // fallback guards against an unknown-duration race before metadata loads.
   const enableLoop = () => {
     if (state.loopSegment == null) {
-      const duration = getVideoDuration(video);
       state = playbackReducer(state, {
         type: "setLoopSegment",
-        segment: { start: duration * 0.25, end: duration * 0.5 }
+        segment: defaultLoopSegment(getVideoDuration(video))
       });
     }
     state = playbackReducer(state, { type: "setLoopEnabled", enabled: true });
@@ -165,6 +200,131 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  // Dirty = a saved loop is selected and the live positions differ from it.
+  const isLoopsDirty = (): boolean => {
+    if (selectedLoopId == null) return false;
+    const loop = savedLoops.find((l) => l.id === selectedLoopId);
+    if (loop == null) return true;
+    return (
+      !segmentsEqual(loop.main, state.loopSegment) ||
+      !segmentsEqual(loop.zoom, zoomLoop)
+    );
+  };
+
+  // Seed or restore positions for the current video. Runs on mount and on
+  // navigation. Gated on a known duration so percentage seeding is meaningful.
+  const loadForVideo = async () => {
+    const id = videoId;
+    if (!hasKnownDuration(video)) return; // retried on loadedmetadata
+    const duration = getVideoDuration(video);
+
+    if (id == null) {
+      state = playbackReducer(state, {
+        type: "setLoopSegment",
+        segment: defaultLoopSegment(duration)
+      });
+      savedLoops = [];
+      selectedLoopId = null;
+      render();
+      return;
+    }
+
+    const entry = await loadEntry(id);
+    if (videoId !== id) return; // navigated away mid-await
+
+    if (entry != null && entry.loops.length > 0) {
+      const loop =
+        entry.loops.find((l) => l.id === entry.lastUsedId) ?? entry.loops[0];
+      savedLoops = entry.loops;
+      selectedLoopId = loop.id;
+      state = playbackReducer(state, {
+        type: "setLoopSegment",
+        segment: loop.main
+      });
+      zoomLoop =
+        loop.zoom != null && state.loopSegment != null
+          ? clampLoopToRegion(loop.zoom, state.loopSegment)
+          : null;
+    } else {
+      savedLoops = [];
+      selectedLoopId = null;
+      state = playbackReducer(state, {
+        type: "setLoopSegment",
+        segment: defaultLoopSegment(duration)
+      });
+      zoomLoop = null;
+    }
+    render();
+  };
+
+  const saveAsNew = async (name: string) => {
+    if (videoId == null || state.loopSegment == null) return;
+    const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
+    savedLoops = [...savedLoops, loop];
+    selectedLoopId = loop.id;
+    loopsOpen = false;
+    render();
+  };
+
+  const updateSelected = async () => {
+    if (videoId == null || selectedLoopId == null || state.loopSegment == null)
+      return;
+    await updateLoop(videoId, selectedLoopId, state.loopSegment, zoomLoop);
+    savedLoops = savedLoops.map((l) =>
+      l.id === selectedLoopId
+        ? { ...l, main: state.loopSegment!, zoom: zoomLoop }
+        : l
+    );
+    render();
+  };
+
+  const replaceLoop = async (id: string) => {
+    if (videoId == null || state.loopSegment == null) return;
+    await updateLoop(videoId, id, state.loopSegment, zoomLoop);
+    savedLoops = savedLoops.map((l) =>
+      l.id === id ? { ...l, main: state.loopSegment!, zoom: zoomLoop } : l
+    );
+    selectedLoopId = id;
+    render();
+  };
+
+  const applyLoop = async (id: string) => {
+    const loop = savedLoops.find((l) => l.id === id);
+    if (loop == null) return;
+    selectedLoopId = id;
+    state = playbackReducer(state, {
+      type: "setLoopSegment",
+      segment: loop.main
+    });
+    zoomLoop =
+      loop.zoom != null && state.loopSegment != null
+        ? clampLoopToRegion(loop.zoom, state.loopSegment)
+        : null;
+    if (videoId != null) await setLastUsed(videoId, id);
+    loopsOpen = false;
+    render();
+  };
+
+  const renameSavedLoop = async (id: string, name: string) => {
+    if (videoId == null) return;
+    await renameLoop(videoId, id, name);
+    savedLoops = savedLoops.map((l) => (l.id === id ? { ...l, name } : l));
+    render();
+  };
+
+  const deleteSavedLoop = async (id: string) => {
+    if (videoId == null) return;
+    await removeLoop(videoId, id);
+    savedLoops = savedLoops.filter((l) => l.id !== id);
+    if (selectedLoopId === id) selectedLoopId = null;
+    render();
+  };
+
+  const toggleLoopsPopover = () => {
+    loopsOpen = !loopsOpen;
+    render();
+  };
+
   const render = () => {
     const duration = getVideoDuration(video);
     const zoomVisible =
@@ -206,6 +366,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             helpOpen = true;
             render();
           }}
+          canSaveLoops={state.loopEnabled && videoId != null}
+          loopsOpen={loopsOpen}
+          loopsDirty={isLoopsDirty()}
+          savedLoops={savedLoops}
+          selectedLoopId={selectedLoopId}
+          onToggleLoopsPopover={toggleLoopsPopover}
+          onSaveAsNew={saveAsNew}
+          onUpdateSelected={updateSelected}
+          onApplyLoop={applyLoop}
+          onReplaceLoop={replaceLoop}
+          onRenameLoop={renameSavedLoop}
+          onDeleteLoop={deleteSavedLoop}
         />
         <HelpModal
           open={helpOpen}
@@ -269,11 +441,30 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   });
 
+  // Seed/restore saved loops once metadata is ready, and re-run on SPA
+  // navigation between videos (YouTube reuses the player + <video> element).
+  const onLoadedMetadata = () => {
+    void loadForVideo();
+  };
+  const onNavigate = () => {
+    const next = currentVideoId();
+    if (next === videoId) return;
+    videoId = next;
+    selectedLoopId = null;
+    savedLoops = [];
+    loopsOpen = false;
+    void loadForVideo();
+  };
+
   video.addEventListener("timeupdate", onTimeUpdate);
   video.addEventListener("ratechange", onRateChange);
+  video.addEventListener("loadedmetadata", onLoadedMetadata);
+  video.addEventListener("durationchange", onLoadedMetadata);
+  document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);
   render();
+  void loadForVideo();
 
   return {
     root,
@@ -281,6 +472,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       clearZoomCloseTimer();
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("ratechange", onRateChange);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("durationchange", onLoadedMetadata);
+      document.removeEventListener("yt-navigate-finish", onNavigate);
       document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
       document.removeEventListener("keyup", keyHandlers.onKeyUp, true);
     }
@@ -1064,6 +1258,188 @@ function ensureDocumentStyles() {
       font-size: 11px;
       margin: 20px 0 0;
       padding-top: 12px;
+    }
+
+    .you-loop-help-memory {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .you-loop-loops {
+      position: relative;
+    }
+
+    .you-loop-loops-toggle {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: rgba(255, 255, 255, 0.78);
+      cursor: pointer;
+      display: inline-flex;
+      height: 24px;
+      justify-content: center;
+      padding: 0;
+      width: 24px;
+    }
+
+    .you-loop-loops-toggle svg {
+      height: 16px;
+      width: 16px;
+    }
+
+    .you-loop-loops-toggle:not(:disabled):hover {
+      color: #ffffff;
+    }
+
+    .you-loop-loops-toggle:disabled {
+      cursor: default;
+      opacity: 0.4;
+    }
+
+    /* Unsaved-changes dot on the toggle. */
+    .you-loop-loops-toggle[data-dirty="true"]::after {
+      background: #5eead4;
+      border-radius: 50%;
+      content: "";
+      height: 5px;
+      position: absolute;
+      right: 1px;
+      top: 1px;
+      width: 5px;
+    }
+
+    .you-loop-loops-popover {
+      background: rgba(18, 18, 18, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      bottom: calc(100% + 10px);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+      pointer-events: auto;
+      position: absolute;
+      right: 0;
+      width: 240px;
+      z-index: 2;
+    }
+
+    .you-loop-loops-new {
+      display: flex;
+      gap: 6px;
+    }
+
+    .you-loop-loops-input {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      color: #fff;
+      flex: 1;
+      font-size: 12px;
+      min-width: 0;
+      padding: 5px 7px;
+    }
+
+    .you-loop-loops-save,
+    .you-loop-loops-update {
+      background: rgba(94, 234, 212, 0.16);
+      border: 0;
+      border-radius: 6px;
+      color: #5eead4;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 8px;
+      white-space: nowrap;
+    }
+
+    .you-loop-loops-save:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .you-loop-loops-update {
+      text-align: left;
+    }
+
+    .you-loop-loops-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      list-style: none;
+      margin: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .you-loop-loops-empty {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+      padding: 4px 2px;
+    }
+
+    .you-loop-loops-row {
+      align-items: center;
+      border-radius: 6px;
+      display: flex;
+      gap: 6px;
+      padding: 2px 4px;
+    }
+
+    .you-loop-loops-row[data-selected="true"] {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .you-loop-loops-name {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      flex: 1;
+      font-size: 12.5px;
+      gap: 6px;
+      min-width: 0;
+      overflow: hidden;
+      padding: 3px 2px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .you-loop-loops-dirty {
+      background: #5eead4;
+      border-radius: 50%;
+      flex: none;
+      height: 5px;
+      width: 5px;
+    }
+
+    .you-loop-loops-actions {
+      display: inline-flex;
+      gap: 2px;
+    }
+
+    .you-loop-loops-actions button {
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 4px 5px;
+    }
+
+    .you-loop-loops-actions button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
     }
   `;
 

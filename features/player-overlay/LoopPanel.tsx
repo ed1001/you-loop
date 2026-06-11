@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import type { PlayMode } from "../playback/types";
 import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
+import { SavedLoopsPopover } from "./SavedLoopsPopover";
+import type { SavedLoop } from "../persistence/loopStore";
 
 type Props = {
   enabled: boolean;
@@ -15,6 +17,18 @@ type Props = {
   onSpeedUp: () => void;
   onResetSpeed: () => void;
   onShowHelp: () => void;
+  canSaveLoops: boolean;
+  loopsOpen: boolean;
+  loopsDirty: boolean;
+  savedLoops: SavedLoop[];
+  selectedLoopId: string | null;
+  onToggleLoopsPopover: () => void;
+  onSaveAsNew: (name: string) => void;
+  onUpdateSelected: () => void;
+  onApplyLoop: (id: string) => void;
+  onReplaceLoop: (id: string) => void;
+  onRenameLoop: (id: string, name: string) => void;
+  onDeleteLoop: (id: string) => void;
 };
 
 // YouTube binds mouse/pointer handlers on the progress bar; these controls are
@@ -43,7 +57,19 @@ export function LoopPanel({
   onSpeedDown,
   onSpeedUp,
   onResetSpeed,
-  onShowHelp
+  onShowHelp,
+  canSaveLoops,
+  loopsOpen,
+  loopsDirty,
+  savedLoops,
+  selectedLoopId,
+  onToggleLoopsPopover,
+  onSaveAsNew,
+  onUpdateSelected,
+  onApplyLoop,
+  onReplaceLoop,
+  onRenameLoop,
+  onDeleteLoop
 }: Props) {
   const atMin = playbackRate <= MIN_PLAYBACK_RATE;
   const atMax = playbackRate >= MAX_PLAYBACK_RATE;
@@ -247,6 +273,47 @@ export function LoopPanel({
           />
         </svg>
       </button>
+
+      <div className="you-loop-loops">
+        <button
+          type="button"
+          className="you-loop-loops-toggle"
+          aria-haspopup="dialog"
+          aria-expanded={loopsOpen}
+          aria-label="Saved loops"
+          data-dirty={loopsDirty}
+          disabled={!canSaveLoops}
+          onPointerDown={swallow}
+          onMouseDown={swallow}
+          onClick={(event) => {
+            swallow(event);
+            onToggleLoopsPopover();
+          }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M7 4h10v16l-5-3.5L7 20z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        {loopsOpen && canSaveLoops && (
+          <SavedLoopsPopover
+            loops={savedLoops}
+            selectedId={selectedLoopId}
+            dirty={loopsDirty}
+            onSaveAsNew={onSaveAsNew}
+            onUpdateSelected={onUpdateSelected}
+            onApply={onApplyLoop}
+            onReplace={onReplaceLoop}
+            onRename={onRenameLoop}
+            onDelete={onDeleteLoop}
+          />
+        )}
+      </div>
 
       <button
         type="button"

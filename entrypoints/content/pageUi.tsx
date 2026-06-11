@@ -290,7 +290,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
     if (videoId != null) await setLastUsed(videoId, id);
-    loopsOpen = false;
+    // Modal stays open on apply; the row flashes to confirm.
     render();
   };
 

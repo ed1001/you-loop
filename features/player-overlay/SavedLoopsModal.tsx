@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
 import type { SavedLoop } from "../persistence/loopStore";
+
+// A row flashes teal for this long; on apply, the modal then plays its exit.
+const FLASH_MS = 340;
+// Must match the you-loop-help-sink duration so the card finishes its exit
+// before it unmounts.
+const EXIT_MS = 200;
 
 type Props = {
   open: boolean;
@@ -63,6 +69,24 @@ export function SavedLoopsModal({
   const [replaceId, setReplaceId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
+  // Stay mounted briefly after `open` flips false so the card can play its exit
+  // animation before unmounting (mirrors HelpModal).
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+  // The loop id currently playing a teal confirmation flash.
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimer = useRef(0);
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false);
+      setMounted(true);
+      return;
+    }
+    setClosing(true);
+    const timer = window.setTimeout(() => setMounted(false), EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [open]);
 
   // Seed the save form each time the modal opens.
   useEffect(() => {
@@ -75,6 +99,15 @@ export function SavedLoopsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
+
+  // Briefly tint a loop teal to confirm it was applied or overwritten.
+  const flash = (id: string) => {
+    setFlashId(id);
+    window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlashId(null), FLASH_MS);
+  };
+
   // Block YouTube's capture-phase shortcut handlers while interacting with the
   // modal: stop propagation from window (above document) without preventDefault
   // so typing, selects, and button activation still work. Esc closes; Enter in
@@ -83,7 +116,10 @@ export function SavedLoopsModal({
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
-      if (!(target instanceof HTMLElement) || target.closest(".you-loop-lm") == null) {
+      if (
+        !(target instanceof HTMLElement) ||
+        target.closest(".you-loop-lm") == null
+      ) {
         return;
       }
       event.stopPropagation();
@@ -103,7 +139,7 @@ export function SavedLoopsModal({
     };
   }, [open, onClose]);
 
-  if (!open || container == null) return null;
+  if (!mounted || container == null) return null;
 
   const canSave = mode === "new" ? newName.trim() !== "" : replaceId != null;
 
@@ -114,8 +150,17 @@ export function SavedLoopsModal({
       onSaveAsNew(name);
       setNewName("");
     } else if (replaceId != null) {
+      // Overwrite the chosen loop, flash it, and keep the modal open.
       onReplace(replaceId);
+      flash(replaceId);
     }
+  };
+
+  // Apply the loop and flash it; the modal stays open so you can keep
+  // switching, comparing, or managing.
+  const handleApply = (id: string) => {
+    onApply(id);
+    flash(id);
   };
 
   const commitRename = (id: string) => {
@@ -127,6 +172,7 @@ export function SavedLoopsModal({
   return createPortal(
     <div
       className="you-loop-lm you-loop-lm-backdrop"
+      data-closing={closing}
       onPointerDown={swallow}
       onMouseDown={swallow}
       onClick={(event) => {
@@ -136,6 +182,7 @@ export function SavedLoopsModal({
     >
       <div
         className="you-loop-lm-card"
+        data-closing={closing}
         role="dialog"
         aria-modal="true"
         aria-label="Saved loops"
@@ -183,6 +230,7 @@ export function SavedLoopsModal({
                 key={loop.id}
                 className="you-loop-lm-row"
                 data-selected={loop.id === selectedId}
+                data-flash={loop.id === flashId}
               >
                 {renamingId === loop.id ? (
                   <input
@@ -212,7 +260,7 @@ export function SavedLoopsModal({
                     className="you-loop-lm-apply"
                     onClick={(e) => {
                       swallow(e);
-                      onApply(loop.id);
+                      handleApply(loop.id);
                     }}
                   >
                     <span className="you-loop-lm-name-text">
@@ -277,11 +325,13 @@ export function SavedLoopsModal({
               type="text"
               placeholder="name this loop"
               value={newName}
-              disabled={mode !== "new"}
               onFocus={() => setMode("new")}
               onPointerDown={stopOnly}
               onMouseDown={stopOnly}
-              onChange={(e) => setNewName(e.target.value)}
+              onChange={(e) => {
+                setMode("new");
+                setNewName(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -307,11 +357,14 @@ export function SavedLoopsModal({
             <select
               className="you-loop-lm-select"
               value={replaceId ?? ""}
-              disabled={mode !== "replace" || loops.length === 0}
+              disabled={loops.length === 0}
               onPointerDown={stopOnly}
               onMouseDown={stopOnly}
               onFocus={() => setMode("replace")}
-              onChange={(e) => setReplaceId(e.target.value)}
+              onChange={(e) => {
+                setMode("replace");
+                setReplaceId(e.target.value);
+              }}
             >
               {loops.map((loop) => (
                 <option key={loop.id} value={loop.id}>

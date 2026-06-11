@@ -1121,4 +1121,24 @@ export const PAGE_UI_STYLES = `
       background: rgba(255, 255, 255, 0.12);
       color: #fff;
     }
+
+    /* Reuse the help modal's exit keyframes for the close animation. */
+    .you-loop-lm-backdrop[data-closing="true"] {
+      animation: you-loop-help-fade-out 0.18s ease both;
+    }
+
+    .you-loop-lm-card[data-closing="true"] {
+      animation: you-loop-help-sink 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+    }
+
+    /* Teal confirmation pulse when a loop is applied or overwritten. */
+    .you-loop-lm-row[data-flash="true"] {
+      animation: you-loop-lm-flash 0.34s ease;
+    }
+
+    @keyframes you-loop-lm-flash {
+      0% { background: rgba(94, 234, 212, 0); }
+      35% { background: rgba(94, 234, 212, 0.22); }
+      100% { background: rgba(94, 234, 212, 0); }
+    }
 `;

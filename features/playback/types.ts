@@ -7,6 +7,7 @@ export type LoopSegment = {
 
 export type PlaybackState = {
   enabled: boolean;
+  loopEnabled: boolean;
   loopSegment: LoopSegment | null;
   playMode: PlayMode;
   playbackRate: number;
@@ -15,6 +16,7 @@ export type PlaybackState = {
 
 export type PlaybackCommand =
   | { type: "setLoopSegment"; segment: LoopSegment }
+  | { type: "setLoopEnabled"; enabled: boolean }
   | { type: "clearLoop" }
   | { type: "setPlaybackRate"; rate: number }
   | { type: "resetPlaybackRate" }

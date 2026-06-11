@@ -24,7 +24,7 @@ async function sendPageUiToggle(visible: boolean) {
 }
 
 function App() {
-  const [pageUiVisible, setPageUiVisible] = useState(false);
+  const [pageUiVisible, setPageUiVisible] = useState(true);
   const [status, setStatus] = useState("");
 
   const togglePageUi = async () => {

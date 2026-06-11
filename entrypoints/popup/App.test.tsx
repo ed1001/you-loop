@@ -8,7 +8,7 @@ describe("popup App", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends shared enable command to the active tab", async () => {
+  it("hides the page UI on the active tab", async () => {
     const sendMessage = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("browser", {
       tabs: {
@@ -19,11 +19,12 @@ describe("popup App", () => {
 
     render(<App />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Show page UI" }));
+    // Page UI shows by default, so the first action is to hide it.
+    await userEvent.click(screen.getByRole("button", { name: "Hide page UI" }));
 
     expect(sendMessage).toHaveBeenCalledWith(42, {
       type: "setEnabled",
-      enabled: true
+      enabled: false
     });
   });
 });

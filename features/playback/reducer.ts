@@ -8,6 +8,7 @@ export const PLAYBACK_RATE_STEP = 0.25;
 export function createInitialPlaybackState(): PlaybackState {
   return {
     enabled: true,
+    loopEnabled: false,
     loopSegment: null,
     playMode: "loop",
     playbackRate: 1,
@@ -42,6 +43,8 @@ export function playbackReducer(
         loopSegment: normalizeLoopSegment(command.segment),
         oneShotCompleted: false
       };
+    case "setLoopEnabled":
+      return { ...state, loopEnabled: command.enabled, oneShotCompleted: false };
     case "clearLoop":
       return { ...state, loopSegment: null, oneShotCompleted: false };
     case "setPlaybackRate":

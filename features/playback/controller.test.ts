@@ -31,6 +31,7 @@ describe("playback controller", () => {
     const element = video({ currentTime: 8.01 });
     const result = enforceSegmentEnd(element, {
       ...createInitialPlaybackState(),
+      loopEnabled: true,
       loopSegment: { start: 5, end: 8 },
       playMode: "loop"
     });
@@ -39,10 +40,35 @@ describe("playback controller", () => {
     expect(result.oneShotCompleted).toBe(false);
   });
 
+  it("snaps the playhead into the segment from before the start", () => {
+    const element = video({ currentTime: 2 });
+    enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "loop"
+    });
+
+    expect(element.currentTime).toBe(5);
+  });
+
+  it("leaves the playhead alone when loop is disabled", () => {
+    const element = video({ currentTime: 8.01 });
+    enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: false,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "loop"
+    });
+
+    expect(element.currentTime).toBe(8.01);
+  });
+
   it("pauses one-shot at segment end", () => {
     const element = video({ currentTime: 8.01 });
     const result = enforceSegmentEnd(element, {
       ...createInitialPlaybackState(),
+      loopEnabled: true,
       loopSegment: { start: 5, end: 8 },
       playMode: "one-shot"
     });

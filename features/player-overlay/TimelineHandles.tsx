@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent, type MouseEvent } from "react";
+import { useRef, type PointerEvent, type MouseEvent } from "react";
 import type { LoopSegment } from "../playback/types";
 
 type Props = {
@@ -11,6 +11,10 @@ type Handle = "start" | "end";
 
 export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   const timelineRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
+  const endRef = useRef<HTMLButtonElement>(null);
+  const rangeRef = useRef<HTMLDivElement>(null);
+
   const safeDuration = Math.max(duration, 1);
 
   const committed = segment ?? {
@@ -18,13 +22,14 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
     end: safeDuration * 0.5
   };
 
-  // Live segment while dragging so handles track the pointer every frame.
-  const [draft, setDraft] = useState<LoopSegment | null>(null);
-  const draggingRef = useRef<Handle | null>(null);
+  const startPercent = (committed.start / safeDuration) * 100;
+  const endPercent = (committed.end / safeDuration) * 100;
 
-  const current = draft ?? committed;
-  const startPercent = (current.start / safeDuration) * 100;
-  const endPercent = (current.end / safeDuration) * 100;
+  // The segment being dragged. Updated via direct DOM (no React render) every
+  // pointermove so the handle tracks the cursor smoothly; committed to state
+  // only on drop.
+  const draggingRef = useRef<Handle | null>(null);
+  const liveRef = useRef<LoopSegment>(committed);
 
   const valueFromPointer = (clientX: number) => {
     const rect = timelineRef.current?.getBoundingClientRect();
@@ -43,6 +48,19 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
     return { start: from.start, end: Math.max(value, from.start) };
   };
 
+  // Move the handles/range directly so dragging does not trigger a re-render.
+  const paint = (seg: LoopSegment) => {
+    const start = (seg.start / safeDuration) * 100;
+    const end = (seg.end / safeDuration) * 100;
+
+    if (startRef.current) startRef.current.style.left = `${start}%`;
+    if (endRef.current) endRef.current.style.left = `${end}%`;
+    if (rangeRef.current) {
+      rangeRef.current.style.left = `${start}%`;
+      rangeRef.current.style.width = `${end - start}%`;
+    }
+  };
+
   // Block YouTube's scrubber: it binds mousedown/click on the progress bar.
   const blockMouse = (event: MouseEvent) => {
     event.preventDefault();
@@ -57,7 +75,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
       draggingRef.current = handle;
-      setDraft(committed);
+      liveRef.current = committed;
     },
     onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
       if (draggingRef.current !== handle) {
@@ -68,7 +86,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       event.stopPropagation();
 
       const value = valueFromPointer(event.clientX);
-      setDraft((prev) => clampSegment(handle, value, prev ?? committed));
+      liveRef.current = clampSegment(handle, value, liveRef.current);
+      paint(liveRef.current);
     },
     onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
       if (draggingRef.current !== handle) {
@@ -81,8 +100,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       draggingRef.current = null;
 
       const value = valueFromPointer(event.clientX);
-      const next = clampSegment(handle, value, draft ?? committed);
-      setDraft(null);
+      const next = clampSegment(handle, value, liveRef.current);
+      paint(next);
       onSegmentChange(next);
     }
   });
@@ -94,10 +113,12 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       data-testid="timeline-handles"
     >
       <div
+        ref={rangeRef}
         className="you-loop-loop-range"
         style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }}
       />
       <button
+        ref={startRef}
         aria-label="Loop start"
         className="you-loop-handle"
         type="button"
@@ -105,6 +126,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
         {...createDragHandlers("start")}
       />
       <button
+        ref={endRef}
         aria-label="Loop end"
         className="you-loop-handle"
         type="button"

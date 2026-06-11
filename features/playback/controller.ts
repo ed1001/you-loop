@@ -14,18 +14,23 @@ export function enforceSegmentEnd(
   video: HTMLVideoElement,
   state: PlaybackState
 ): Pick<PlaybackState, "oneShotCompleted"> {
-  if (!state.enabled || !state.loopSegment) {
+  if (!state.enabled || !state.loopEnabled || !state.loopSegment) {
     return { oneShotCompleted: state.oneShotCompleted };
   }
 
   const { start, end } = state.loopSegment;
-  if (video.currentTime < end) {
-    return { oneShotCompleted: state.oneShotCompleted };
-  }
 
   if (state.playMode === "loop") {
-    video.currentTime = start;
+    // Restrict the playhead to the segment: snap in from before the start
+    // and wrap back to the start at the end.
+    if (video.currentTime >= end || video.currentTime < start) {
+      video.currentTime = start;
+    }
     return { oneShotCompleted: false };
+  }
+
+  if (video.currentTime < end) {
+    return { oneShotCompleted: state.oneShotCompleted };
   }
 
   video.currentTime = end;

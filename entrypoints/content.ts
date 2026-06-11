@@ -48,36 +48,23 @@ async function waitForYouTubePlayer() {
 export default defineContentScript({
   matches: ["https://www.youtube.com/*"],
   cssInjectionMode: "ui",
-  async main(ctx) {
-    const player = await waitForYouTubePlayer();
-    const ui = await createShadowRootUi(ctx, {
-      name: "you-loop-page-ui",
-      position: "inline",
-      anchor: () => player,
-      onMount: (container, _shadow, shadowHost) => {
-        const anchor = shadowHost.parentElement;
-
-        if (anchor != null && getComputedStyle(anchor).position === "static") {
-          anchor.style.position = "relative";
-        }
-
-        shadowHost.style.position = "absolute";
-        shadowHost.style.inset = "0";
-        shadowHost.style.zIndex = "2147483647";
-        shadowHost.style.pointerEvents = "none";
-
-        return container;
-      },
-    });
-
-    ui.mount();
-
+  async main() {
+    // Register the receiver before any await so the popup can always reach the
+    // content script, even while the player is still loading. setPageUiVisible
+    // finds the video/timeline itself and ignores the host arg.
     browser.runtime.onMessage.addListener((message) => {
       if (!isPageUiMessage(message)) {
         return;
       }
 
-      setPageUiVisible(ui.uiContainer, message.enabled);
+      setPageUiVisible(document.body, message.enabled);
     });
+
+    // Wait for the player so the video/timeline exist before showing the UI.
+    await waitForYouTubePlayer();
+
+    // Show the page UI by default once the player is ready; the popup toggles
+    // it off.
+    setPageUiVisible(document.body, true);
   },
 });

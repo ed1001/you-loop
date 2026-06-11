@@ -38,3 +38,4 @@ This file gives coding agents project-specific context. Keep it short and update
 - Do not edit: `.output/`, `.wxt/` (generated).
 - Use `pnpm` (this repo uses pnpm; do not use npm/yarn).
 - Preferred style: match surrounding code; keep playback logic pure and DOM access in adapters.
+- Do not use TDD. Write implementation directly; add tests where they add value, not as a required first step.

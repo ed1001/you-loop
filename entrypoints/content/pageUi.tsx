@@ -4,14 +4,17 @@ import {
   createInitialPlaybackState,
   playbackReducer
 } from "../../features/playback/reducer";
+import { enforceSegmentEnd } from "../../features/playback/controller";
 import type { PlaybackState } from "../../features/playback/types";
 import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
+import { LoopSwitch } from "../../features/player-overlay/LoopSwitch";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
 
 type MountedPageUi = {
   root: Root;
+  stop: () => void;
   cleanup: () => void;
 };
 
@@ -27,21 +30,60 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
 
+  const toggleLoop = () => {
+    const nextEnabled = !state.loopEnabled;
+
+    // Seed a default segment so turning loop on has something to loop.
+    if (nextEnabled && state.loopSegment == null) {
+      const duration = getVideoDuration(video);
+      state = playbackReducer(state, {
+        type: "setLoopSegment",
+        segment: { start: duration * 0.25, end: duration * 0.5 }
+      });
+    }
+
+    state = playbackReducer(state, {
+      type: "setLoopEnabled",
+      enabled: nextEnabled
+    });
+    render();
+  };
+
   const render = () => {
     root.render(
-      <TimelineHandles
-        duration={getVideoDuration(video)}
-        segment={state.loopSegment}
-        onSegmentChange={(segment) => {
-          state = playbackReducer(state, { type: "setLoopSegment", segment });
-          render();
-        }}
-      />
+      <>
+        <TimelineHandles
+          duration={getVideoDuration(video)}
+          segment={state.loopSegment}
+          onSegmentChange={(segment) => {
+            state = playbackReducer(state, { type: "setLoopSegment", segment });
+            render();
+          }}
+        />
+        <LoopSwitch enabled={state.loopEnabled} onToggle={toggleLoop} />
+      </>
     );
   };
 
+  // Loop the video back to the segment start (or pause for one-shot) as
+  // playback crosses the segment end. No-op until a segment is set.
+  const onTimeUpdate = () => {
+    const result = enforceSegmentEnd(video, state);
+    if (result.oneShotCompleted !== state.oneShotCompleted) {
+      state = playbackReducer(state, {
+        type: "markOneShotCompleted",
+        completed: result.oneShotCompleted
+      });
+    }
+  };
+
+  video.addEventListener("timeupdate", onTimeUpdate);
   render();
-  return root;
+
+  return {
+    root,
+    stop: () => video.removeEventListener("timeupdate", onTimeUpdate)
+  };
 }
 
 function findYouTubeTimeline(video: HTMLVideoElement): HTMLElement | null {
@@ -104,6 +146,61 @@ function ensureDocumentStyles() {
       touch-action: none;
       transform: translate(-50%, -50%);
       width: 10px;
+    }
+
+    .you-loop-panel {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translate(-50%, 12px);
+      pointer-events: auto;
+    }
+
+    .you-loop-switch {
+      align-items: center;
+      background: rgba(15, 15, 15, 0.82);
+      border: 0;
+      border-radius: 999px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+      color: #f1f1f1;
+      cursor: pointer;
+      display: inline-flex;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      gap: 8px;
+      letter-spacing: 0.03em;
+      padding: 6px 14px 6px 8px;
+      text-transform: uppercase;
+    }
+
+    .you-loop-switch-track {
+      background: rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      flex: none;
+      height: 18px;
+      position: relative;
+      transition: background 0.18s ease;
+      width: 32px;
+    }
+
+    .you-loop-switch-thumb {
+      background: #ffffff;
+      border-radius: 50%;
+      height: 14px;
+      left: 2px;
+      position: absolute;
+      top: 2px;
+      transition: transform 0.18s ease;
+      width: 14px;
+    }
+
+    .you-loop-switch[data-on="true"] .you-loop-switch-track {
+      background: #14b8a6;
+    }
+
+    .you-loop-switch[data-on="true"] .you-loop-switch-thumb {
+      transform: translateX(14px);
     }
   `;
 
@@ -173,9 +270,11 @@ export function createPageUiElement(video: HTMLVideoElement) {
     }
   });
   const stopAutohide = watchAutohide(video, panel);
+  const { root, stop } = renderTimelineCursors(panel, video);
 
   mountedPageUis.set(panel, {
-    root: renderTimelineCursors(panel, video),
+    root,
+    stop,
     cleanup: () => {
       stopTimeline();
       stopAutohide();
@@ -205,6 +304,7 @@ export function setPageUiVisible(_host: Element, visible: boolean) {
 
   if (!visible && existing != null) {
     const mounted = mountedPageUis.get(existing);
+    mounted?.stop();
     mounted?.root.unmount();
     mounted?.cleanup();
     mountedPageUis.delete(existing);

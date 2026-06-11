@@ -9,6 +9,7 @@ describe("messaging protocol tab state", () => {
         type: "stateChanged",
         state: {
           enabled: true,
+          loopEnabled: true,
           loopSegment: { start: 1, end: 2 },
           playMode: "loop",
           playbackRate: 1,

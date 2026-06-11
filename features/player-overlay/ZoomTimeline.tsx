@@ -2,10 +2,17 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  type MouseEvent,
   type PointerEvent
 } from "react";
 import type { LoopSegment } from "../playback/types";
 import { MIN_SEGMENT_DURATION_SECONDS } from "../playback/reducer";
+
+// Hovering the zoom strip must not bubble into YouTube's scrubber (it would pop
+// the timeline preview). Stop move/hover events without preventDefault.
+const swallowMove = (event: MouseEvent | PointerEvent) => {
+  event.stopPropagation();
+};
 
 type Props = {
   video: HTMLVideoElement;
@@ -313,6 +320,10 @@ export function ZoomTimeline({
       data-closing={closing ? "true" : undefined}
       role="group"
       aria-label={`Loop zoom from ${formatTime(win.start)} to ${formatTime(win.end)}`}
+      onPointerMove={swallowMove}
+      onMouseMove={swallowMove}
+      onMouseOver={swallowMove}
+      onMouseOut={swallowMove}
     >
       <span className="you-loop-zoom-badge" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">

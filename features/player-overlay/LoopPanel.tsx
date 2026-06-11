@@ -40,6 +40,13 @@ const swallow = (event: MouseEvent | PointerEvent) => {
   event.stopPropagation();
 };
 
+// Hovering the panel must not bubble into YouTube's scrubber (it would pop the
+// timeline preview). Stop move/hover events without preventDefault so the
+// panel's own hover styles still work.
+const swallowMove = (event: MouseEvent | PointerEvent) => {
+  event.stopPropagation();
+};
+
 const MODES: { value: PlayMode; label: string }[] = [
   { value: "loop", label: "Loop" },
   { value: "one-shot", label: "One-shot" }
@@ -82,7 +89,14 @@ export function LoopPanel({
   const [pulse, setPulse] = useState(false);
 
   return (
-    <div className="you-loop-panel" data-on={enabled}>
+    <div
+      className="you-loop-panel"
+      data-on={enabled}
+      onPointerMove={swallowMove}
+      onMouseMove={swallowMove}
+      onMouseOver={swallowMove}
+      onMouseOut={swallowMove}
+    >
       <button
         type="button"
         role="switch"

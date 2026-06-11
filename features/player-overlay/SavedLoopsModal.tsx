@@ -170,86 +170,12 @@ export function SavedLoopsModal({
           </p>
         </header>
 
-        <section className="you-loop-lm-save">
-          <h3 className="you-loop-lm-label">Save current loop</h3>
-
-          <label className="you-loop-lm-radio" data-active={mode === "new"}>
-            <input
-              type="radio"
-              name="you-loop-save-mode"
-              checked={mode === "new"}
-              onChange={() => setMode("new")}
-            />
-            <span className="you-loop-lm-radio-text">As new</span>
-            <input
-              className="you-loop-loops-input you-loop-lm-name"
-              data-loops-field="new"
-              type="text"
-              placeholder="name this loop"
-              value={newName}
-              disabled={mode !== "new"}
-              onFocus={() => setMode("new")}
-              onPointerDown={stopOnly}
-              onMouseDown={stopOnly}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSave();
-                }
-              }}
-            />
-          </label>
-
-          <label
-            className="you-loop-lm-radio"
-            data-active={mode === "replace"}
-            data-disabled={loops.length === 0}
-          >
-            <input
-              type="radio"
-              name="you-loop-save-mode"
-              checked={mode === "replace"}
-              disabled={loops.length === 0}
-              onChange={() => setMode("replace")}
-            />
-            <span className="you-loop-lm-radio-text">Replace</span>
-            <select
-              className="you-loop-lm-select"
-              value={replaceId ?? ""}
-              disabled={mode !== "replace" || loops.length === 0}
-              onPointerDown={stopOnly}
-              onMouseDown={stopOnly}
-              onFocus={() => setMode("replace")}
-              onChange={(e) => setReplaceId(e.target.value)}
-            >
-              {loops.map((loop) => (
-                <option key={loop.id} value={loop.id}>
-                  {loop.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            type="button"
-            className="you-loop-lm-savebtn"
-            disabled={!canSave}
-            onClick={(event) => {
-              swallow(event);
-              handleSave();
-            }}
-          >
-            Save
-          </button>
-        </section>
-
         <section className="you-loop-lm-list-wrap">
           <h3 className="you-loop-lm-label">Your loops</h3>
           <ul className="you-loop-lm-list">
             {loops.length === 0 && (
               <li className="you-loop-lm-empty">
-                No saved loops yet. Save the current selection above.
+                No saved loops yet. Save the current selection below.
               </li>
             )}
             {loops.map((loop) => (
@@ -332,6 +258,80 @@ export function SavedLoopsModal({
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="you-loop-lm-save">
+          <h3 className="you-loop-lm-label">Save current loop</h3>
+
+          <label className="you-loop-lm-radio" data-active={mode === "new"}>
+            <input
+              type="radio"
+              name="you-loop-save-mode"
+              checked={mode === "new"}
+              onChange={() => setMode("new")}
+            />
+            <span className="you-loop-lm-radio-text">As new</span>
+            <input
+              className="you-loop-loops-input you-loop-lm-name"
+              data-loops-field="new"
+              type="text"
+              placeholder="name this loop"
+              value={newName}
+              disabled={mode !== "new"}
+              onFocus={() => setMode("new")}
+              onPointerDown={stopOnly}
+              onMouseDown={stopOnly}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSave();
+                }
+              }}
+            />
+          </label>
+
+          <label
+            className="you-loop-lm-radio"
+            data-active={mode === "replace"}
+            data-disabled={loops.length === 0}
+          >
+            <input
+              type="radio"
+              name="you-loop-save-mode"
+              checked={mode === "replace"}
+              disabled={loops.length === 0}
+              onChange={() => setMode("replace")}
+            />
+            <span className="you-loop-lm-radio-text">Replace</span>
+            <select
+              className="you-loop-lm-select"
+              value={replaceId ?? ""}
+              disabled={mode !== "replace" || loops.length === 0}
+              onPointerDown={stopOnly}
+              onMouseDown={stopOnly}
+              onFocus={() => setMode("replace")}
+              onChange={(e) => setReplaceId(e.target.value)}
+            >
+              {loops.map((loop) => (
+                <option key={loop.id} value={loop.id}>
+                  {loop.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className="you-loop-lm-savebtn"
+            disabled={!canSave}
+            onClick={(event) => {
+              swallow(event);
+              handleSave();
+            }}
+          >
+            Save
+          </button>
         </section>
       </div>
     </div>,

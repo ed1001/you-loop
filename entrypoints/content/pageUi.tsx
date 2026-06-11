@@ -14,6 +14,7 @@ import { TimelineHandles } from "../../features/player-overlay/TimelineHandles";
 import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
 import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
+import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
@@ -238,8 +239,26 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // speed), then track native changes.
   onRateChange();
 
+  // Keyboard shortcuts act on the active region (zoom sub-loop when zoomed,
+  // else the main loop) and only while the loop is on. Capture phase so we beat
+  // YouTube's own handlers; gating inside the module decides what to intercept.
+  const keyHandlers = createLoopKeyHandlers({
+    video,
+    getSegment: effectiveSegment,
+    isActive: () => state.loopEnabled,
+    resetOneShot: () => {
+      state = playbackReducer(state, {
+        type: "markOneShotCompleted",
+        completed: false
+      });
+      render();
+    }
+  });
+
   video.addEventListener("timeupdate", onTimeUpdate);
   video.addEventListener("ratechange", onRateChange);
+  document.addEventListener("keydown", keyHandlers.onKeyDown, true);
+  document.addEventListener("keyup", keyHandlers.onKeyUp, true);
   render();
 
   return {
@@ -248,6 +267,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       clearZoomCloseTimer();
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("ratechange", onRateChange);
+      document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
+      document.removeEventListener("keyup", keyHandlers.onKeyUp, true);
     }
   };
 }

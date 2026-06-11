@@ -20,7 +20,6 @@ type Props = {
   canSaveLoops: boolean;
   loopsContainer: HTMLElement | null;
   loopsOpen: boolean;
-  loopsDirty: boolean;
   savedLoops: SavedLoop[];
   selectedLoopId: string | null;
   currentSegment: LoopSegment | null;
@@ -63,7 +62,6 @@ export function LoopPanel({
   canSaveLoops,
   loopsContainer,
   loopsOpen,
-  loopsDirty,
   savedLoops,
   selectedLoopId,
   currentSegment,
@@ -284,7 +282,6 @@ export function LoopPanel({
         aria-haspopup="dialog"
         aria-expanded={loopsOpen}
         aria-label="Saved loops"
-        data-dirty={loopsDirty}
         disabled={!canSaveLoops}
         onPointerDown={swallow}
         onMouseDown={swallow}

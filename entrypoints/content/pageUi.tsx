@@ -57,15 +57,6 @@ function currentVideoId(): string | null {
   return new URLSearchParams(window.location.search).get("v");
 }
 
-// Loop positions match within rounding tolerance (segments round to 3 dp).
-function segmentsEqual(
-  a: LoopSegment | null,
-  b: LoopSegment | null
-): boolean {
-  if (a == null || b == null) return a === b;
-  return Math.abs(a.start - b.start) < 1e-3 && Math.abs(a.end - b.end) < 1e-3;
-}
-
 function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const root = createRoot(container);
   let state: PlaybackState = createInitialPlaybackState();
@@ -199,17 +190,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     state = playbackReducer(state, { type: "resetPlaybackRate" });
     applyPlaybackState(video, state);
     render();
-  };
-
-  // Dirty = a saved loop is selected and the live positions differ from it.
-  const isLoopsDirty = (): boolean => {
-    if (selectedLoopId == null) return false;
-    const loop = savedLoops.find((l) => l.id === selectedLoopId);
-    if (loop == null) return true;
-    return (
-      !segmentsEqual(loop.main, state.loopSegment) ||
-      !segmentsEqual(loop.zoom, zoomLoop)
-    );
   };
 
   // Seed or restore positions for the current video. Runs on mount and on
@@ -366,7 +346,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             video.closest(".html5-video-player") as HTMLElement | null
           }
           loopsOpen={loopsOpen}
-          loopsDirty={isLoopsDirty()}
           savedLoops={savedLoops}
           selectedLoopId={selectedLoopId}
           currentSegment={state.loopSegment}

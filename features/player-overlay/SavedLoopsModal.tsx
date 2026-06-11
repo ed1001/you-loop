@@ -7,6 +7,8 @@ import type { SavedLoop } from "../persistence/loopStore";
 // Must match the you-loop-help-sink duration so the card finishes its exit
 // before it unmounts.
 const EXIT_MS = 200;
+// Loop names are short labels; keep them from overrunning the row.
+const NAME_MAX_LENGTH = 40;
 
 type Props = {
   open: boolean;
@@ -215,6 +217,7 @@ export function SavedLoopsModal({
                     data-loops-field="rename"
                     type="text"
                     autoFocus
+                    maxLength={NAME_MAX_LENGTH}
                     value={renameText}
                     onPointerDown={stopOnly}
                     onMouseDown={stopOnly}
@@ -300,6 +303,7 @@ export function SavedLoopsModal({
               data-loops-field="new"
               type="text"
               placeholder="name this loop"
+              maxLength={NAME_MAX_LENGTH}
               value={newName}
               onFocus={() => setMode("new")}
               onPointerDown={stopOnly}

@@ -809,18 +809,6 @@ export const PAGE_UI_STYLES = `
       opacity: 0.4;
     }
 
-    /* Unsaved-changes dot on the toggle. */
-    .you-loop-loops-toggle[data-dirty="true"]::after {
-      background: #5eead4;
-      border-radius: 50%;
-      content: "";
-      height: 5px;
-      position: absolute;
-      right: 1px;
-      top: 1px;
-      width: 5px;
-    }
-
     /* Shared base for the modal's text inputs. */
     .you-loop-loops-input {
       background: rgba(255, 255, 255, 0.08);

@@ -366,7 +366,7 @@ function ensureDocumentStyles() {
       transition: background 0.18s ease, color 0.18s ease;
     }
 
-    .you-loop-mode-option:not(:disabled):hover {
+    .you-loop-mode-option:not(:disabled):not([data-active="true"]):hover {
       color: rgba(255, 255, 255, 0.92);
     }
 
@@ -522,42 +522,21 @@ function ensureDocumentStyles() {
       position: absolute;
     }
 
+    /* A filled teal knob, like YouTube's scrubber dot. */
     .you-loop-zoom-playhead {
-      background: #f8fafc;
-      border-radius: 3px;
-      box-shadow: 0 0 7px rgba(94, 234, 212, 0.95),
-        0 0 0 1px rgba(8, 12, 14, 0.55);
-      height: 100%;
+      background: #2dd4bf;
+      border-radius: 50%;
+      height: 20px;
       left: 0;
       pointer-events: none;
       position: absolute;
-      top: 0;
-      transform: translateX(-50%);
-      transition: opacity 0.15s ease, box-shadow 0.15s ease;
-      width: 5px;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.15s ease;
+      width: 20px;
       will-change: left;
-      /* Sit above the loop cursors so it stays visible behind them. */
+      /* Sit above the loop cursors so it stays visible in front of them. */
       z-index: 3;
-    }
-
-    /* Grab knob sitting above the playhead bar. */
-    .you-loop-zoom-playhead::after {
-      background: #f8fafc;
-      border-radius: 50%;
-      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.5),
-        0 1px 4px rgba(0, 0, 0, 0.5);
-      content: "";
-      height: 11px;
-      left: 50%;
-      position: absolute;
-      top: -7px;
-      transform: translateX(-50%);
-      width: 11px;
-    }
-
-    .you-loop-zoom-track:hover .you-loop-zoom-playhead,
-    .you-loop-zoom-track:active .you-loop-zoom-playhead {
-      box-shadow: 0 0 10px rgba(94, 234, 212, 1);
     }
 
     /* Highlighted loop region between the two zoom cursors. */

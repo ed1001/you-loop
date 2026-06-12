@@ -27,6 +27,7 @@ import {
   type SavedVideo,
   type VideoEntry
 } from "../../features/persistence/loopStore";
+import { takeLaunch } from "../../features/persistence/settingsStore";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
@@ -259,10 +260,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const entry = await loadEntry(id, undefined, undefined, getVideoTitle() ?? undefined);
     if (videoId !== id) return; // navigated away mid-await
 
+    // Arrived via the popup's saved-videos list: the user picked this video to
+    // practice, so the loop panel starts enabled instead of the default off.
+    const launched = await takeLaunch(id);
+    if (videoId !== id) return;
+
     if (entry != null && entry.loops.length > 0) {
       applySavedEntry(entry);
     } else {
       seedDefaultLoop(duration);
+    }
+    if (launched) {
+      enableLoop();
     }
     render();
   };

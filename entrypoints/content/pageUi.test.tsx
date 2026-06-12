@@ -1,7 +1,9 @@
 import { act } from "react";
 import { fireEvent, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible } from "./pageUi";
+import { SAVED_STORE_KEY } from "../../features/persistence/loopStore";
+import { LAUNCH_KEY } from "../../features/persistence/settingsStore";
 
 function enableLoop() {
   fireEvent.click(screen.getByLabelText("Enable loop range"));
@@ -24,6 +26,25 @@ function mountYouTubePlayer() {
   document.body.append(player);
 
   return { player, progressBar, video };
+}
+
+// In-memory browser.storage.local good enough for loadEntry/takeLaunch.
+function stubBrowserStorage(initial: Record<string, unknown>) {
+  let data: Record<string, unknown> = { ...initial };
+  vi.stubGlobal("browser", {
+    storage: {
+      local: {
+        async get(key: string) {
+          return key in data ? { [key]: data[key] } : {};
+        },
+        async set(items: Record<string, unknown>) {
+          data = { ...data, ...items };
+        }
+      }
+    },
+    runtime: { getURL: (p: string) => p }
+  });
+  return { dump: () => data };
 }
 
 describe("page UI", () => {
@@ -128,5 +149,33 @@ describe("page UI", () => {
 
     expect(progressBar.style.zIndex).toBe("");
     expect(progressBar.style.position).toBe("");
+  });
+
+  it("auto-enables the loop when launched from the popup", async () => {
+    window.history.replaceState(null, "", "/watch?v=vid1");
+    const storage = stubBrowserStorage({
+      [SAVED_STORE_KEY]: {
+        vid1: {
+          loops: [{ id: "l1", name: "A", main: { start: 5, end: 9 }, zoom: null }],
+          lastUsedId: "l1",
+          lastSeen: 10,
+          title: "Caprice 24"
+        }
+      },
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    const { player } = mountYouTubePlayer();
+
+    await act(async () => {
+      setPageUiVisible(player, true);
+    });
+
+    // Handles only render while the loop is enabled — the handoff flipped it on.
+    expect(await screen.findByLabelText("Loop start")).toBeInTheDocument();
+    // One-shot: consumed.
+    expect(storage.dump()[LAUNCH_KEY]).toBeNull();
+
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
   });
 });

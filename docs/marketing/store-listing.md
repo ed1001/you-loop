@@ -20,7 +20,7 @@ PRACTICE TOOLS, BUILT AROUND LOOP REGIONS
 • Slow playback from 0.25× to 3× in 0.25× steps; click the readout to snap back to 1×
 
 ZOOM IN FOR PRECISION
-Open the zoom panel to expand your loop region into a magnified timeline. Place the start and end exactly where they belong — down to the split second. No other looper has this.
+Open the zoom panel to expand your loop region into a magnified timeline. Place the start and end exactly where they belong — down to the split second.
 
 KEYBOARD-FIRST DRILLING
 • A — restart the loop region
@@ -54,3 +54,4 @@ Promo tiles: 440×280 small tile + 1400×560 marquee — wordmark `étude` on `#
 - [ ] `pnpm release` → zips for both stores
 - [ ] Privacy practices form: no data collected
 - [ ] Screenshots captured per shot list (extension loaded, real YouTube page)
+- [ ] Dashboard trust fields: website URL (étude site) + support URL (GitHub issues)

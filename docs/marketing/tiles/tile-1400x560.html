@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Instrument+Sans:wght@400;500;600&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #0b0c0d;
+        --ink: #f2f1ed;
+        --muted: rgba(242, 241, 237, 0.52);
+        --faint: rgba(242, 241, 237, 0.28);
+        --teal: #14b8a6;
+        --teal-light: #5eead4;
+        --line: rgba(242, 241, 237, 0.1);
+        --serif: "Fraunces", Georgia, serif;
+        --sans: "Instrument Sans", system-ui, sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 1400px;
+        height: 560px;
+        background: var(--bg);
+        overflow: hidden;
+        position: relative;
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      .glow {
+        position: absolute;
+        width: 1100px;
+        height: 700px;
+        left: 150px;
+        top: -260px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(20, 184, 166, 0.13),
+          transparent 65%
+        );
+      }
+      .frame {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+        padding-bottom: 64px;
+      }
+      .wordmark {
+        font-family: var(--serif);
+        font-style: italic;
+        font-weight: 500;
+        font-size: 148px;
+        line-height: 1;
+        letter-spacing: 0.01em;
+        color: #fff;
+      }
+      .eacute {
+        position: relative;
+        display: inline-block;
+      }
+      .eacute .acc {
+        position: absolute;
+        inset: 0;
+        color: var(--teal-light);
+        clip-path: inset(0 0 62% 0);
+      }
+      .tagline {
+        font-size: 27px;
+        font-weight: 400;
+        color: var(--muted);
+        letter-spacing: 0.005em;
+      }
+      /* timeline motif: progress bar with loop region + handles */
+      .timeline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 96px;
+        height: 4px;
+        background: rgba(242, 241, 237, 0.14);
+      }
+      .timeline .played {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 38%;
+        background: rgba(242, 241, 237, 0.32);
+      }
+      .timeline .region {
+        position: absolute;
+        left: 38%;
+        width: 24%;
+        top: -3px;
+        bottom: -3px;
+        background: rgba(20, 184, 166, 0.38);
+        border-top: 2px solid var(--teal);
+        border-bottom: 2px solid var(--teal);
+      }
+      .handle {
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 14px;
+        height: 30px;
+        border-radius: 7px;
+        background: var(--teal-light);
+        box-shadow: 0 0 18px rgba(94, 234, 212, 0.55);
+      }
+      .handle.start {
+        left: 38%;
+      }
+      .handle.end {
+        left: 62%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+    <div class="frame">
+      <div class="wordmark">
+        <span class="eacute">é<span class="acc">é</span></span>tude
+      </div>
+      <div class="tagline">Turn any YouTube video into a practice piece.</div>
+    </div>
+    <div class="timeline">
+      <div class="played"></div>
+      <div class="region"></div>
+      <div class="handle start"></div>
+      <div class="handle end"></div>
+    </div>
+  </body>
+</html>

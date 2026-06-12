@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Instrument+Sans:wght@400;500;600&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #0b0c0d;
+        --ink: #f2f1ed;
+        --muted: rgba(242, 241, 237, 0.52);
+        --teal: #14b8a6;
+        --teal-light: #5eead4;
+        --serif: "Fraunces", Georgia, serif;
+        --sans: "Instrument Sans", system-ui, sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 440px;
+        height: 280px;
+        background: var(--bg);
+        overflow: hidden;
+        position: relative;
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      .glow {
+        position: absolute;
+        width: 420px;
+        height: 280px;
+        left: 10px;
+        top: -110px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(20, 184, 166, 0.14),
+          transparent 65%
+        );
+      }
+      .frame {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding-bottom: 34px;
+      }
+      .wordmark {
+        font-family: var(--serif);
+        font-style: italic;
+        font-weight: 500;
+        font-size: 74px;
+        line-height: 1;
+        letter-spacing: 0.01em;
+        color: #fff;
+      }
+      .eacute {
+        position: relative;
+        display: inline-block;
+      }
+      .eacute .acc {
+        position: absolute;
+        inset: 0;
+        color: var(--teal-light);
+        clip-path: inset(0 0 62% 0);
+      }
+      .tagline {
+        font-size: 14.5px;
+        color: var(--muted);
+      }
+      .timeline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 44px;
+        height: 3px;
+        background: rgba(242, 241, 237, 0.14);
+      }
+      .timeline .played {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 34%;
+        background: rgba(242, 241, 237, 0.32);
+      }
+      .timeline .region {
+        position: absolute;
+        left: 34%;
+        width: 30%;
+        top: -2px;
+        bottom: -2px;
+        background: rgba(20, 184, 166, 0.38);
+        border-top: 1.5px solid var(--teal);
+        border-bottom: 1.5px solid var(--teal);
+      }
+      .handle {
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 9px;
+        height: 19px;
+        border-radius: 5px;
+        background: var(--teal-light);
+        box-shadow: 0 0 12px rgba(94, 234, 212, 0.55);
+      }
+      .handle.start {
+        left: 34%;
+      }
+      .handle.end {
+        left: 64%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+    <div class="frame">
+      <div class="wordmark">
+        <span class="eacute">é<span class="acc">é</span></span>tude
+      </div>
+      <div class="tagline">Practice tools for YouTube</div>
+    </div>
+    <div class="timeline">
+      <div class="played"></div>
+      <div class="region"></div>
+      <div class="handle start"></div>
+      <div class="handle end"></div>
+    </div>
+  </body>
+</html>

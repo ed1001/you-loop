@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
 import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
 import { useModalPresence } from "./useModalPresence";
+import { VideoList } from "../video-list/VideoList";
 
 // Must match the you-loop-help-sink duration so the card finishes its exit
 // before it unmounts.
@@ -404,58 +405,11 @@ export function SavedLoopsModal({
           data-leaving={pendingTab != null}
         >
         <section className="you-loop-lm-videos-wrap">
-          {savedVideos.length === 0 ? (
-            <p className="you-loop-lm-empty">
-              No saved videos yet. Videos with saved loops appear here.
-            </p>
-          ) : (
-            <ul className="you-loop-lm-vlist">
-              {savedVideos.map((video) => {
-                const isCurrent = video.videoId === currentVideoId;
-                const label = video.title ?? video.videoId;
-                return (
-                  <li key={video.videoId} className="you-loop-lm-vrow" data-current={isCurrent}>
-                    <button
-                      type="button"
-                      className="you-loop-lm-vopen"
-                      disabled={isCurrent}
-                      title={label}
-                      aria-label={isCurrent ? `${label} (now playing)` : `Open ${label}`}
-                      onClick={(e) => {
-                        swallow(e);
-                        onOpenVideo(video.videoId);
-                      }}
-                    >
-                      <span className="you-loop-lm-vname">{label}</span>
-                      <span className="you-loop-lm-vmeta">
-                        {isCurrent && <span className="you-loop-lm-vnow">Playing</span>}
-                        <span className="you-loop-lm-vcount">
-                          {video.count} {video.count === 1 ? "loop" : "loops"}
-                        </span>
-                        {!isCurrent && (
-                          <svg
-                            className="you-loop-lm-vgo"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            focusable="false"
-                          >
-                            <path
-                              d="M9 6l6 6-6 6"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <VideoList
+            videos={savedVideos}
+            currentVideoId={currentVideoId}
+            onOpenVideo={onOpenVideo}
+          />
         </section>
         </div>
         )}

@@ -59,7 +59,7 @@ Message order:
 
 ### 2. Store listings
 
-- **Chrome title:** "Étude — Loop, Slow Down & Practice YouTube" (covers search terms: loop, slow down, practice).
+- **Chrome title:** "Étude — Loop & Slow Down YouTube for Practice" (covers search terms: loop, slow down, practice).
 - **Firefox (AMO):** same name/copy; data-collection declaration already present in manifest.
 - **Long description structure:** practice-toolkit lead → zoom precision block → shortcuts list (a/s/d: restart, punch-in snap-back, push-to-hear) → saved loops → privacy line.
 - **Assets:** 5 screenshots at 1280×800 (shot 1: zoom panel open mid-drag; then loop+one-shot toggle, speed control, saved-loops modal, help modal), promo tiles 440×280 and 1400×560, refreshed icon set.

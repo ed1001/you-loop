@@ -27,7 +27,7 @@ Replace the `manifest` object's `name` and `description` (keep everything else, 
 
 ```ts
   manifest: {
-    name: "Étude — Loop, Slow Down & Practice YouTube",
+    name: "Étude — Loop & Slow Down YouTube for Practice",
     short_name: "Étude",
     description: "Practice tools for YouTube — loop a section, slow it down, zoom in for precision.",
     permissions: ["storage"],
@@ -67,7 +67,7 @@ Run: `pnpm typecheck && pnpm test`
 Expected: both pass (no source change affects types or tests).
 
 Run: `pnpm build 2>&1 | tail -5`
-Expected: build succeeds; `.output/chrome-mv3/manifest.json` contains `"name": "Étude — Loop, Slow Down & Practice YouTube"`.
+Expected: build succeeds; `.output/chrome-mv3/manifest.json` contains `"name": "Étude — Loop & Slow Down YouTube for Practice"`.
 
 - [ ] **Step 5: Commit**
 
@@ -205,7 +205,7 @@ git commit -m "feat: refresh icon strokes, regenerate raster set, add site favic
 
 ## Title (Chrome Web Store + AMO; = manifest name)
 
-Étude — Loop, Slow Down & Practice YouTube
+Étude — Loop & Slow Down YouTube for Practice
 
 ## Short description (≤132 chars; = manifest description)
 

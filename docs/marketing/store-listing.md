@@ -2,11 +2,11 @@
 
 ## Title (Chrome Web Store + AMO; = manifest name)
 
-Étude — Loop, Slow Down & Practice YouTube
+Étude — Loop & Slow Down YouTube for Practice
 
 ## Short description (≤132 chars; = manifest description)
 
-Practice tools for YouTube — loop a section, slow it down, zoom in for precision.
+Practice tools for YouTube — loop a section, slow it down, zoom in for precision. Made for musicians learning by ear.
 
 ## Long description (both stores)
 

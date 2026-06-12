@@ -130,12 +130,13 @@ export const PAGE_UI_STYLES = `
        animating width every frame and the rounding makes the text shimmer;
        anchored here it is computed once, perfectly still, and only fades. */
     .you-loop-wordmark {
-      color: #5eead4;
-      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      font-size: 16px;
-      font-weight: 700;
+      color: #ffffff;
+      font-family: "Étude Fraunces", Georgia, serif;
+      font-style: italic;
+      font-size: 17px;
+      font-weight: 500;
       left: 50%;
-      letter-spacing: -0.01em;
+      letter-spacing: 0.01em;
       opacity: 0;
       pointer-events: none;
       position: absolute;
@@ -749,10 +750,27 @@ export const PAGE_UI_STYLES = `
 
     /* The wordmark is the header hero. */
     .you-loop-help-eyebrow {
+      color: #ffffff;
+      font-family: "Étude Fraunces", Georgia, serif;
+      font-style: italic;
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    /* Teal acute accent on the wordmark's é: a second é stacked on the white
+       one, clipped to just the accent — same trick as the website header. */
+    .you-loop-eacute {
+      display: inline-block;
+      position: relative;
+    }
+
+    .you-loop-eacute-acc {
+      clip-path: inset(0 0 62% 0);
       color: #5eead4;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
+      inset: 0;
+      pointer-events: none;
+      position: absolute;
     }
 
     /* Tagline sits beneath the wordmark as a lighter supporting line. */

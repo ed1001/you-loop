@@ -511,7 +511,21 @@ function ensureDocumentStyles() {
 
   const style = document.createElement("style");
   style.dataset.youLoopPageUiStyle = "true";
-  style.textContent = PAGE_UI_STYLES;
+  // The @font-face must live in the document (not a shadow root) for the
+  // wordmark font to load; the URL is only known at runtime. In tests there
+  // is no extension runtime — the bare path keeps jsdom happy.
+  const wordmarkFontUrl =
+    typeof browser === "undefined"
+      ? "/fonts/fraunces-italic.woff2"
+      : browser.runtime.getURL("/fonts/fraunces-italic.woff2");
+  style.textContent = `
+    @font-face {
+      font-family: "Étude Fraunces";
+      font-style: italic;
+      font-weight: 500;
+      src: url("${wordmarkFontUrl}") format("woff2");
+    }
+  ${PAGE_UI_STYLES}`;
 
   document.head.append(style);
 }

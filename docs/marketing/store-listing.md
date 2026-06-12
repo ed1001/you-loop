@@ -24,8 +24,8 @@ Open the zoom panel to expand your loop region into a magnified timeline. Place 
 
 KEYBOARD-FIRST DRILLING
 • A — restart the loop region
-• S — punch-in: jump in just before the tricky spot, snap back when you miss
-• D — push-to-hear: hold to listen, release to take over
+• S — cue: hold to play from the top of the loop, release to snap straight back
+• D — push-to-play: hold to listen, release to pause, hold again to carry on
 
 SAVED LOOPS
 Name and save loops per video. Come back tomorrow; your work is where you left it.
@@ -44,7 +44,7 @@ AMO: Photos, Music & Videos.
 2. Player overlay pill: Loop/One-shot toggle + speed at 0.5×. Caption: "Loop it, or drill it one shot at a time."
 3. Timeline with loop handles on a guitar lesson video. Caption: "Handles live right on the YouTube timeline."
 4. Saved loops modal with 3–4 named loops. Caption: "Saved per video. Pick up where you left off."
-5. Help modal (shortcut glyphs visible). Caption: "Keyboard-first: A restart, S punch-in, D push-to-hear."
+5. Help modal (shortcut glyphs visible). Caption: "Keyboard-first: A restart, S cue, D push-to-play."
 
 Promo tiles: 440×280 small tile + 1400×560 marquee — wordmark `étude` on `#0f0f10`, teal accent, one-line tagline "Turn any YouTube video into a practice piece."
 

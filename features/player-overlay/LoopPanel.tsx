@@ -3,6 +3,7 @@ import type { MouseEvent, PointerEvent } from "react";
 import type { LoopSegment, PlayMode } from "../playback/types";
 import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
 import { SavedLoopsModal } from "./SavedLoopsModal";
+import { EtudeWordmark } from "./EtudeWordmark";
 import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
 
 type Props = {
@@ -391,7 +392,7 @@ export function LoopPanel({
         Rendered after the pill so it paints on top of the pill background;
         its footprint inside the pill is reserved by the spacer slot above. */}
     <span className="you-loop-wordmark" data-on={enabled} aria-hidden="true">
-      étude
+      <EtudeWordmark />
     </span>
     </>
   );

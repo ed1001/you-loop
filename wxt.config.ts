@@ -12,6 +12,11 @@ export default defineConfig({
     description: "Practice tools for YouTube — loop a section, slow it down, zoom in for precision.",
     permissions: ["storage"],
     host_permissions: ["https://www.youtube.com/*"],
+    // The wordmark font is loaded by the page (document.head @font-face), so
+    // it must be web-accessible to YouTube.
+    web_accessible_resources: [
+      { resources: ["fonts/*"], matches: ["https://www.youtube.com/*"] }
+    ],
     // Firefox-only (ignored by Chrome): declare that the extension collects no
     // user data, satisfying AMO's data-consent requirement for new add-ons.
     browser_specific_settings: {

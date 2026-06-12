@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useModalPresence } from "./useModalPresence";
+import { EtudeWordmark } from "./EtudeWordmark";
 
 type Props = {
   open: boolean;
@@ -137,14 +138,14 @@ const SHORTCUTS: Shortcut[] = [
   {
     keys: "S",
     hold: true,
-    name: "Punch-in",
+    name: "Cue",
     desc: "Play from start of selected region; release snaps back to start.",
   },
   {
     keys: "D",
     hold: true,
-    name: "Push-to-hear",
-    desc: "Play from the playhead; release pauses in place.",
+    name: "Push-to-play",
+    desc: "Play from the playhead; release pauses in place. Hold again to carry on.",
   },
 ];
 
@@ -210,7 +211,7 @@ export function HelpModal({ open, container, onClose }: Props) {
         </button>
 
         <div className="you-loop-help-head">
-          <span className="you-loop-help-eyebrow">étude</span>
+          <span className="you-loop-help-eyebrow"><EtudeWordmark /></span>
           <h2 className="you-loop-help-title">
             Loop, zoom &amp; rehearse any section of a video
           </h2>

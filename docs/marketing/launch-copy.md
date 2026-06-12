@@ -22,7 +22,7 @@ What it does:
 - Loop the region, or "one-shot" it: playback stops at the end, hit space to run it again
 - Slow down to 0.25× (up to 3×)
 - Zoom panel: expands the loop region into a magnified timeline so you can set start/end to the split second — this is the bit I haven't seen in other loopers
-- Keyboard drilling: A restarts the region, S punch-in, D push-to-hear
+- Keyboard drilling: A restarts the region, S cues from the top while held, D plays while held
 - Loops save per video
 
 Free, no account, no tracking (it literally can't collect data — the only permission is local storage). Would love honest feedback.
@@ -33,6 +33,6 @@ Free, no account, no tracking (it literally can't collect data — the only perm
 
 2/ Set a loop region with handles on the timeline. Then zoom: the region expands into a magnified timeline where one pixel = a fraction of a second. Set your start exactly on the downbeat. [GIF: zoom open → handle drag → loop plays]
 
-3/ Drill modes: loop forever, or one-shot — playback stops at the end of the region; space runs it again. A/S/D shortcuts for restart, punch-in, push-to-hear.
+3/ Drill modes: loop forever, or one-shot — playback stops at the end of the region; space runs it again. A/S/D shortcuts for restart, cue, push-to-play.
 
 4/ 0.25×–3× speed. Loops save per video. Free, no account, no tracking. An étude is a piece composed for practice — now any YouTube video can be one. [link]

@@ -3,6 +3,7 @@ import type { StorageArea } from "./loopStore";
 import {
   ENABLED_KEY,
   LAUNCH_KEY,
+  LAUNCH_TTL_MS,
   getEnabled,
   setEnabled,
   watchEnabled,
@@ -107,7 +108,7 @@ describe("settingsStore launch handoff", () => {
   it("ignores and clears a stale request", async () => {
     const area = makeArea();
     await requestLaunch("vid1", area, 1_000);
-    expect(await takeLaunch("vid1", area, 1_000 + 31_000)).toBe(false);
+    expect(await takeLaunch("vid1", area, 1_000 + LAUNCH_TTL_MS + 1)).toBe(false);
     expect(area.dump()[LAUNCH_KEY]).toBeNull();
   });
 });

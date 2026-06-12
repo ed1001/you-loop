@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Étude — practice tools for YouTube</title>
+<meta name="description" content="Turn any YouTube video into a practice piece. Loop a section, slow it down, zoom in for precision. Free, no account, no tracking.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0f0f10; --panel: rgba(38,38,42,.9); --teal: #14b8a6; --teal-light: #5eead4;
+    --text: #fff; --muted: rgba(255,255,255,.55); --line: rgba(255,255,255,.08);
+  }
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Roboto", system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .wordmark { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; color: var(--teal-light); }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; margin-left: 20px; }
+  nav a:hover { color: var(--text); }
+  .hero { padding: 72px 0 48px; text-align: center; }
+  .hero h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+  .hero h1 em { font-style: normal; color: var(--teal-light); }
+  .hero p { color: var(--muted); margin: 16px auto 0; max-width: 560px; font-size: 17px; }
+  .ctas { margin-top: 28px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 24px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; }
+  .btn-primary { background: var(--teal); color: #0a0a0a; }
+  .btn-secondary { border: 1px solid var(--line); color: var(--text); }
+  .btn:hover { filter: brightness(1.1); }
+  .trust { margin-top: 14px; color: var(--muted); font-size: 13px; }
+  .shot { margin: 48px auto 0; max-width: 860px; border-radius: 16px; overflow: hidden;
+          box-shadow: 0 0 0 1px rgba(20,184,166,.16), 0 24px 70px rgba(0,0,0,.6); }
+  .shot img { display: block; width: 100%; }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; padding: 64px 0; }
+  .feature { background: var(--panel); border-radius: 16px; padding: 24px; }
+  .feature h3 { font-size: 16px; margin-bottom: 8px; color: var(--teal-light); }
+  .feature p { color: var(--muted); font-size: 14px; }
+  .shortcuts { padding: 0 0 64px; }
+  .shortcuts h2 { font-size: 22px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 10px 12px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+  td:first-child { width: 72px; }
+  kbd { background: rgba(0,0,0,.34); border: 1px solid var(--line); border-radius: 6px;
+        padding: 2px 9px; font-family: ui-monospace, monospace; font-size: 13px; color: var(--text); }
+  footer { border-top: 1px solid var(--line); padding: 24px 0; color: var(--muted); font-size: 13px;
+           display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="wordmark">étude</span>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#shortcuts">Shortcuts</a>
+      <a href="https://github.com/ed1001/you-loop">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Turn any YouTube video<br>into a <em>practice piece</em>.</h1>
+    <p>Loop a section, slow it down, drill it until it sticks. Built for musicians learning by ear.</p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="#" data-store="chrome">Add to Chrome — free</a>
+      <a class="btn btn-secondary" href="#" data-store="firefox">Get for Firefox</a>
+    </div>
+    <p class="trust">Free, forever. No account. No tracking.</p>
+    <div class="shot">
+      <img src="assets/zoom-panel.png" alt="Étude's zoom panel expanding a loop region into a magnified timeline over a YouTube video" width="1280" height="800">
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="feature">
+      <h3>Practice tools, built around loop regions</h3>
+      <p>Drag handles right on the YouTube timeline. Loop the region — or drill it one shot at a time, with playback pausing at the end until you run it again.</p>
+    </div>
+    <div class="feature">
+      <h3>Zoom in for precision</h3>
+      <p>Expand your loop region into a magnified timeline and place the start and end exactly where they belong — down to the split second.</p>
+    </div>
+    <div class="feature">
+      <h3>Slow it down. Save it for later.</h3>
+      <p>0.25× to 3× playback in fine steps. Name and save loops per video — tomorrow's practice starts where today's ended.</p>
+    </div>
+  </section>
+
+  <section class="shortcuts" id="shortcuts">
+    <h2>Keyboard-first drilling</h2>
+    <table>
+      <tr><td><kbd>A</kbd></td><td>Restart the loop region from the top.</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Punch-in: drop in just before the hard part, snap back when you miss.</td></tr>
+      <tr><td><kbd>D</kbd></td><td>Push-to-hear: hold to listen, release to take over.</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>In one-shot mode, run the region again from the start.</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    <span>étude — practice tools for YouTube.</span>
+    <span>No data collected. <a href="https://github.com/ed1001/you-loop">Source on GitHub</a></span>
+  </footer>
+</div>
+</body>
+</html>

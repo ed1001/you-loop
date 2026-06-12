@@ -1,6 +1,6 @@
-# You Loop
+# Étude
 
-Browser extension for precise loop and playback-rate controls on YouTube.
+Browser extension with practice tools for YouTube — loop a section, slow it down, zoom in for precision. (Working name during development: you-loop; internal CSS classes keep that prefix.)
 
 ## Development
 

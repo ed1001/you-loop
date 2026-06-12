@@ -391,7 +391,7 @@ export function LoopPanel({
         Rendered after the pill so it paints on top of the pill background;
         its footprint inside the pill is reserved by the spacer slot above. */}
     <span className="you-loop-wordmark" data-on={enabled} aria-hidden="true">
-      you-loop
+      étude
     </span>
     </>
   );

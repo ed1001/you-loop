@@ -7,8 +7,9 @@ export default defineConfig({
     disabled: true
   },
   manifest: {
-    name: "You Loop",
-    description: "Precise loop and playback-rate controls for YouTube.",
+    name: "Étude — Loop, Slow Down & Practice YouTube",
+    short_name: "Étude",
+    description: "Practice tools for YouTube — loop a section, slow it down, zoom in for precision.",
     permissions: ["storage"],
     host_permissions: ["https://www.youtube.com/*"],
     // Firefox-only (ignored by Chrome): declare that the extension collects no

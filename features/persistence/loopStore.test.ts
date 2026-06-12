@@ -6,6 +6,7 @@ import {
   listEntries,
   loadEntry,
   removeLoop,
+  removeVideo,
   setLastUsed
 } from "./loopStore";
 
@@ -97,5 +98,25 @@ describe("loopStore", () => {
     expect(list.map((v) => v.videoId)).toEqual(["new", "old"]);
     expect(list[0]).toMatchObject({ videoId: "new", count: 2 });
     expect(list[1]).toMatchObject({ videoId: "old", count: 1, title: "Old Video" });
+  });
+
+  it("removes a video and all its loops", async () => {
+    const area = makeArea();
+    await seedTwo(area);
+    await addLoop("w", "C", seg(5, 6), null, area, 30);
+
+    await removeVideo("v", area);
+
+    expect(area.dump()["v"]).toBeUndefined();
+    expect(area.dump()["w"]).toBeDefined();
+  });
+
+  it("removeVideo is a no-op on an unknown id", async () => {
+    const area = makeArea();
+    await seedTwo(area);
+
+    await removeVideo("unknown", area);
+
+    expect(Object.keys(area.dump())).toEqual(["v"]);
   });
 });

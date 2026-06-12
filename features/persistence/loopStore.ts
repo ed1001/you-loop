@@ -144,6 +144,19 @@ export async function removeLoop(
   });
 }
 
+// Drop a video and all its loops from the library. No-op (no write) when the
+// video has no entry.
+export async function removeVideo(
+  videoId: string,
+  area?: StorageArea
+): Promise<void> {
+  const a = resolveArea(area);
+  const store = await readStore(a);
+  if (!(videoId in store)) return;
+  delete store[videoId];
+  await writeStore(a, store);
+}
+
 export async function setLastUsed(
   videoId: string,
   loopId: string,

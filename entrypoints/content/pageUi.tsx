@@ -638,5 +638,10 @@ export function setPageUiVisible(_host: Element, visible: boolean) {
     mounted?.cleanup();
     mountedPageUis.delete(existing);
     existing.remove();
+    // Turning the extension off must leave YouTube stock: drop the injected
+    // stylesheet and hand playback rate back at 1×.
+    document.querySelector(PAGE_UI_STYLE_SELECTOR)?.remove();
+    const video = findYouTubeVideo();
+    if (video != null) video.playbackRate = 1;
   }
 }

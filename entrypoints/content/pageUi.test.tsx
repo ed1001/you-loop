@@ -89,4 +89,28 @@ describe("page UI", () => {
     });
     expect(video.playbackRate).toBeCloseTo(1);
   });
+
+  it("tears down styles and resets playback rate when hidden", () => {
+    const { player, video } = mountYouTubePlayer();
+
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    video.playbackRate = 0.5;
+    expect(
+      document.querySelector("style[data-you-loop-page-ui-style]")
+    ).toBeInTheDocument();
+
+    act(() => {
+      setPageUiVisible(player, false);
+    });
+
+    expect(
+      document.querySelector("[data-you-loop-page-ui]")
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector("style[data-you-loop-page-ui-style]")
+    ).not.toBeInTheDocument();
+    expect(video.playbackRate).toBe(1);
+  });
 });

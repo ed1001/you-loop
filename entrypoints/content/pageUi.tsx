@@ -607,6 +607,13 @@ export function createPageUiElement(video: HTMLVideoElement) {
     cleanup: () => {
       stopTimeline();
       stopAutohide();
+      // Leave the attach point stock: we only ever set these inline (the
+      // stylesheet values, if any, come back when the inline overrides go).
+      const timeline = panel.parentElement;
+      if (timeline instanceof HTMLElement) {
+        timeline.style.position = "";
+        timeline.style.zIndex = "";
+      }
     }
   });
 

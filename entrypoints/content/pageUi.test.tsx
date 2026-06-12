@@ -113,4 +113,20 @@ describe("page UI", () => {
     ).not.toBeInTheDocument();
     expect(video.playbackRate).toBe(1);
   });
+
+  it("restores the timeline's inline styles when hidden", () => {
+    const { player, progressBar } = mountYouTubePlayer();
+
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    expect(progressBar.style.zIndex).toBe("2147483647");
+
+    act(() => {
+      setPageUiVisible(player, false);
+    });
+
+    expect(progressBar.style.zIndex).toBe("");
+    expect(progressBar.style.position).toBe("");
+  });
 });

@@ -35,12 +35,22 @@ export default defineContentScript({
   cssInjectionMode: "ui",
   async main() {
     // Wait for the player so the video/timeline exist, then show the page UI —
-    // unless the user switched Étude off in the popup. The watcher handles
-    // live toggles from the popup while the tab stays open.
+    // unless the user switched Étude off in the popup.
     await waitForYouTubePlayer();
-    if (await getEnabled()) {
-      setPageUiVisible(document.body, true);
-    }
-    watchEnabled((enabled) => setPageUiVisible(document.body, enabled));
+
+    // Re-applied on toggle and on SPA navigation: mounting is idempotent and
+    // no-ops off watch pages, so the panel returns as soon as a timeline
+    // exists again (e.g. disable → navigate home → enable → open a video).
+    let desired = true;
+    const apply = () => setPageUiVisible(document.body, desired);
+
+    // Watch before the initial read so a toggle racing the read isn't lost.
+    watchEnabled((enabled) => {
+      desired = enabled;
+      apply();
+    });
+    desired = await getEnabled();
+    apply();
+    document.addEventListener("yt-navigate-finish", apply);
   },
 });

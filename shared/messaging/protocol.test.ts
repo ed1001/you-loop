@@ -21,13 +21,4 @@ describe("messaging protocol tab state", () => {
 
     expect(state.tabs.get(7)?.loopSegment).toEqual({ start: 1, end: 2 });
   });
-
-  it("sets global enabled", () => {
-    const state = reduceBackgroundState(createInitialBackgroundState(), {
-      type: "setEnabled",
-      enabled: false
-    });
-
-    expect(state.enabled).toBe(false);
-  });
 });

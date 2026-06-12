@@ -17,20 +17,16 @@ export type AdapterStatus =
 export type RuntimeMessage =
   | { type: "stateChanged"; state: PlaybackState }
   | { type: "videoChanged"; video: VideoIdentity }
-  | { type: "adapterStatusChanged"; status: AdapterStatus }
-  | { type: "setEnabled"; enabled: boolean }
-  | { type: "getEnabled" };
+  | { type: "adapterStatusChanged"; status: AdapterStatus };
 
 export type ContentCommand = PlaybackCommand;
 
 export type BackgroundState = {
-  enabled: boolean;
   tabs: Map<number, PlaybackState>;
 };
 
 export function createInitialBackgroundState(): BackgroundState {
   return {
-    enabled: true,
     tabs: new Map()
   };
 }
@@ -40,10 +36,6 @@ export function reduceBackgroundState(
   event: RuntimeMessage,
   senderTabId: number | null = null
 ): BackgroundState {
-  if (event.type === "setEnabled") {
-    return { ...state, enabled: event.enabled };
-  }
-
   if (event.type === "stateChanged" && senderTabId !== null) {
     const tabs = new Map(state.tabs);
     tabs.set(senderTabId, event.state);

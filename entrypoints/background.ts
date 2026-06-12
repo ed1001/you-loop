@@ -10,6 +10,6 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender) => {
     const senderTabId = sender.tab?.id ?? null;
     state = reduceBackgroundState(state, message, senderTabId);
-    return Promise.resolve({ ok: true, enabled: state.enabled });
+    return Promise.resolve({ ok: true });
   });
 });

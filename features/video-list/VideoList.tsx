@@ -93,6 +93,9 @@ export function VideoList({
                 aria-label={
                   confirming ? `Confirm delete ${label}` : `Delete ${label}`
                 }
+                onBlur={() => {
+                  if (confirming) setConfirmingId(null);
+                }}
                 onClick={(e) => {
                   swallow(e);
                   if (confirming) {

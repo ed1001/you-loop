@@ -87,7 +87,7 @@ export const VIDEO_LIST_STYLES = `
        library feel assembled rather than dumped. Capped after the first rows
        so long lists don't keep the tail invisible. */
     .you-loop-lm-vrow {
-      animation: you-loop-pane-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: you-loop-vlist-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
       display: flex;
       gap: 6px;
     }
@@ -98,7 +98,7 @@ export const VIDEO_LIST_STYLES = `
     .you-loop-lm-vrow:nth-child(5) { animation-delay: 0.14s; }
     .you-loop-lm-vrow:nth-child(n + 6) { animation-delay: 0.17s; }
 
-    @keyframes you-loop-pane-in {
+    @keyframes you-loop-vlist-in {
       from {
         opacity: 0;
         transform: translateY(7px);

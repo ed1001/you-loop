@@ -1286,6 +1286,17 @@ export const PAGE_UI_STYLES = `
       pointer-events: none;
     }
 
+    @keyframes you-loop-pane-in {
+      from {
+        opacity: 0;
+        transform: translateY(7px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     @keyframes you-loop-pane-out {
       from {
         opacity: 1;

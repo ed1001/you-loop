@@ -64,6 +64,29 @@ describe("VideoList", () => {
     expect(onDelete).toHaveBeenCalledWith("vid1");
   });
 
+  it("arming one row disarms the other — only one row armed at a time", () => {
+    const onDelete = vi.fn();
+    render(
+      <VideoList videos={videos} onOpenVideo={() => {}} onDeleteVideo={onDelete} />
+    );
+
+    // Arm vid1
+    fireEvent.click(screen.getByRole("button", { name: "Delete Caprice 24" }));
+    expect(
+      screen.getByRole("button", { name: "Confirm delete Caprice 24" })
+    ).toBeInTheDocument();
+
+    // Arm vid2 — vid1 should disarm
+    fireEvent.click(screen.getByRole("button", { name: "Delete vid2" }));
+    expect(
+      screen.getByRole("button", { name: "Confirm delete vid2" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete Caprice 24" })
+    ).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
   it("disarms a pending delete when the pointer leaves the row", () => {
     const onDelete = vi.fn();
     render(

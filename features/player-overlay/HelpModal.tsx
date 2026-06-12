@@ -104,7 +104,7 @@ const CONTROLS: Control[] = [
   {
     icon: PowerIcon,
     term: "Power",
-    desc: "Turn you-loop on or off. Your loop range is kept while off.",
+    desc: "Turn Étude on or off. Your loop range is kept while off.",
   },
   {
     icon: null,
@@ -114,7 +114,7 @@ const CONTROLS: Control[] = [
   {
     icon: SpeedIcon,
     term: "Speed",
-    desc: "Step playback speed up or down. Click the readout to snap back to 1×; turning you-loop off also resets it.",
+    desc: "Step playback speed up or down. Click the readout to snap back to 1×; turning Étude off also resets it.",
   },
   {
     icon: ZoomIcon,
@@ -182,7 +182,7 @@ export function HelpModal({ open, container, onClose }: Props) {
         data-closing={closing}
         role="dialog"
         aria-modal="true"
-        aria-label="you-loop help"
+        aria-label="Étude help"
         onPointerDown={swallow}
         onMouseDown={swallow}
         onClick={swallow}
@@ -210,7 +210,7 @@ export function HelpModal({ open, container, onClose }: Props) {
         </button>
 
         <div className="you-loop-help-head">
-          <span className="you-loop-help-eyebrow">you-loop</span>
+          <span className="you-loop-help-eyebrow">étude</span>
           <h2 className="you-loop-help-title">
             Loop, zoom &amp; rehearse any section of a video
           </h2>

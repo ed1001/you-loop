@@ -24,7 +24,7 @@ const seededStore = {
     vid1: {
       loops: [{ id: "l1", name: "A", main: { start: 1, end: 2 }, zoom: null }],
       lastUsedId: "l1",
-      lastSeen: 20,
+      lastSeen: 10,
       title: "Caprice 24"
     },
     vid2: {
@@ -33,7 +33,7 @@ const seededStore = {
         { id: "l3", name: "C", main: { start: 5, end: 6 }, zoom: null }
       ],
       lastUsedId: "l2",
-      lastSeen: 10,
+      lastSeen: 20,
       title: "Giant Steps"
     }
   }
@@ -45,8 +45,8 @@ describe("popup App", () => {
 
     const names = await screen.findAllByText(/Caprice 24|Giant Steps/);
     expect(names.map((n) => n.textContent)).toEqual([
-      "Caprice 24",
-      "Giant Steps"
+      "Giant Steps",
+      "Caprice 24"
     ]);
   });
 
@@ -66,7 +66,10 @@ describe("popup App", () => {
 
   it("opens a clicked video with a launch handoff and closes", async () => {
     const area = makeArea(seededStore);
-    const openTab = vi.fn();
+    const launchAtOpen: unknown[] = [];
+    const openTab = vi.fn(() => {
+      launchAtOpen.push(area.dump()[LAUNCH_KEY]);
+    });
     const closeWindow = vi.fn();
     render(<App area={area} openTab={openTab} closeWindow={closeWindow} />);
 
@@ -79,6 +82,9 @@ describe("popup App", () => {
         "https://www.youtube.com/watch?v=vid1"
       );
     });
+    expect(
+      (launchAtOpen[0] as { videoId: string }).videoId
+    ).toBe("vid1");
     expect(
       (area.dump()[LAUNCH_KEY] as { videoId: string }).videoId
     ).toBe("vid1");

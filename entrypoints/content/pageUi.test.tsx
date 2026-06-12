@@ -50,6 +50,8 @@ function stubBrowserStorage(initial: Record<string, unknown>) {
 describe("page UI", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
   });
 
   it("mounts loop timeline handles in the player progress bar when enabled", () => {
@@ -174,8 +176,5 @@ describe("page UI", () => {
     expect(await screen.findByLabelText("Loop start")).toBeInTheDocument();
     // One-shot: consumed.
     expect(storage.dump()[LAUNCH_KEY]).toBeNull();
-
-    vi.unstubAllGlobals();
-    window.history.replaceState(null, "", "/");
   });
 });

@@ -43,27 +43,23 @@ const PowerIcon = (
   </svg>
 );
 
+// Vertical scrub glyph: up/down arrows around a tick, matching the
+// press-and-drag speed control.
 const SpeedIcon = (
-  <span className="you-loop-help-ico-pair">
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path
-        d="M6 12h12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-    </svg>
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path
-        d="M12 6v12M6 12h12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  </span>
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M12 3.5l-3 3.2h6zM12 20.5l-3-3.2h6z"
+      fill="currentColor"
+      stroke="none"
+    />
+    <path
+      d="M7.5 12h9"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    />
+  </svg>
 );
 
 const ZoomIcon = (
@@ -115,7 +111,7 @@ const CONTROLS: Control[] = [
   {
     icon: SpeedIcon,
     term: "Speed",
-    desc: "Step playback speed up or down. Click the readout to snap back to 1×; turning Étude off also resets it.",
+    desc: "Hold the readout and drag up or down to scrub the speed in 0.05× steps (0.25×–3×). Drag it hard right and let go to snap back to 1×; turning Étude off also resets it.",
   },
   {
     icon: ZoomIcon,

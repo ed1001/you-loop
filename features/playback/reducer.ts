@@ -3,7 +3,7 @@ import type { LoopSegment, PlaybackCommand, PlaybackState } from "./types";
 export const MIN_SEGMENT_DURATION_SECONDS = 0.1;
 export const MIN_PLAYBACK_RATE = 0.25;
 export const MAX_PLAYBACK_RATE = 3;
-export const PLAYBACK_RATE_STEP = 0.25;
+export const PLAYBACK_RATE_STEP = 0.05;
 
 // A fresh video with no saved loops seeds its loop to the middle three-fifths,
 // skipping a fifth of intro and a fifth of outro.
@@ -22,7 +22,9 @@ export function createInitialPlaybackState(): PlaybackState {
 
 export function clampPlaybackRate(rate: number): number {
   const stepped = Math.round(rate / PLAYBACK_RATE_STEP) * PLAYBACK_RATE_STEP;
-  return Math.min(MAX_PLAYBACK_RATE, Math.max(MIN_PLAYBACK_RATE, stepped));
+  const clamped = Math.min(MAX_PLAYBACK_RATE, Math.max(MIN_PLAYBACK_RATE, stepped));
+  // Steps of 0.05 accumulate float error (0.05 * 3 = 0.15000…02); pin to 2dp.
+  return Number(clamped.toFixed(2));
 }
 
 export function normalizeLoopSegment(segment: LoopSegment): LoopSegment {

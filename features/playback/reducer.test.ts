@@ -54,8 +54,14 @@ describe("playback reducer", () => {
 
   it("clamps playback rate", () => {
     expect(clampPlaybackRate(0)).toBe(0.25);
-    expect(clampPlaybackRate(1.37)).toBe(1.25);
+    expect(clampPlaybackRate(1.37)).toBe(1.35);
     expect(clampPlaybackRate(9)).toBe(3);
+  });
+
+  it("snaps playback rate to the 0.05 grid without float drift", () => {
+    expect(clampPlaybackRate(0.1 + 0.2)).toBe(0.3);
+    expect(clampPlaybackRate(1 + 0.05 * 3)).toBe(1.15);
+    expect(clampPlaybackRate(2.999)).toBe(3);
   });
 
   it("sets play mode", () => {

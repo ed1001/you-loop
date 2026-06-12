@@ -3,8 +3,7 @@ import { findYouTubeVideo, getVideoTitle } from "../../adapters/youtube/adapter"
 import {
   createInitialPlaybackState,
   defaultLoopSegment,
-  playbackReducer,
-  PLAYBACK_RATE_STEP
+  playbackReducer
 } from "../../features/playback/reducer";
 import {
   applyPlaybackState,
@@ -201,12 +200,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   };
 
   // Speed control: independent of the loop. Apply the rate straight to the
-  // video so it takes effect immediately.
-  const stepSpeed = (delta: number) => {
-    state = playbackReducer(state, {
-      type: "setPlaybackRate",
-      rate: Number((state.playbackRate + delta).toFixed(2))
-    });
+  // video so the scrub is audible live, step by step.
+  const setSpeed = (rate: number) => {
+    state = playbackReducer(state, { type: "setPlaybackRate", rate });
     applyPlaybackState(video, state);
     render();
   };
@@ -379,8 +375,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onToggleEnabled={toggleLoop}
           onToggleMode={toggleMode}
           onToggleZoom={toggleZoom}
-          onSpeedDown={() => stepSpeed(-PLAYBACK_RATE_STEP)}
-          onSpeedUp={() => stepSpeed(PLAYBACK_RATE_STEP)}
+          onSpeedChange={setSpeed}
           onResetSpeed={resetSpeed}
           onShowHelp={() => {
             helpOpen = true;

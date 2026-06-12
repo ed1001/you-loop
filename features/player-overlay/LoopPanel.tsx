@@ -1,7 +1,6 @@
-import { useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import type { LoopSegment, PlayMode } from "../playback/types";
-import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE } from "../playback/reducer";
+import { SpeedControl } from "./SpeedControl";
 import { SavedLoopsModal } from "./SavedLoopsModal";
 import { EtudeWordmark } from "./EtudeWordmark";
 import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
@@ -14,8 +13,7 @@ type Props = {
   onToggleEnabled: () => void;
   onToggleMode: () => void;
   onToggleZoom: () => void;
-  onSpeedDown: () => void;
-  onSpeedUp: () => void;
+  onSpeedChange: (rate: number) => void;
   onResetSpeed: () => void;
   onShowHelp: () => void;
   canSaveLoops: boolean;
@@ -54,9 +52,6 @@ const MODES: { value: PlayMode; label: string }[] = [
   { value: "one-shot", label: "One-shot" }
 ];
 
-// 1 → "1×", 1.5 → "1.5×", 0.25 → "0.25×".
-const formatRate = (rate: number) => `${Number(rate.toFixed(2))}×`;
-
 export function LoopPanel({
   enabled,
   mode,
@@ -65,8 +60,7 @@ export function LoopPanel({
   onToggleEnabled,
   onToggleMode,
   onToggleZoom,
-  onSpeedDown,
-  onSpeedUp,
+  onSpeedChange,
   onResetSpeed,
   onShowHelp,
   canSaveLoops,
@@ -85,12 +79,6 @@ export function LoopPanel({
   onDeleteLoop,
   onOpenVideo
 }: Props) {
-  const atMin = playbackRate <= MIN_PLAYBACK_RATE;
-  const atMax = playbackRate >= MAX_PLAYBACK_RATE;
-  const modified = playbackRate !== 1;
-  // Brief pulse so a reset click reads as a deliberate snap back to 1×.
-  const [pulse, setPulse] = useState(false);
-
   return (
     <>
     <div
@@ -170,105 +158,13 @@ export function LoopPanel({
               ))}
             </div>
   
-            <div
-              className="you-loop-speed"
-              role="group"
-              aria-label="Playback speed"
-              data-disabled={!enabled}
-            >
-              <button
-                type="button"
-                className="you-loop-speed-step"
-                aria-label="Decrease speed"
-                disabled={!enabled || atMin}
-                onPointerDown={swallow}
-                onMouseDown={swallow}
-                onClick={(event) => {
-                  swallow(event);
-                  onSpeedDown();
-                }}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M6 12h12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-  
-              <button
-                type="button"
-                className="you-loop-speed-value"
-                aria-label={
-                  modified
-                    ? `Playback speed ${formatRate(playbackRate)}, click to reset to 1×`
-                    : `Playback speed ${formatRate(playbackRate)}`
-                }
-                title={modified ? "Reset to 1×" : undefined}
-                data-modified={modified}
-                data-pulse={pulse}
-                disabled={!enabled || !modified}
-                onPointerDown={swallow}
-                onMouseDown={swallow}
-                onClick={(event) => {
-                  swallow(event);
-                  if (!modified) return;
-                  onResetSpeed();
-                  setPulse(true);
-                }}
-                onAnimationEnd={() => setPulse(false)}
-              >
-                <span className="you-loop-speed-num">
-                  {Number(playbackRate.toFixed(2))}
-                  <span className="you-loop-speed-x">×</span>
-                </span>
-                <span className="you-loop-speed-reset" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path
-                      d="M5.5 9.5a7 7 0 1 1-1.1 4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M3 6.5v3.5h3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </button>
-  
-              <button
-                type="button"
-                className="you-loop-speed-step"
-                aria-label="Increase speed"
-                disabled={!enabled || atMax}
-                onPointerDown={swallow}
-                onMouseDown={swallow}
-                onClick={(event) => {
-                  swallow(event);
-                  onSpeedUp();
-                }}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path
-                    d="M12 6v12M6 12h12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </div>
+            <SpeedControl
+              rate={playbackRate}
+              disabled={!enabled}
+              container={loopsContainer}
+              onRateChange={onSpeedChange}
+              onReset={onResetSpeed}
+            />
   
             <button
               type="button"

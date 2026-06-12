@@ -321,7 +321,9 @@ export const PAGE_UI_STYLES = `
       opacity: 0.4;
     }
 
-    /* Speed stepper: a compact recessed pill —  ‹ 1× ›  (independent of loop). */
+    /* Speed scrubber: a single readout chip. Press and drag up/down to scrub
+       the rate (a tick tape pops up above); drag hard right and release to
+       snap back to 1×. */
     .you-loop-speed {
       align-items: center;
       background: rgba(0, 0, 0, 0.34);
@@ -329,7 +331,6 @@ export const PAGE_UI_STYLES = `
       box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
         inset 0 0 0 1px rgba(255, 255, 255, 0.05);
       display: flex;
-      gap: 0;
       padding: 2px;
       transition: opacity 0.18s ease;
     }
@@ -338,70 +339,27 @@ export const PAGE_UI_STYLES = `
       opacity: 0.4;
     }
 
-    .you-loop-speed-step {
-      align-items: center;
-      background: transparent;
-      border: 0;
-      border-radius: 50%;
-      color: rgba(255, 255, 255, 0.5);
-      cursor: pointer;
-      display: inline-flex;
-      flex: none;
-      height: 27px;
-      justify-content: center;
-      padding: 0;
-      transition: color 0.15s ease;
-      width: 20px;
-    }
-
-    .you-loop-speed-step svg {
-      height: 13px;
-      width: 13px;
-    }
-
-    .you-loop-speed-step:not(:disabled):hover {
-      color: #5eead4;
-    }
-
-    .you-loop-speed-step:disabled {
-      cursor: default;
-      opacity: 0.3;
-    }
-
     .you-loop-speed-value {
       background: transparent;
       border: 0;
+      border-radius: 999px;
       color: rgba(255, 255, 255, 0.78);
-      cursor: pointer;
+      cursor: ns-resize;
       display: grid;
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
       font-size: 12px;
       font-variant-numeric: tabular-nums;
       font-weight: 600;
+      height: 27px;
       letter-spacing: 0.01em;
-      min-width: 30px;
-      padding: 0;
+      min-width: 44px;
+      padding: 0 6px;
       place-items: center;
       text-align: center;
-      transition: color 0.15s ease;
-    }
-
-    /* Number and reset glyph occupy the same cell so swapping them on hover
-       never shifts the panel's width. */
-    .you-loop-speed-num,
-    .you-loop-speed-reset {
-      grid-area: 1 / 1;
-      transition: opacity 0.12s ease;
-    }
-
-    .you-loop-speed-reset {
-      display: inline-flex;
-      opacity: 0;
-    }
-
-    .you-loop-speed-reset svg {
-      height: 14px;
-      width: 14px;
+      touch-action: none;
+      transition: color 0.15s ease, transform 0.15s ease;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .you-loop-speed-value:not(:disabled):hover {
@@ -422,17 +380,13 @@ export const PAGE_UI_STYLES = `
       color: #5eead4;
     }
 
-    /* Once the rate is off 1×, hovering the value reveals the reset glyph so
-       the click-to-reset affordance is discoverable exactly when it matters. */
-    .you-loop-speed-value[data-modified="true"]:not(:disabled):hover .you-loop-speed-num {
-      opacity: 0;
+    /* While scrubbing the chip is the live readout: lift it and go teal. */
+    .you-loop-speed-value[data-scrubbing="true"] {
+      color: #5eead4;
+      transform: scale(1.12);
     }
 
-    .you-loop-speed-value[data-modified="true"]:not(:disabled):hover .you-loop-speed-reset {
-      opacity: 1;
-    }
-
-    /* Snap-back pulse confirms the reset click landed. */
+    /* Snap-back pulse confirms the reset gesture landed. */
     .you-loop-speed-value[data-pulse="true"] {
       animation: you-loop-speed-pulse 0.32s ease;
     }
@@ -447,6 +401,270 @@ export const PAGE_UI_STYLES = `
       100% {
         transform: scale(1);
       }
+    }
+
+    /* ── Speed scrub popover ───────────────────────────────────────────────
+       Portaled to the player (the pill clips overflow) and anchored above the
+       chip. Pointer events stay captured on the chip, so the popover is a
+       pure display surface. --you-loop-arm (0–1) is the reset gesture's
+       progress, driven from JS on every pointer move. */
+    .you-loop-speed-pop {
+      --you-loop-arm: 0;
+      animation: you-loop-speed-pop-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+      pointer-events: none;
+      position: absolute;
+      transform: translate(-50%, calc(-100% - 10px));
+      z-index: 2147483647;
+    }
+
+    @keyframes you-loop-speed-pop-in {
+      from {
+        opacity: 0;
+        transform: translate(-50%, calc(-100% - 2px)) scaleY(0.82);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, calc(-100% - 10px)) scaleY(1);
+      }
+    }
+
+    .you-loop-speed-pop[data-closing="true"] {
+      animation: you-loop-speed-pop-out 0.14s ease both;
+    }
+
+    @keyframes you-loop-speed-pop-out {
+      from {
+        opacity: 1;
+        transform: translate(-50%, calc(-100% - 10px)) scaleY(1);
+      }
+      to {
+        opacity: 0;
+        transform: translate(-50%, calc(-100% - 4px)) scaleY(0.88);
+      }
+    }
+
+    /* The tape rail: a slim vertical window of ticks behind a fixed needle.
+       Dragging right eases it aside and dims it — the gesture is leaving
+       scrub mode and heading for the reset target. */
+    .you-loop-speed-rail {
+      background: rgba(28, 28, 32, 0.92);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      backdrop-filter: blur(12px) saturate(1.2);
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 1px rgba(20, 184, 166, 0.18),
+        0 12px 36px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      height: 148px;
+      opacity: calc(1 - var(--you-loop-arm) * 0.6);
+      overflow: hidden;
+      position: relative;
+      transform: translateX(calc(var(--you-loop-arm) * 14px));
+      width: 64px;
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 22px,
+        #000 calc(100% - 22px),
+        transparent
+      );
+      mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 22px,
+        #000 calc(100% - 22px),
+        transparent
+      );
+    }
+
+    /* The tape glides under the needle in quantized 0.05× steps; the short
+       transform tween turns each step into a click of motion. */
+    .you-loop-speed-tape {
+      inset: 0 0 auto 0;
+      position: absolute;
+      transition: transform 0.09s cubic-bezier(0.2, 0, 0.2, 1);
+      will-change: transform;
+    }
+
+    .you-loop-speed-tick {
+      background: rgba(255, 255, 255, 0.16);
+      height: 1.5px;
+      left: 10px;
+      position: absolute;
+      transform: translateY(-50%);
+      width: 9px;
+    }
+
+    .you-loop-speed-tick[data-labeled="true"] {
+      background: rgba(255, 255, 255, 0.42);
+      width: 15px;
+    }
+
+    .you-loop-speed-tick[data-home="true"] {
+      background: #14b8a6;
+      box-shadow: 0 0 6px rgba(20, 184, 166, 0.7);
+    }
+
+    .you-loop-speed-tick-label {
+      color: rgba(255, 255, 255, 0.55);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 9.5px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      left: 21px;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .you-loop-speed-tick[data-home="true"] .you-loop-speed-tick-label {
+      color: #5eead4;
+    }
+
+    /* Fixed needle across the rail's midline. */
+    .you-loop-speed-needle {
+      border-top: 2px solid #2dd4bf;
+      box-shadow: 0 0 8px rgba(45, 212, 191, 0.55);
+      left: 6px;
+      pointer-events: none;
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    /* Live readout floats just left of the rail at needle height. Fades with
+       the rightward reset drag along with the rail it annotates. */
+    .you-loop-speed-needle-value {
+      color: #5eead4;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      opacity: calc(1 - var(--you-loop-arm) * 0.85);
+      position: absolute;
+      right: calc(100% + 12px);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+      top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+    }
+
+    /* While the speed scrub is held, the popover IS the pointer — hide the
+       OS cursor everywhere in the player so the needle reads as the focus. */
+    .html5-video-player[data-you-loop-speed-scrub="true"],
+    .html5-video-player[data-you-loop-speed-scrub="true"] * {
+      cursor: none !important;
+    }
+
+    /* Snap-back target: chevrons pointing at a 1× ring off the rail's right
+       edge. It idles faint as a hint that dragging right does something,
+       swells and drifts in with the rightward drag, then fills teal once
+       armed — release there and the rate snaps home. */
+    .you-loop-speed-reset-target {
+      align-items: center;
+      display: flex;
+      gap: 5px;
+      left: calc(100% + 6px + var(--you-loop-arm) * 10px);
+      opacity: calc(0.3 + var(--you-loop-arm) * 0.7);
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%)
+        scale(calc(0.75 + var(--you-loop-arm) * 0.25));
+      transform-origin: left center;
+    }
+
+    .you-loop-speed-reset-col {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Three chevrons marching toward the ring. Each lights up as the drag
+       crosses its third of the arm distance (swipe-to-unlock idiom); at idle
+       the whole row breathes sideways to suggest the motion. */
+    .you-loop-speed-reset-chevrons {
+      animation: you-loop-chevron-nudge 1.4s ease-in-out infinite;
+      flex: none;
+      height: 12px;
+      width: 26px;
+    }
+
+    .you-loop-speed-pop[data-armed="true"] .you-loop-speed-reset-chevrons {
+      animation: none;
+    }
+
+    @keyframes you-loop-chevron-nudge {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      50% {
+        transform: translateX(3px);
+      }
+    }
+
+    .you-loop-speed-reset-chevrons path {
+      fill: none;
+      stroke: #5eead4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.4;
+    }
+
+    .you-loop-speed-reset-chevrons path:nth-child(1) {
+      opacity: clamp(0.35, calc(var(--you-loop-arm) * 3), 1);
+    }
+
+    .you-loop-speed-reset-chevrons path:nth-child(2) {
+      opacity: clamp(0.35, calc(var(--you-loop-arm) * 3 - 1), 1);
+    }
+
+    .you-loop-speed-reset-chevrons path:nth-child(3) {
+      opacity: clamp(0.35, calc(var(--you-loop-arm) * 3 - 2), 1);
+    }
+
+    .you-loop-speed-reset-ring {
+      align-items: center;
+      background: rgba(28, 28, 32, 0.85);
+      border: 2px solid rgba(94, 234, 212, 0.65);
+      border-radius: 50%;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      color: #5eead4;
+      display: inline-flex;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      height: 40px;
+      justify-content: center;
+      transition: background 0.12s ease, color 0.12s ease,
+        transform 0.12s ease, box-shadow 0.12s ease;
+      width: 40px;
+    }
+
+    .you-loop-speed-pop[data-armed="true"] .you-loop-speed-reset-ring {
+      background: #14b8a6;
+      box-shadow: 0 4px 18px rgba(20, 184, 166, 0.6),
+        0 0 22px rgba(20, 184, 166, 0.5);
+      color: #06302b;
+      transform: scale(1.12);
+    }
+
+    .you-loop-speed-reset-word {
+      color: rgba(255, 255, 255, 0.55);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      text-transform: uppercase;
+    }
+
+    .you-loop-speed-pop[data-armed="true"] .you-loop-speed-reset-word {
+      color: #5eead4;
     }
 
     /* Full-width timeline floating above the native scrubber, mapping just the
@@ -1360,6 +1578,8 @@ export const PAGE_UI_STYLES = `
        The !important also overrides the JS-driven card height transition. */
     @media (prefers-reduced-motion: reduce) {
       .you-loop-page-ui *,
+      .you-loop-speed-pop,
+      .you-loop-speed-pop *,
       .you-loop-help-backdrop,
       .you-loop-help-backdrop *,
       .you-loop-lm-backdrop,

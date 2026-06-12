@@ -1,0 +1,109 @@
+/* The popup is an extension page, so the bundled font loads from a direct
+   extension-root URL — no web_accessible_resources involved. */
+@font-face {
+  font-family: "Étude Fraunces";
+  font-style: italic;
+  font-weight: 500;
+  src: url("/fonts/fraunces-italic.woff2") format("woff2");
+}
+
+body {
+  background: #0b0c0d;
+  color: #fff;
+  font-family: "Roboto", system-ui, -apple-system, sans-serif;
+  margin: 0;
+  width: 320px;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 10px;
+}
+
+.popup-head {
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.popup-wordmark {
+  font-family: "Étude Fraunces", Georgia, serif;
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Teal acute accent on the é — same stacked-glyph trick as the help modal
+   (see .you-loop-eacute in pageUi.styles.ts). */
+.you-loop-eacute {
+  display: inline-block;
+  position: relative;
+}
+
+.you-loop-eacute-acc {
+  clip-path: inset(0 0 62% 0);
+  color: #5eead4;
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.popup-switch {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  flex: none;
+  height: 20px;
+  padding: 0;
+  position: relative;
+  transition: background 0.15s ease;
+  width: 36px;
+}
+
+.popup-switch::after {
+  background: #fff;
+  border-radius: 50%;
+  content: "";
+  height: 16px;
+  left: 2px;
+  position: absolute;
+  top: 2px;
+  transition: transform 0.15s ease, background 0.15s ease;
+  width: 16px;
+}
+
+.popup-switch[data-on="true"] {
+  background: #14b8a6;
+}
+
+.popup-switch[data-on="true"]::after {
+  background: #0b0c0d;
+  transform: translateX(16px);
+}
+
+.popup-switch:focus-visible {
+  outline: 2px solid rgba(94, 234, 212, 0.85);
+  outline-offset: 2px;
+}
+
+.popup-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: 10px 14px 6px;
+  text-transform: uppercase;
+}
+
+.popup-list {
+  padding: 0 10px;
+}
+
+.popup-list .you-loop-lm-empty {
+  padding: 6px 4px 10px;
+}

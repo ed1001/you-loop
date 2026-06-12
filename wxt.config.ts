@@ -21,6 +21,8 @@ export default defineConfig({
     // user data, satisfying AMO's data-consent requirement for new add-ons.
     browser_specific_settings: {
       gecko: {
+        // Required for MV3 on AMO (Chrome ignores browser_specific_settings).
+        id: "etude@ed1001.dev",
         data_collection_permissions: { required: ["none"] }
       }
     }

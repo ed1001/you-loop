@@ -150,11 +150,9 @@ export async function removeVideo(
   videoId: string,
   area?: StorageArea
 ): Promise<void> {
-  const a = resolveArea(area);
-  const store = await readStore(a);
-  if (!(videoId in store)) return;
-  delete store[videoId];
-  await writeStore(a, store);
+  await mutateEntry(videoId, area, (_entry, store) => {
+    delete store[videoId];
+  });
 }
 
 export async function setLastUsed(

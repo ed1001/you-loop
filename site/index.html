@@ -997,11 +997,11 @@
           var m = mainbar.getBoundingClientRect();
           var zaX = z.left - f.left,
             zbX = z.right - f.left,
-            zY = z.bottom - f.top + 4;
+            zY = z.bottom - f.top;
           var maX = m.left - f.left + m.width * 0.28;
           var mbX = m.left - f.left + m.width * 0.66;
-          // end on the loop handle tops: handles are 24px tall, centred on the 4px bar
-          var mY = m.top - f.top + m.height / 2 - 11;
+          // end on the main timeline bar itself
+          var mY = m.top - f.top;
           svg.setAttribute("viewBox", "0 0 " + f.width + " " + f.height);
           svg.innerHTML =
             '<polygon points="' +

@@ -91,6 +91,7 @@
         letter-spacing: 0.01em;
         color: #fff;
         text-decoration: none;
+        white-space: nowrap;
       }
       .eacute {
         position: relative;
@@ -107,6 +108,21 @@
         display: flex;
         gap: 26px;
       }
+      @media (max-width: 460px) {
+        header {
+          padding: 20px 0;
+        }
+        .wordmark {
+          font-size: 24px;
+        }
+        nav {
+          gap: 18px;
+        }
+        nav a {
+          font-size: 12.5px;
+          letter-spacing: 0.02em;
+        }
+      }
       nav a {
         color: var(--muted);
         text-decoration: none;
@@ -120,7 +136,14 @@
 
       /* ---- hero ---- */
       .hero {
-        padding: clamp(70px, 12vh, 130px) 0 0;
+        padding: clamp(48px, 9vh, 110px) 0 clamp(40px, 8vh, 80px);
+        /* fill viewport so feature blocks start below the fold and only
+           reveal on scroll. header (~80px) sits above this section. */
+        min-height: calc(100vh - 80px);
+        min-height: calc(100svh - 80px);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
       .overline {
         font-size: 12px;
@@ -150,7 +173,8 @@
       .hero h1 em {
         font-style: italic;
         font-weight: 420;
-        color: var(--teal-light);
+        color: var(--ink);
+        white-space: nowrap;
       }
       .hero .lede {
         color: var(--muted);
@@ -518,6 +542,15 @@
         text-transform: none;
         letter-spacing: 0.02em;
         font-size: 14px;
+        text-align: center;
+        padding: 0 10px;
+      }
+      /* the zoom strip and main bar collapse to near-equal widths on narrow
+         screens, so the funnel reads as a jumble — drop the figure entirely */
+      @media (max-width: 600px) {
+        .loopfig {
+          display: none;
+        }
       }
 
       /* ---- movements (features) ---- */
@@ -816,6 +849,28 @@
             transform: none;
           }
         }
+
+        /* scroll-reveal — only armed once JS adds .reveal-ready, so
+           no-JS users always see content */
+        .reveal-ready .reveal {
+          opacity: 0;
+          transform: translateY(18px);
+          transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+            transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+        }
+        .reveal-ready .reveal.in {
+          opacity: 1;
+          transform: none;
+        }
+        .reveal-ready .features .grid .feature:nth-child(2) {
+          transition-delay: 0.08s;
+        }
+        .reveal-ready .features .grid .feature:nth-child(3) {
+          transition-delay: 0.16s;
+        }
+        .reveal-ready .features .grid .feature:nth-child(4) {
+          transition-delay: 0.24s;
+        }
       }
     </style>
   </head>
@@ -838,7 +893,12 @@
 
       <section class="hero">
         <p class="overline rise d1">Practice tools for YouTube</p>
-        <h1 class="rise d2">Turn any video into a <em>practice piece</em>.</h1>
+        <h1 class="rise d2">
+          Turn a YouTube video into an
+          <em
+            ><span class="eacute">é<span class="acc" aria-hidden="true">é</span></span>tude</em
+          >.
+        </h1>
         <p class="lede rise d3">
           Loop a section, slow it down, zoom in for precision.<br />Playback
           that suits your practice style — made for musicians learning by ear.
@@ -897,15 +957,15 @@
 
       <section class="features" id="features">
         <div class="grid">
-          <div class="feature">
+          <div class="feature reveal">
             <h3>Practice tools, built around loop regions</h3>
             <p>
-              Drag handles right on the YouTube timeline. Loop the region — or
-              drill it one shot at a time, with playback pausing at the end
-              until you run it again.
+              Drag handles right on the YouTube timeline. Loop the region on
+              repeat — or take it one pass at a time, playback pausing at the
+              end until you're ready to go again.
             </p>
           </div>
-          <div class="feature">
+          <div class="feature reveal">
             <h3>Zoom in for precision</h3>
             <p>
               Expand your loop region into a magnified timeline and place the
@@ -913,14 +973,14 @@
               second.
             </p>
           </div>
-          <div class="feature">
+          <div class="feature reveal">
             <h3>Slow it down</h3>
             <p>
               0.25× to 3× playback in fine steps. Take a difficult passage at a
               tempo you can actually play, then bring it back up.
             </p>
           </div>
-          <div class="feature">
+          <div class="feature reveal">
             <h3>Save it for later</h3>
             <p>
               Name and save loops per video — tomorrow's practice starts where
@@ -931,14 +991,14 @@
       </section>
 
       <section class="shortcuts" id="shortcuts">
-        <h2>Keyboard-first <em>drilling</em></h2>
+        <h2>Playback, from the <em>keyboard</em></h2>
         <p class="modes-note">
-          Whether your play mode loops the region on repeat or runs it one shot
-          at a time, three keys do the drilling. Pick one and try it — right
+          Whether your play mode loops the region on repeat or takes it one pass
+          at a time, three keys handle the playback. Pick one and try it — right
           here on this page.
         </p>
         <div class="demo">
-          <div class="tabs" role="tablist" aria-label="Drilling keys">
+          <div class="tabs" role="tablist" aria-label="Playback keys">
             <button
               class="tab active"
               role="tab"
@@ -1017,6 +1077,7 @@
         var ztrack = fig.querySelector(".ztrack");
         var mainbar = fig.querySelector(".mainbar");
         function draw() {
+          if (!fig.offsetParent) return; // hidden (e.g. mobile) — skip
           var f = fig.getBoundingClientRect();
           var z = ztrack.getBoundingClientRect();
           var m = mainbar.getBoundingClientRect();
@@ -1171,6 +1232,33 @@
 
         setMode("a");
         requestAnimationFrame(step);
+      })();
+
+      /* scroll-reveal for feature blocks */
+      (function () {
+        var els = document.querySelectorAll(".reveal");
+        if (!els.length) return;
+        var reduced = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
+        // reduced-motion or no IntersectionObserver: leave content visible,
+        // never arm the hidden state
+        if (reduced || !("IntersectionObserver" in window)) return;
+        document.documentElement.classList.add("reveal-ready");
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add("in");
+                io.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.15, rootMargin: "0px 0px -10% 0px" }
+        );
+        els.forEach(function (el) {
+          io.observe(el);
+        });
       })();
     </script>
   </body>

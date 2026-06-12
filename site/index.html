@@ -705,6 +705,65 @@
         }
       }
 
+      /* ---- privacy ---- */
+      .privacy {
+        padding: clamp(20px, 4vh, 50px) 0 clamp(70px, 12vh, 120px);
+        max-width: 64ch;
+      }
+      .privacy h2 {
+        font-family: var(--serif);
+        font-weight: 420;
+        font-size: clamp(26px, 3.6vw, 36px);
+        letter-spacing: -0.01em;
+        margin-bottom: 14px;
+      }
+      .privacy-lede {
+        color: var(--ink);
+        font-size: 17px;
+        margin-bottom: 22px;
+      }
+      .privacy-list {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+      .privacy-list li {
+        color: var(--muted);
+        font-size: 14.5px;
+        padding-left: 22px;
+        position: relative;
+      }
+      .privacy-list li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.65em;
+        width: 8px;
+        height: 1px;
+        background: var(--teal);
+      }
+      .privacy-list strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .privacy-note {
+        color: var(--faint);
+        font-size: 13.5px;
+        margin-top: 26px;
+      }
+      .privacy-note a,
+      footer a {
+        color: var(--muted);
+        text-decoration: none;
+        border-bottom: 1px solid var(--line);
+        transition: color 0.25s;
+      }
+      .privacy-note a:hover,
+      footer a:hover {
+        color: var(--teal-light);
+      }
+
       /* ---- footer ---- */
       footer {
         border-top: 1px solid var(--line);
@@ -899,9 +958,31 @@
         </div>
       </section>
 
+      <section class="privacy" id="privacy">
+        <h2>Privacy</h2>
+        <p class="privacy-lede">
+          Étude collects no data. None of your activity is tracked, and nothing
+          is sent anywhere.
+        </p>
+        <ul class="privacy-list">
+          <li>
+            The only permission it requests is <strong>storage</strong>, used to
+            keep your named loops on your own machine.
+          </li>
+          <li>
+            Saved loops never leave your device — no servers, no accounts, no
+            analytics, no network requests.
+          </li>
+          <li>
+            Uninstalling the extension removes everything it stored.
+          </li>
+        </ul>
+        <p class="privacy-note">This is the complete privacy policy.</p>
+      </section>
+
       <footer>
         <span class="fm">étude — practice tools for YouTube.</span>
-        <span>No data collected.</span>
+        <span><a href="#privacy">Privacy</a> · No data collected.</span>
       </footer>
     </div>
     <script>

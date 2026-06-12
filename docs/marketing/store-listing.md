@@ -31,7 +31,7 @@ SAVED LOOPS
 Name and save loops per video. Come back tomorrow; your work is where you left it.
 
 FREE. NO ACCOUNT. NO TRACKING.
-Étude collects no data — declared in the extension manifest, enforced by the only permission it asks for (storage, to keep your saved loops on your machine).
+Étude collects no data — declared in the extension manifest, enforced by the only permission it asks for (storage, to keep your saved loops on your machine). Loops are stored locally; uninstalling the extension removes them.
 
 ## Category
 

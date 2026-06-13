@@ -40,864 +40,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Instrument+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <style>
-      :root {
-        --bg: #0b0c0d;
-        --ink: #f2f1ed;
-        --muted: rgba(242, 241, 237, 0.52);
-        --faint: rgba(242, 241, 237, 0.28);
-        --teal: #14b8a6;
-        --teal-light: #5eead4;
-        --line: rgba(242, 241, 237, 0.1);
-        --serif: "Fraunces", Georgia, serif;
-        --sans: "Instrument Sans", system-ui, sans-serif;
-      }
-      * {
-        margin: 0;
-        box-sizing: border-box;
-      }
-      html {
-        scroll-behavior: smooth;
-      }
-      body {
-        background: var(--bg);
-        color: var(--ink);
-        font-family: var(--sans);
-        line-height: 1.55;
-        -webkit-font-smoothing: antialiased;
-        overflow-x: hidden;
-      }
-
-      /* ---- atmosphere ---- */
-      .glow {
-        position: fixed;
-        inset: 0;
-        z-index: -2;
-        pointer-events: none;
-        background:
-          radial-gradient(
-            ellipse 70% 45% at 50% -8%,
-            rgba(20, 184, 166, 0.13),
-            transparent 65%
-          ),
-          radial-gradient(
-            ellipse 45% 35% at 88% 110%,
-            rgba(20, 184, 166, 0.06),
-            transparent 70%
-          );
-      }
-      .grain {
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        pointer-events: none;
-        opacity: 0.5;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .04 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-      }
-
-      .wrap {
-        max-width: 1040px;
-        margin: 0 auto;
-        padding: 0 28px;
-      }
-
-      /* ---- header ---- */
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        padding: 26px 0;
-      }
-      .wordmark {
-        font-family: var(--serif);
-        font-style: italic;
-        font-weight: 500;
-        font-size: 28px;
-        letter-spacing: 0.01em;
-        color: #fff;
-        text-decoration: none;
-        white-space: nowrap;
-      }
-      .eacute {
-        position: relative;
-        display: inline-block;
-      }
-      .eacute .acc {
-        position: absolute;
-        inset: 0;
-        color: var(--teal-light);
-        clip-path: inset(0 0 62% 0);
-        pointer-events: none;
-      }
-      nav {
-        display: flex;
-        gap: 26px;
-      }
-      @media (max-width: 460px) {
-        header {
-          padding: 20px 0;
-        }
-        .wordmark {
-          font-size: 24px;
-        }
-        nav {
-          gap: 18px;
-        }
-        nav a {
-          font-size: 12.5px;
-          letter-spacing: 0.02em;
-        }
-      }
-      nav a {
-        color: var(--muted);
-        text-decoration: none;
-        font-size: 13.5px;
-        letter-spacing: 0.04em;
-        transition: color 0.25s;
-      }
-      nav a:hover {
-        color: var(--teal-light);
-      }
-
-      /* ---- hero ---- */
-      .hero {
-        padding: clamp(48px, 9vh, 110px) 0 clamp(40px, 8vh, 80px);
-        /* fill viewport so feature blocks start below the fold and only
-           reveal on scroll. header (~80px) sits above this section. */
-        min-height: calc(100vh - 80px);
-        min-height: calc(100svh - 80px);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-      .overline {
-        font-size: 12px;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--teal-light);
-        margin-bottom: 26px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-      }
-      .overline::before {
-        content: "";
-        width: 36px;
-        height: 1px;
-        background: var(--teal);
-        opacity: 0.6;
-      }
-      .hero h1 {
-        font-family: var(--serif);
-        font-weight: 380;
-        font-size: clamp(42px, 7.2vw, 84px);
-        line-height: 1.04;
-        letter-spacing: -0.015em;
-        max-width: 14ch;
-      }
-      .hero h1 em {
-        font-style: italic;
-        font-weight: 420;
-        color: var(--ink);
-        white-space: nowrap;
-      }
-      .hero .lede {
-        color: var(--muted);
-        margin-top: 28px;
-        max-width: 56ch;
-        font-size: 17px;
-      }
-      @media (max-width: 640px) {
-        .lede br {
-          display: none;
-        }
-      }
-      .ctas {
-        margin-top: 40px;
-        display: flex;
-        gap: 14px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 9px;
-        padding: 14px 30px;
-        border-radius: 999px;
-        font-weight: 600;
-        font-size: 15px;
-        text-decoration: none;
-        transition:
-          transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
-          box-shadow 0.25s,
-          border-color 0.25s,
-          color 0.25s;
-      }
-      .btn svg {
-        width: 18px;
-        height: 18px;
-        flex: none;
-      }
-      .btn-primary {
-        background: var(--teal);
-        color: #06231f;
-        box-shadow: 0 0 0 0 rgba(20, 184, 166, 0);
-      }
-      .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(20, 184, 166, 0.35);
-      }
-      .btn-secondary {
-        border: 1px solid var(--line);
-        color: var(--ink);
-      }
-      .btn-secondary:hover {
-        border-color: rgba(94, 234, 212, 0.5);
-        color: var(--teal-light);
-        transform: translateY(-2px);
-      }
-      .trust {
-        color: var(--faint);
-        font-size: 13px;
-        margin-top: 18px;
-      }
-
-      /* ---- loop figure (stylized from the real overlay UI) ---- */
-      .loopfig {
-        margin: clamp(64px, 10vh, 110px) 0 0;
-        position: relative;
-      }
-      .cone {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        overflow: visible;
-      }
-      .cone polygon {
-        fill: rgba(20, 184, 166, 0.05);
-      }
-      .cone line {
-        stroke: rgba(94, 234, 212, 0.3);
-        stroke-width: 1;
-      }
-
-      /* zoom panel — floats above the progress bar, like in the app */
-      .zoomstrip {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 46px;
-        position: relative;
-      }
-      .zbadge {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        flex-shrink: 0;
-        background: radial-gradient(
-          circle,
-          rgba(20, 184, 166, 0.28),
-          rgba(20, 184, 166, 0.08)
-        );
-        border: 1px solid rgba(94, 234, 212, 0.45);
-        box-shadow: 0 0 14px rgba(20, 184, 166, 0.35);
-        display: grid;
-        place-items: center;
-        color: var(--teal-light);
-      }
-      .zbadge svg {
-        width: 14px;
-        height: 14px;
-      }
-      .ztime {
-        color: var(--teal-light);
-        font-size: 11px;
-        flex-shrink: 0;
-        font-variant-numeric: tabular-nums;
-        letter-spacing: 0.05em;
-      }
-      .ztrack {
-        position: relative;
-        flex: 1;
-        height: 10px;
-        border-radius: 3px;
-        background: linear-gradient(
-          rgba(20, 184, 166, 0.16),
-          rgba(20, 184, 166, 0.3)
-        );
-        border: 1px solid rgba(94, 234, 212, 0.45);
-      }
-      .ztrack::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: 2px;
-        background: repeating-linear-gradient(
-          90deg,
-          rgba(255, 255, 255, 0.1) 0 1px,
-          transparent 1px 24px
-        );
-      }
-      .zfill {
-        position: absolute;
-        inset: 0;
-        border-radius: 2px;
-        background: linear-gradient(
-          rgba(94, 234, 212, 0.45),
-          rgba(20, 184, 166, 0.6)
-        );
-        box-shadow: inset 0 0 1px rgba(94, 234, 212, 0.55);
-        animation:
-          zfillL 12.8s linear infinite,
-          zfillR 12.8s linear infinite;
-      }
-      .zcursor {
-        position: absolute;
-        top: 50%;
-        width: 8px;
-        height: 20px;
-        border-radius: 4px;
-        background: var(--teal);
-        border: 2px solid #fff;
-        transform: translate(-50%, -50%);
-        z-index: 2;
-        box-shadow:
-          inset 0 0 1px rgba(13, 148, 136, 0.6),
-          0 2px 8px rgba(0, 0, 0, 0.45);
-      }
-      .zcursor.a {
-        left: 0;
-        animation: zcurA 12.8s linear infinite;
-      }
-      .zcursor.b {
-        left: 100%;
-        animation: zcurB 12.8s linear infinite;
-      }
-      /* both cursors drag inward together between sweeps, hold for two full loops,
-     then drag back — the cone keeps marking the zoomed extent */
-      @keyframes zcurA {
-        0%,
-        48% {
-          left: 0%;
-        }
-        50%,
-        98% {
-          left: 10%;
-        }
-        100% {
-          left: 0%;
-        }
-      }
-      @keyframes zcurB {
-        0%,
-        48% {
-          left: 100%;
-        }
-        50%,
-        98% {
-          left: 88%;
-        }
-        100% {
-          left: 100%;
-        }
-      }
-      @keyframes zfillL {
-        0%,
-        48% {
-          left: 0%;
-        }
-        50%,
-        98% {
-          left: 10%;
-        }
-        100% {
-          left: 0%;
-        }
-      }
-      @keyframes zfillR {
-        0%,
-        48% {
-          right: 0%;
-        }
-        50%,
-        98% {
-          right: 12%;
-        }
-        100% {
-          right: 0%;
-        }
-      }
-      .zknob {
-        position: absolute;
-        top: 50%;
-        left: 0;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #2dd4bf;
-        transform: translate(-50%, -50%);
-        z-index: 1;
-        animation: zsweep 12.8s linear infinite;
-      }
-      /* four sweeps per cycle: two at full extent, two inside the dragged-in cursors */
-      @keyframes zsweep {
-        0% {
-          left: 0%;
-          opacity: 0;
-        }
-        1% {
-          left: 4%;
-          opacity: 1;
-        }
-        23% {
-          left: 100%;
-          opacity: 1;
-        }
-        24% {
-          left: 100%;
-          opacity: 0;
-        }
-        25% {
-          left: 0%;
-          opacity: 0;
-        }
-        26% {
-          left: 4%;
-          opacity: 1;
-        }
-        48% {
-          left: 100%;
-          opacity: 1;
-        }
-        49% {
-          left: 100%;
-          opacity: 0;
-        }
-        50% {
-          left: 10%;
-          opacity: 0;
-        }
-        51% {
-          left: 13%;
-          opacity: 1;
-        }
-        73% {
-          left: 88%;
-          opacity: 1;
-        }
-        74% {
-          left: 88%;
-          opacity: 0;
-        }
-        75% {
-          left: 10%;
-          opacity: 0;
-        }
-        76% {
-          left: 13%;
-          opacity: 1;
-        }
-        98% {
-          left: 88%;
-          opacity: 1;
-        }
-        99% {
-          left: 88%;
-          opacity: 0;
-        }
-        100% {
-          left: 10%;
-          opacity: 0;
-        }
-      }
-
-      /* main progress bar — loop region band + handles, like on the YouTube timeline */
-      .mainbar {
-        position: relative;
-        height: 4px;
-        border-radius: 2px;
-        background: rgba(242, 241, 237, 0.15);
-      }
-      .range {
-        position: absolute;
-        left: 28%;
-        right: 34%;
-        top: 50%;
-        height: 9px;
-        transform: translateY(-50%);
-        border-radius: 1px;
-        background: rgba(20, 184, 166, 0.55);
-      }
-      .yhandle {
-        position: absolute;
-        top: 50%;
-        width: 10px;
-        height: 24px;
-        border-radius: 6px;
-        background: var(--teal);
-        border: 2px solid #fff;
-        transform: translate(-50%, -50%);
-        box-shadow:
-          inset 0 0 1px rgba(20, 184, 166, 0.6),
-          0 2px 8px rgba(0, 0, 0, 0.35);
-      }
-      .yhandle.a {
-        left: 28%;
-      }
-      .yhandle.b {
-        left: 66%;
-      }
-
-      .loopfig .labels {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 24px;
-        color: var(--faint);
-        font-size: 12px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-      .loopfig .labels .mid {
-        color: var(--muted);
-        font-family: var(--serif);
-        font-style: italic;
-        text-transform: none;
-        letter-spacing: 0.02em;
-        font-size: 14px;
-        text-align: center;
-        padding: 0 10px;
-      }
-      /* the zoom strip and main bar collapse to near-equal widths on narrow
-         screens, so the funnel reads as a jumble — drop the figure entirely */
-      @media (max-width: 600px) {
-        .loopfig {
-          display: none;
-        }
-      }
-
-      /* ---- movements (features) ---- */
-      .features {
-        padding: clamp(90px, 14vh, 150px) 0 0;
-      }
-      .features .grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 48px 44px;
-      }
-      @media (max-width: 760px) {
-        .features .grid {
-          grid-template-columns: 1fr;
-          gap: 40px;
-        }
-      }
-      .feature {
-        border-top: 1px solid var(--line);
-        padding-top: 26px;
-        position: relative;
-      }
-      .feature::before {
-        content: "";
-        position: absolute;
-        top: -1px;
-        left: 0;
-        width: 44px;
-        height: 1px;
-        background: var(--teal);
-      }
-      .feature h3 {
-        font-family: var(--serif);
-        font-weight: 480;
-        font-size: 21px;
-        line-height: 1.25;
-        letter-spacing: -0.01em;
-        margin-bottom: 12px;
-      }
-      .feature p {
-        color: var(--muted);
-        font-size: 14.5px;
-      }
-
-      /* ---- shortcuts ---- */
-      .shortcuts {
-        padding: clamp(90px, 14vh, 150px) 0;
-      }
-      .shortcuts h2 {
-        font-family: var(--serif);
-        font-weight: 420;
-        font-size: clamp(26px, 3.6vw, 36px);
-        letter-spacing: -0.01em;
-        margin-bottom: 14px;
-      }
-      .shortcuts h2 em {
-        font-style: italic;
-        color: var(--teal-light);
-      }
-      .modes-note {
-        color: var(--muted);
-        font-size: 15px;
-        max-width: 62ch;
-        margin-bottom: 36px;
-      }
-      kbd {
-        display: inline-block;
-        background: rgba(242, 241, 237, 0.05);
-        border: 1px solid rgba(242, 241, 237, 0.16);
-        border-bottom-width: 2px;
-        border-radius: 7px;
-        padding: 4px 12px;
-        min-width: 44px;
-        text-align: center;
-        font-family: ui-monospace, "SF Mono", monospace;
-        font-size: 13px;
-        color: var(--ink);
-        flex-shrink: 0;
-      }
-      kbd.pressed {
-        background: rgba(20, 184, 166, 0.4);
-        border-color: var(--teal-light);
-        color: #fff;
-        transform: translateY(1px);
-      }
-
-      /* try-it demo */
-      .tabs {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .tab {
-        font: inherit;
-        font-size: 14px;
-        cursor: pointer;
-        background: none;
-        border: 1px solid var(--line);
-        color: var(--muted);
-        padding: 9px 18px;
-        border-radius: 999px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        transition:
-          border-color 0.25s,
-          color 0.25s,
-          background 0.25s;
-      }
-      .tab kbd {
-        min-width: 0;
-        padding: 2px 8px;
-        font-size: 12px;
-        pointer-events: none;
-      }
-      .tab:hover {
-        color: var(--ink);
-      }
-      .tab:focus,
-      #demo-key:focus {
-        outline: none;
-      }
-      .tab.active {
-        border-color: rgba(94, 234, 212, 0.5);
-        color: var(--teal-light);
-        background: rgba(20, 184, 166, 0.08);
-      }
-      .demo-desc {
-        color: var(--muted);
-        font-size: 15px;
-        max-width: 60ch;
-        min-height: 46px;
-        margin-top: 22px;
-      }
-      .demo-desc strong {
-        color: var(--ink);
-        font-weight: 500;
-      }
-      .demo-stage {
-        margin-top: 16px;
-        padding: 34px 30px 26px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: rgba(242, 241, 237, 0.02);
-      }
-      .mtrack {
-        position: relative;
-        height: 3px;
-        border-radius: 2px;
-        background: rgba(242, 241, 237, 0.12);
-      }
-      .mregion {
-        position: absolute;
-        left: 15%;
-        right: 15%;
-        top: 50%;
-        height: 7px;
-        transform: translateY(-50%);
-        border-radius: 1px;
-        background: rgba(20, 184, 166, 0.35);
-      }
-      .mdot {
-        position: absolute;
-        top: 50%;
-        left: 15%;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: #2dd4bf;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 0 10px rgba(45, 212, 191, 0.6);
-      }
-      .demo-hint {
-        margin-top: 26px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        color: var(--faint);
-        font-size: 13px;
-      }
-      #demo-key {
-        cursor: pointer;
-        user-select: none;
-        -webkit-user-select: none;
-        touch-action: none;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .zknob,
-        .zfill,
-        .zcursor {
-          animation: none;
-        }
-      }
-
-      /* ---- privacy ---- */
-      .privacy {
-        padding: clamp(20px, 4vh, 50px) 0 clamp(70px, 12vh, 120px);
-        max-width: 64ch;
-      }
-      .privacy h2 {
-        font-family: var(--serif);
-        font-weight: 420;
-        font-size: clamp(26px, 3.6vw, 36px);
-        letter-spacing: -0.01em;
-        margin-bottom: 14px;
-      }
-      .privacy-lede {
-        color: var(--ink);
-        font-size: 17px;
-        margin-bottom: 22px;
-      }
-      .privacy-list {
-        list-style: none;
-        padding: 0;
-        display: grid;
-        gap: 12px;
-      }
-      .privacy-list li {
-        color: var(--muted);
-        font-size: 14.5px;
-        padding-left: 22px;
-        position: relative;
-      }
-      .privacy-list li::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0.65em;
-        width: 8px;
-        height: 1px;
-        background: var(--teal);
-      }
-      .privacy-list strong {
-        color: var(--ink);
-        font-weight: 500;
-      }
-      .privacy-note {
-        color: var(--faint);
-        font-size: 13.5px;
-        margin-top: 26px;
-      }
-      .privacy-note a,
-      footer a {
-        color: var(--muted);
-        text-decoration: none;
-        border-bottom: 1px solid var(--line);
-        transition: color 0.25s;
-      }
-      .privacy-note a:hover,
-      footer a:hover {
-        color: var(--teal-light);
-      }
-
-      /* ---- footer ---- */
-      footer {
-        border-top: 1px solid var(--line);
-        padding: 30px 0 40px;
-        display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 10px;
-        color: var(--faint);
-        font-size: 13px;
-      }
-      footer .fm {
-        font-family: var(--serif);
-        font-style: italic;
-        color: var(--muted);
-      }
-
-      /* ---- entrance ---- */
-      @media (prefers-reduced-motion: no-preference) {
-        .rise {
-          opacity: 0;
-          transform: translateY(18px);
-          animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-        }
-        .d1 {
-          animation-delay: 0.08s;
-        }
-        .d2 {
-          animation-delay: 0.18s;
-        }
-        .d3 {
-          animation-delay: 0.28s;
-        }
-        .d4 {
-          animation-delay: 0.4s;
-        }
-        .d5 {
-          animation-delay: 0.55s;
-        }
-        @keyframes rise {
-          to {
-            opacity: 1;
-            transform: none;
-          }
-        }
-
-        /* scroll-reveal — only armed once JS adds .reveal-ready, so
-           no-JS users always see content */
-        .reveal-ready .reveal {
-          opacity: 0;
-          transform: translateY(18px);
-          transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
-            transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
-        }
-        .reveal-ready .reveal.in {
-          opacity: 1;
-          transform: none;
-        }
-        .reveal-ready .features .grid .feature:nth-child(2) {
-          transition-delay: 0.08s;
-        }
-        .reveal-ready .features .grid .feature:nth-child(3) {
-          transition-delay: 0.16s;
-        }
-        .reveal-ready .features .grid .feature:nth-child(4) {
-          transition-delay: 0.24s;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="glow"></div>
@@ -921,7 +64,9 @@
         <h1 class="rise d2">
           Turn a YouTube video into an
           <em
-            ><span class="eacute">é<span class="acc" aria-hidden="true">é</span></span>tude</em
+            ><span class="eacute"
+              >é<span class="acc" aria-hidden="true">é</span></span
+            >tude</em
           >.
         </h1>
         <p class="lede rise d3">
@@ -930,54 +75,192 @@
         </p>
         <div class="ctas rise d4">
           <a class="btn btn-primary" href="#" data-store="chrome">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z"
+              />
+            </svg>
             Add to Chrome</a
           >
           <a class="btn btn-secondary" href="#" data-store="firefox">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.452 3.445a11.002 11.002 0 00-2.482-1.908C16.944.997 15.098.093 12.477.032c-.734-.017-1.457.03-2.174.144-.72.114-1.398.292-2.118.56-1.017.377-1.996.975-2.574 1.554.583-.349 1.476-.733 2.55-.992a10.083 10.083 0 013.729-.167c2.341.34 4.178 1.381 5.48 2.625a8.066 8.066 0 011.298 1.587c1.468 2.382 1.33 5.376.184 7.142-.85 1.312-2.67 2.544-4.37 2.53-.583-.023-1.438-.152-2.25-.566-2.629-1.343-3.021-4.688-1.118-6.306-.632-.136-1.82.13-2.646 1.363-.742 1.107-.7 2.816-.242 4.028a6.473 6.473 0 01-.59-1.895 7.695 7.695 0 01.416-3.845A8.212 8.212 0 019.45 5.399c.896-1.069 1.908-1.72 2.75-2.005-.54-.471-1.411-.738-2.421-.767C8.31 2.583 6.327 3.061 4.7 4.41a8.148 8.148 0 00-1.976 2.414c-.455.836-.691 1.659-.697 1.678.122-1.445.704-2.994 1.248-4.055-.79.413-1.827 1.668-2.41 3.042C.095 9.37-.2 11.608.14 13.989c.966 5.668 5.9 9.982 11.843 9.982C18.62 23.971 24 18.591 24 11.956a11.93 11.93 0 00-3.548-8.511z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M20.452 3.445a11.002 11.002 0 00-2.482-1.908C16.944.997 15.098.093 12.477.032c-.734-.017-1.457.03-2.174.144-.72.114-1.398.292-2.118.56-1.017.377-1.996.975-2.574 1.554.583-.349 1.476-.733 2.55-.992a10.083 10.083 0 013.729-.167c2.341.34 4.178 1.381 5.48 2.625a8.066 8.066 0 011.298 1.587c1.468 2.382 1.33 5.376.184 7.142-.85 1.312-2.67 2.544-4.37 2.53-.583-.023-1.438-.152-2.25-.566-2.629-1.343-3.021-4.688-1.118-6.306-.632-.136-1.82.13-2.646 1.363-.742 1.107-.7 2.816-.242 4.028a6.473 6.473 0 01-.59-1.895 7.695 7.695 0 01.416-3.845A8.212 8.212 0 019.45 5.399c.896-1.069 1.908-1.72 2.75-2.005-.54-.471-1.411-.738-2.421-.767C8.31 2.583 6.327 3.061 4.7 4.41a8.148 8.148 0 00-1.976 2.414c-.455.836-.691 1.659-.697 1.678.122-1.445.704-2.994 1.248-4.055-.79.413-1.827 1.668-2.41 3.042C.095 9.37-.2 11.608.14 13.989c.966 5.668 5.9 9.982 11.843 9.982C18.62 23.971 24 18.591 24 11.956a11.93 11.93 0 00-3.548-8.511z"
+              />
+            </svg>
             Add to Firefox</a
           >
         </div>
         <p class="trust rise d4">Free. No account. No tracking.</p>
 
-        <figure
-          class="loopfig rise d5"
-          aria-label="The Étude overlay: a zoom panel floating above the video timeline magnifies the loop region, with the playhead sweeping it on repeat"
+        <div class="stagewrap">
+        <div
+          class="panelstage rise d5"
+          id="panelstage"
+          aria-label="The Étude control pill on a YouTube timeline: a loop region with handles, a playhead sweeping it on repeat, a magnified zoom strip, and a speed dial"
         >
-          <svg class="cone" aria-hidden="true"></svg>
-          <div class="zoomstrip">
-            <div class="zbadge" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <circle cx="11" cy="11" r="7"></circle>
-                <path d="m21 21-4.3-4.3"></path>
+          <div class="zoomwrap" aria-hidden="true">
+            <span class="zbadge">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle
+                  cx="10.5"
+                  cy="10.5"
+                  r="6"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                />
+                <path
+                  d="M15 15l4.5 4.5"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                />
               </svg>
-            </div>
+            </span>
             <span class="ztime">1:12.40</span>
-            <div class="ztrack">
-              <div class="zfill"></div>
-              <div class="zcursor a"></div>
-              <div class="zcursor b"></div>
-              <div class="zknob"></div>
-            </div>
+            <span class="ztrack">
+              <span class="zfill"></span>
+              <span class="zplayhead"></span>
+              <span class="zcursor a"></span>
+              <span class="zcursor b"></span>
+            </span>
             <span class="ztime">1:38.95</span>
           </div>
-          <div class="mainbar">
-            <div class="range"></div>
-            <div class="yhandle a"></div>
-            <div class="yhandle b"></div>
+
+          <div class="tl">
+            <span class="band"></span>
+            <span class="handle a"></span>
+            <span class="handle b"></span>
+            <span class="playhead"></span>
           </div>
-          <div class="labels">
-            <span>0:00</span>
-            <span class="mid">your loop, magnified — to the split second</span>
-            <span>−4:12</span>
+
+          <span class="ytplay" data-playing="false" aria-hidden="true">
+            <svg class="i-play" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" fill="currentColor" />
+            </svg>
+            <svg class="i-pause" viewBox="0 0 24 24">
+              <path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor" />
+            </svg>
+          </span>
+
+          <div class="epanel" aria-hidden="true">
+            <button class="ebtn epower on" type="button" tabindex="-1">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 3.5v7"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M7.6 6.6a7 7 0 1 0 8.8 0"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+
+            <div class="ecluster">
+              <span class="ewordmark"
+                ><span class="eacute"
+                  >é<span class="acc" aria-hidden="true">é</span></span
+                >tude</span
+              >
+              <div class="econtrols">
+                <div class="emodes">
+                  <span class="emode active" data-mode="loop">Loop</span>
+                  <span class="emode" data-mode="one-shot">One-shot</span>
+                </div>
+                <div class="espeed">
+                  <span class="espeed-val">1.00×</span>
+                </div>
+                <button class="ebtn ezoom" type="button" tabindex="-1">
+                  <svg viewBox="0 0 24 24">
+                    <circle
+                      cx="10.5"
+                      cy="10.5"
+                      r="6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                    />
+                    <path
+                      d="M15 15l4.5 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+                <button class="ebtn esaved" type="button" tabindex="-1">
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      d="M7 4h10v16l-5-3.5L7 20z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="ebtn ehelp" type="button" tabindex="-1">
+              <svg viewBox="0 0 24 24">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M12 11v5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                />
+                <circle cx="12" cy="7.6" r="1.05" fill="currentColor" />
+              </svg>
+            </button>
           </div>
-        </figure>
+
+          <span class="speedpop" aria-hidden="true">
+            <span class="rail"><span class="tape"></span></span>
+            <span class="needle"></span>
+            <span class="resettarget">
+              <svg class="chevrons" viewBox="0 0 26 12" fill="none">
+                <path d="M3 2l4 4-4 4" />
+                <path d="M11 2l4 4-4 4" />
+                <path d="M19 2l4 4-4 4" />
+              </svg>
+              <span class="resetcol">
+                <span class="resetring">1×</span>
+                <span class="resetword">reset</span>
+              </span>
+            </span>
+          </span>
+          <span class="ecclick" aria-hidden="true"></span>
+          <span class="ecursor" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path
+                d="M5 3l14 8.5-6 1.2 3.2 6.1-2.7 1.4L7.4 14 5 17.5z"
+                fill="#f2f1ed"
+                stroke="#0b0c0d"
+                stroke-width="1.1"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+        </div>
+        </div>
       </section>
 
       <section class="features" id="features">
@@ -985,9 +268,9 @@
           <div class="feature reveal">
             <h3>Practice tools, built around loop regions</h3>
             <p>
-              Drag handles right on the YouTube timeline. Loop the region on
-              repeat — or take it one pass at a time, playback pausing at the
-              end until you're ready to go again.
+              Create loop regions right on the YouTube timeline and play them on
+              repeat — or one pass at a time. Drive it all from keyboard
+              shortcuts designed to optimise your practice.
             </p>
           </div>
           <div class="feature reveal">
@@ -1067,9 +350,7 @@
             Saved loops never leave your device — no servers, no accounts, no
             analytics, no network requests.
           </li>
-          <li>
-            Uninstalling the extension removes everything it stored.
-          </li>
+          <li>Uninstalling the extension removes everything it stored.</li>
         </ul>
         <p class="privacy-note">This is the complete privacy policy.</p>
       </section>
@@ -1080,7 +361,8 @@
           Questions, bug reports, or feature ideas — send them straight to me.
         </p>
         <p class="privacy-note">
-          <a href="mailto:phillips.edward18@gmail.com?subject=%C3%89tude%20support"
+          <a
+            href="mailto:phillips.edward18@gmail.com?subject=%C3%89tude%20support"
             >Email support</a
           >
         </p>
@@ -1094,196 +376,6 @@
         >
       </footer>
     </div>
-    <script>
-      (function () {
-        var fig = document.querySelector(".loopfig");
-        var svg = fig.querySelector(".cone");
-        var ztrack = fig.querySelector(".ztrack");
-        var mainbar = fig.querySelector(".mainbar");
-        function draw() {
-          if (!fig.offsetParent) return; // hidden (e.g. mobile) — skip
-          var f = fig.getBoundingClientRect();
-          var z = ztrack.getBoundingClientRect();
-          var m = mainbar.getBoundingClientRect();
-          var zaX = z.left - f.left,
-            zbX = z.right - f.left,
-            zY = z.bottom - f.top;
-          var maX = m.left - f.left + m.width * 0.28;
-          var mbX = m.left - f.left + m.width * 0.66;
-          // end on the main timeline bar itself
-          var mY = m.top - f.top;
-          svg.setAttribute("viewBox", "0 0 " + f.width + " " + f.height);
-          svg.innerHTML =
-            '<polygon points="' +
-            zaX +
-            "," +
-            zY +
-            " " +
-            zbX +
-            "," +
-            zY +
-            " " +
-            mbX +
-            "," +
-            mY +
-            " " +
-            maX +
-            "," +
-            mY +
-            '"></polygon>' +
-            '<line x1="' +
-            zaX +
-            '" y1="' +
-            zY +
-            '" x2="' +
-            maX +
-            '" y2="' +
-            mY +
-            '"></line>' +
-            '<line x1="' +
-            zbX +
-            '" y1="' +
-            zY +
-            '" x2="' +
-            mbX +
-            '" y2="' +
-            mY +
-            '"></line>';
-        }
-        draw();
-        window.addEventListener("resize", draw);
-        window.addEventListener("load", draw);
-      })();
-
-      (function () {
-        var MODES = {
-          a: {
-            desc: "<strong>Restart.</strong> The loop plays on repeat. Press A any time to snap back to the top of the region.",
-            hint: "press A to restart the loop",
-          },
-          s: {
-            desc: "<strong>Cue.</strong> Hold S to play from the start of the loop. Release and you snap straight back, set for another run — just like the cue button on a DJ deck.",
-            hint: "press and hold S to play, release to snap back",
-          },
-          d: {
-            desc: "<strong>Push-to-play.</strong> Hold D to hear the part. Release to pause. Hold again to carry on from where you left off.",
-            hint: "press and hold D to listen, release to pause, hold again to carry on",
-          },
-        };
-        var START = 15,
-          END = 85,
-          SPEED = 14; /* % per second */
-        var reduced = window.matchMedia(
-          "(prefers-reduced-motion: reduce)",
-        ).matches;
-        var dot = document.getElementById("demo-dot");
-        var keyEl = document.getElementById("demo-key");
-        var descEl = document.getElementById("demo-desc");
-        var hintEl = document.getElementById("demo-hint-text");
-        var tabs = Array.prototype.slice.call(
-          document.querySelectorAll(".tab"),
-        );
-        var mode = "a",
-          pos = START,
-          held = false,
-          last = performance.now();
-
-        function setMode(m) {
-          mode = m;
-          pos = START;
-          held = false;
-          keyEl.classList.remove("pressed");
-          keyEl.textContent = m.toUpperCase();
-          descEl.innerHTML = MODES[m].desc;
-          hintEl.textContent = MODES[m].hint;
-          tabs.forEach(function (t) {
-            var on = t.dataset.mode === m;
-            t.classList.toggle("active", on);
-            t.setAttribute("aria-selected", on);
-          });
-        }
-        function press() {
-          if (mode === "a") {
-            pos = START;
-            keyEl.classList.add("pressed");
-            setTimeout(function () {
-              keyEl.classList.remove("pressed");
-            }, 160);
-          } else {
-            held = true;
-            keyEl.classList.add("pressed");
-          }
-        }
-        function release() {
-          if (mode === "a") return;
-          held = false;
-          keyEl.classList.remove("pressed");
-          if (mode === "s") pos = START;
-        }
-        function step(t) {
-          var dt = Math.min((t - last) / 1000, 0.1);
-          last = t;
-          var playing = held || (mode === "a" && !reduced);
-          if (playing) {
-            pos += SPEED * dt;
-            if (pos > END) pos = START;
-          }
-          dot.style.left = pos + "%";
-          requestAnimationFrame(step);
-        }
-
-        tabs.forEach(function (t) {
-          t.addEventListener("click", function () {
-            setMode(t.dataset.mode);
-          });
-        });
-        document.addEventListener("keydown", function (e) {
-          var k = e.key.toLowerCase();
-          if (!MODES[k] || e.repeat || e.metaKey || e.ctrlKey || e.altKey)
-            return;
-          if (k !== mode) setMode(k);
-          press();
-        });
-        document.addEventListener("keyup", function (e) {
-          if (e.key.toLowerCase() === mode) release();
-        });
-        keyEl.addEventListener("pointerdown", function (e) {
-          e.preventDefault();
-          press();
-        });
-        keyEl.addEventListener("pointerup", release);
-        keyEl.addEventListener("pointerleave", release);
-
-        setMode("a");
-        requestAnimationFrame(step);
-      })();
-
-      /* scroll-reveal for feature blocks */
-      (function () {
-        var els = document.querySelectorAll(".reveal");
-        if (!els.length) return;
-        var reduced = window.matchMedia(
-          "(prefers-reduced-motion: reduce)"
-        ).matches;
-        // reduced-motion or no IntersectionObserver: leave content visible,
-        // never arm the hidden state
-        if (reduced || !("IntersectionObserver" in window)) return;
-        document.documentElement.classList.add("reveal-ready");
-        var io = new IntersectionObserver(
-          function (entries) {
-            entries.forEach(function (e) {
-              if (e.isIntersecting) {
-                e.target.classList.add("in");
-                io.unobserve(e.target);
-              }
-            });
-          },
-          { threshold: 0.15, rootMargin: "0px 0px -10% 0px" }
-        );
-        els.forEach(function (el) {
-          io.observe(el);
-        });
-      })();
-    </script>
+    <script src="app.js"></script>
   </body>
 </html>

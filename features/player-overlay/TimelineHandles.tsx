@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, type PointerEvent, type MouseEvent } from "react";
 import type { LoopSegment } from "../playback/types";
+import { suppressNextClick } from "./suppressNextClick";
+import { setPlayerDragLock } from "./playerDragLock";
 
 type Props = {
   duration: number;
@@ -38,6 +40,23 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   // only on drop.
   const draggingRef = useRef<Handle | null>(null);
   const liveRef = useRef<LoopSegment>(committed);
+
+  const setDragLock = (on: boolean) =>
+    setPlayerDragLock(timelineRef.current, on);
+
+  // Commit + clear the drag. Idempotent (guarded by handle) so pointerup and
+  // lostpointercapture/pointercancel can both call it. Commits the last painted
+  // value so it's correct even when capture was lost off the button.
+  const finishDrag = (handle: Handle) => {
+    if (draggingRef.current !== handle) {
+      return;
+    }
+    draggingRef.current = null;
+    setDragLock(false);
+    const next = liveRef.current;
+    paint(next);
+    onSegmentChange(next);
+  };
 
   const valueFromPointer = (clientX: number) => {
     const rect = timelineRef.current?.getBoundingClientRect();
@@ -83,6 +102,23 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
     event.stopPropagation();
   };
 
+  // Shared move/up body: if this handle is the one being dragged, swallow the
+  // event and fold the pointer position into liveRef. Returns whether the drag
+  // is live (callers then paint or commit).
+  const applyHandleFromPointer = (
+    handle: Handle,
+    event: PointerEvent<HTMLButtonElement>
+  ): boolean => {
+    if (draggingRef.current !== handle) {
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const value = valueFromPointer(event.clientX);
+    liveRef.current = clampSegment(handle, value, liveRef.current);
+    return true;
+  };
+
   const createDragHandlers = (handle: Handle) => ({
     onMouseDown: blockMouse,
     onClick: blockMouse,
@@ -90,35 +126,30 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
+      suppressNextClick();
       draggingRef.current = handle;
       liveRef.current = committed;
+      setDragLock(true);
     },
     onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
-      if (draggingRef.current !== handle) {
-        return;
+      if (applyHandleFromPointer(handle, event)) {
+        paint(liveRef.current);
       }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      const value = valueFromPointer(event.clientX);
-      liveRef.current = clampSegment(handle, value, liveRef.current);
-      paint(liveRef.current);
     },
     onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
-      if (draggingRef.current !== handle) {
-        return;
+      // Fold in the release point, then commit + clear.
+      if (applyHandleFromPointer(handle, event)) {
+        finishDrag(handle);
       }
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      draggingRef.current = null;
-
-      const value = valueFromPointer(event.clientX);
-      const next = clampSegment(handle, value, liveRef.current);
-      paint(next);
-      onSegmentChange(next);
+    },
+    // Capture can end before pointerup (release off the button, pointer leaves
+    // the window). lostpointercapture fires for any capture end, so it recovers
+    // the stuck-drag case and no-ops on the normal release (guarded).
+    onLostPointerCapture: () => {
+      finishDrag(handle);
+    },
+    onPointerCancel: () => {
+      finishDrag(handle);
     }
   });
 

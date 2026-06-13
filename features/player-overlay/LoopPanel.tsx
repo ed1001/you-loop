@@ -88,6 +88,13 @@ export function LoopPanel({
       onMouseMove={swallowMove}
       onMouseOver={swallowMove}
       onMouseOut={swallowMove}
+      // Dead zones in the panel (logo, padding) sit over YouTube's progress
+      // bar; without this a click there bleeds through and seeks the video.
+      // Interactive children swallow their own events, so this only catches the
+      // gaps between them.
+      onPointerDown={swallow}
+      onMouseDown={swallow}
+      onClick={swallow}
     >
       <button
         type="button"

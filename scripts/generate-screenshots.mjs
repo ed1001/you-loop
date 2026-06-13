@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// fallow-ignore-file unused-file -- manual dev tool, run via scripts/generate-screenshots.sh
+// fallow-ignore-file unused-file
+// Manual dev tool, run via scripts/generate-screenshots.sh
 /**
  * Generates the graphical store screenshots (docs/marketing/screenshots/*.png).
  *

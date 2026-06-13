@@ -1,4 +1,5 @@
-/* fallow-ignore-file unused-file -- loaded at runtime by generate-screenshots.mjs */
+/* fallow-ignore-file unused-file */
+/* Loaded at runtime by generate-screenshots.mjs. */
 /* Brand scaffolding for the graphical store screenshots.
    The focal UI in each shot is the REAL extension UI: the production
    PAGE_UI_STYLES string is injected verbatim by the generator and the markup

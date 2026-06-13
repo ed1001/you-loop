@@ -7,6 +7,8 @@ import {
 } from "react";
 import type { LoopSegment } from "../playback/types";
 import { MIN_SEGMENT_DURATION_SECONDS } from "../playback/reducer";
+import { suppressNextClick } from "./suppressNextClick";
+import { setPlayerDragLock } from "./playerDragLock";
 
 // Hovering the zoom strip must not bubble into YouTube's scrubber (it would pop
 // the timeline preview). Stop move/hover events without preventDefault.
@@ -175,26 +177,16 @@ export function ZoomTimeline({
     return win.start + percent * winSpan;
   };
 
-  // Keep the controls visible during any drag. Holding the pointer still lets
-  // YouTube's idle timer add `.ytp-autohide` and fade `.ytp-chrome-bottom` to
-  // opacity 0; our overlay lives inside it, so flag the player and force the
-  // chrome bottom back to visible via CSS.
-  const setDragLock = (on: boolean) => {
-    const track = trackRef.current;
-    if (track == null) {
-      return;
-    }
+  const setDragLock = (on: boolean) => setPlayerDragLock(trackRef.current, on);
 
-    const ui = track.closest<HTMLElement>(".you-loop-page-ui");
-    const player = track.closest<HTMLElement>(".html5-video-player");
-
-    if (on) {
-      if (ui != null) ui.dataset.dragging = "true";
-      if (player != null) player.dataset.youLoopScrubbing = "true";
-    } else {
-      if (ui != null) delete ui.dataset.dragging;
-      if (player != null) delete player.dataset.youLoopScrubbing;
-    }
+  // pointerup.stopPropagation() does NOT stop the synthesized `click` that
+  // follows it — that's a separate event. Left unswallowed it bubbles to
+  // YouTube's player and toggles play/pause + its own scrub UI at the release
+  // point. Swallow mousedown/click on our interactive surfaces (same guard the
+  // main TimelineHandles use).
+  const blockMouse = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   // --- Playhead scrubbing (clicking/dragging the track itself) ---
@@ -224,6 +216,7 @@ export function ZoomTimeline({
 
   const onTrackPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     scrubbingRef.current = true;
+    suppressNextClick();
     setDragLock(true);
     // Pause while scrubbing (like the native bar) so frames step under the
     // finger instead of fighting live playback; resume on release.
@@ -277,39 +270,71 @@ export function ZoomTimeline({
     return { start: from.start, end };
   };
 
+  // Commit and clear the drag. Idempotent (guarded by edge) so it can run from
+  // pointerup AND from lostpointercapture/pointercancel without double-firing.
+  // Commits the last painted value in liveLoopRef rather than re-reading the
+  // pointer, so it's correct even when capture was lost off-element.
+  const finishCursorDrag = (edge: Edge) => {
+    if (draggingEdgeRef.current !== edge) {
+      return;
+    }
+    draggingEdgeRef.current = null;
+    setDragLock(false);
+    const next = liveLoopRef.current;
+    paintLoop(next);
+    onLoopChange(next);
+  };
+
+  // Shared move/up body: if this edge is the one being dragged, swallow the
+  // event and fold the pointer position into liveLoopRef. Returns whether the
+  // drag is live (callers then paint or commit).
+  const applyEdgeFromPointer = (
+    edge: Edge,
+    event: PointerEvent<HTMLButtonElement>
+  ): boolean => {
+    if (draggingEdgeRef.current !== edge) {
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const value = timeFromPointer(event.clientX);
+    liveLoopRef.current = clampEdge(edge, value, liveLoopRef.current);
+    return true;
+  };
+
   const createCursorHandlers = (edge: Edge) => ({
+    onMouseDown: blockMouse,
+    onClick: blockMouse,
     onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
+      suppressNextClick();
       draggingEdgeRef.current = edge;
       liveLoopRef.current = loop;
       setDragLock(true);
     },
     onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
-      if (draggingEdgeRef.current !== edge) {
-        return;
+      if (applyEdgeFromPointer(edge, event)) {
+        paintLoop(liveLoopRef.current);
       }
-      event.preventDefault();
-      event.stopPropagation();
-      const value = timeFromPointer(event.clientX);
-      liveLoopRef.current = clampEdge(edge, value, liveLoopRef.current);
-      paintLoop(liveLoopRef.current);
     },
     onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
-      if (draggingEdgeRef.current !== edge) {
-        return;
+      // Fold in the release point, then commit + clear.
+      if (applyEdgeFromPointer(edge, event)) {
+        finishCursorDrag(edge);
       }
-      event.preventDefault();
-      event.stopPropagation();
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      draggingEdgeRef.current = null;
-      setDragLock(false);
-
-      const value = timeFromPointer(event.clientX);
-      const next = clampEdge(edge, value, liveLoopRef.current);
-      paintLoop(next);
-      onLoopChange(next);
+    },
+    // If capture is lost before pointerup (release lands off the button, the
+    // pointer leaves the window, etc.) pointerup never fires on us — without
+    // this the drag would stay armed and the cursor would track the mouse on
+    // the next hover. lostpointercapture fires for ANY capture end, so it also
+    // covers the normal release path (guard makes it a no-op then).
+    onLostPointerCapture: () => {
+      finishCursorDrag(edge);
+    },
+    onPointerCancel: () => {
+      finishCursorDrag(edge);
     }
   });
 
@@ -348,6 +373,8 @@ export function ZoomTimeline({
       <div
         ref={trackRef}
         className="you-loop-zoom-track"
+        onMouseDown={blockMouse}
+        onClick={blockMouse}
         onPointerDown={onTrackPointerDown}
         onPointerMove={onTrackPointerMove}
         onPointerUp={endScrub}

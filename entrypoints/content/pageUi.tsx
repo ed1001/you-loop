@@ -346,15 +346,19 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  // The zoom strip shows while zoomed (or animating closed) and a real loop
+  // exists to refine. Hoisted out of render() so that stays a simple dispatch.
+  const zoomStripVisible = () =>
+    (zoomed || zoomClosing) &&
+    state.loopEnabled &&
+    state.loopSegment != null &&
+    zoomLoop != null;
+
   const render = () => {
     const duration = getVideoDuration(video);
     const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
     const loopDirty = isLoopDirty(selectedLoop, state.loopSegment, zoomLoop);
-    const zoomVisible =
-      (zoomed || zoomClosing) &&
-      state.loopEnabled &&
-      state.loopSegment != null &&
-      zoomLoop != null;
+    const zoomVisible = zoomStripVisible();
 
     root.render(
       <>
@@ -377,7 +381,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         <LoopPanel
           enabled={state.loopEnabled}
           mode={state.playMode}
-          zoomed={zoomed}
+          zoomed={zoomed && zoomVisible}
           playbackRate={state.playbackRate}
           onToggleEnabled={toggleLoop}
           onToggleMode={toggleMode}

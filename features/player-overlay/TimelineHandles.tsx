@@ -25,6 +25,14 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   const startPercent = (committed.start / safeDuration) * 100;
   const endPercent = (committed.end / safeDuration) * 100;
 
+  // The handle is 10px wide and positioned by its left edge. Anchoring the nub
+  // centre on the percentage would push half of it past the track at 0%/100%,
+  // where YouTube's overflow:hidden progress bar clips it and Firefox routes the
+  // pointer to the player instead of our (clipped) button — the handle becomes
+  // ungrabbable. Offset by half its width and clamp so it always stays inside.
+  const handleLeft = (percent: number) =>
+    `clamp(0px, calc(${percent}% - 5px), calc(100% - 10px))`;
+
   // The segment being dragged. Updated via direct DOM (no React render) every
   // pointermove so the handle tracks the cursor smoothly; committed to state
   // only on drop.
@@ -53,8 +61,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
     const start = (seg.start / safeDuration) * 100;
     const end = (seg.end / safeDuration) * 100;
 
-    if (startRef.current) startRef.current.style.left = `${start}%`;
-    if (endRef.current) endRef.current.style.left = `${end}%`;
+    if (startRef.current) startRef.current.style.left = handleLeft(start);
+    if (endRef.current) endRef.current.style.left = handleLeft(end);
     if (rangeRef.current) {
       rangeRef.current.style.left = `${start}%`;
       rangeRef.current.style.width = `${end - start}%`;
@@ -130,7 +138,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
         aria-label="Loop start"
         className="you-loop-handle"
         type="button"
-        style={{ left: `${startPercent}%` }}
+        style={{ left: handleLeft(startPercent) }}
         {...createDragHandlers("start")}
       />
       <button
@@ -138,7 +146,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
         aria-label="Loop end"
         className="you-loop-handle"
         type="button"
-        style={{ left: `${endPercent}%` }}
+        style={{ left: handleLeft(endPercent) }}
         {...createDragHandlers("end")}
       />
     </div>

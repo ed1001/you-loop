@@ -81,7 +81,11 @@ export const PAGE_UI_STYLES = `
       position: absolute;
       top: 50%;
       touch-action: none;
-      transform: translate(-50%, -50%);
+      /* Only vertical centering here. Horizontal position is a clamped left
+         set per-handle (see TimelineHandles) so the 10px nub never hangs off the
+         track edge — a half-off thumb at the ends gets clipped by YouTube's
+         overflow:hidden progress bar and becomes ungrabbable on Firefox. */
+      transform: translateY(-50%);
       width: 10px;
       z-index: 2147483647;
     }

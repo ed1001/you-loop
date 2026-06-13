@@ -417,7 +417,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // playback crosses the segment end. Also restarts a finished one-shot from
   // the segment start when the user presses play again. No-op until a segment
   // is set.
-  const onTimeUpdate = () => {
+  //
+  // Skip while a seek is in flight: setting `currentTime` is async, so on the
+  // next tick `currentTime` may still read the pre-seek value; acting on it
+  // would stack a second seek onto the first and make YouTube re-buffer (the
+  // loading spinner that used to flash on loop restart).
+  const enforce = () => {
+    if (video.seeking) return;
     const result = enforceSegmentEnd(video, {
       ...state,
       loopSegment: effectiveSegment()
@@ -427,6 +433,27 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         type: "markOneShotCompleted",
         completed: result.oneShotCompleted
       });
+    }
+  };
+
+  // `timeupdate` only fires ~4x/sec, so on its own the playhead can sail up to
+  // ~250ms past the segment end before wrapping — at 3x speed that's most of a
+  // short loop, and it lets the playhead cross the end cursor before snapping
+  // back (jerky, imprecise looping). Drive enforcement off requestAnimationFrame
+  // (~60Hz) while playing so the wrap is tight and consistent. `timeupdate`
+  // stays wired below as a backstop for when rAF is throttled (background tab).
+  let enforceRaf = 0;
+  const enforceFrame = () => {
+    enforce();
+    enforceRaf = requestAnimationFrame(enforceFrame);
+  };
+  const startEnforce = () => {
+    if (enforceRaf === 0) enforceRaf = requestAnimationFrame(enforceFrame);
+  };
+  const stopEnforce = () => {
+    if (enforceRaf !== 0) {
+      cancelAnimationFrame(enforceRaf);
+      enforceRaf = 0;
     }
   };
 
@@ -478,13 +505,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     void loadForVideo();
   };
 
-  video.addEventListener("timeupdate", onTimeUpdate);
+  video.addEventListener("timeupdate", enforce);
+  video.addEventListener("play", startEnforce);
+  video.addEventListener("playing", startEnforce);
+  video.addEventListener("pause", stopEnforce);
+  video.addEventListener("ended", stopEnforce);
   video.addEventListener("ratechange", onRateChange);
   video.addEventListener("loadedmetadata", onLoadedMetadata);
   video.addEventListener("durationchange", onLoadedMetadata);
   document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);
+  if (!video.paused) startEnforce();
   render();
   void loadForVideo();
 
@@ -492,7 +524,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     root,
     stop: () => {
       clearZoomCloseTimer();
-      video.removeEventListener("timeupdate", onTimeUpdate);
+      stopEnforce();
+      video.removeEventListener("timeupdate", enforce);
+      video.removeEventListener("play", startEnforce);
+      video.removeEventListener("playing", startEnforce);
+      video.removeEventListener("pause", stopEnforce);
+      video.removeEventListener("ended", stopEnforce);
       video.removeEventListener("ratechange", onRateChange);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("durationchange", onLoadedMetadata);

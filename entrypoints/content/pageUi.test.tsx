@@ -364,6 +364,46 @@ describe("page UI", () => {
     expect(progressBar.style.position).toBe("");
   });
 
+  it("wraps the playhead to the segment start when it crosses the end", () => {
+    const { player, video } = mountYouTubePlayer();
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    act(() => {
+      enableLoop();
+    });
+
+    // Default loop on a 120s video is the middle three-fifths: 24–96.
+    video.currentTime = 97;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(24);
+  });
+
+  it("does not stack a second seek while one is already in flight", () => {
+    const { player, video } = mountYouTubePlayer();
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    act(() => {
+      enableLoop();
+    });
+
+    // A seek to the segment start is mid-flight: `seeking` is true and
+    // `currentTime` still reads the pre-seek (past-end) value. Acting on it
+    // would fire a redundant seek and make YouTube re-buffer.
+    Object.defineProperty(video, "seeking", {
+      configurable: true,
+      get: () => true
+    });
+    video.currentTime = 97;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(97);
+  });
+
   it("auto-enables the loop when launched from the popup", async () => {
     window.history.replaceState(null, "", "/watch?v=vid1");
     const storage = stubBrowserStorage({

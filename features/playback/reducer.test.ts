@@ -3,18 +3,16 @@ import {
   clampPlaybackRate,
   createInitialPlaybackState,
   defaultLoopSegment,
-  DEFAULT_LOOP_FRACTION,
   playbackReducer
 } from "./reducer";
 
 describe("defaultLoopSegment", () => {
-  it("spans the middle three-fifths of the video", () => {
-    expect(defaultLoopSegment(100)).toEqual({ start: 20, end: 80 });
+  it("spans the whole timeline", () => {
+    expect(defaultLoopSegment(100)).toEqual({ start: 0, end: 100 });
   });
 
-  it("uses the configured fraction on each side", () => {
-    expect(DEFAULT_LOOP_FRACTION).toBe(0.2);
-    expect(defaultLoopSegment(10)).toEqual({ start: 2, end: 8 });
+  it("starts at zero for any duration", () => {
+    expect(defaultLoopSegment(10)).toEqual({ start: 0, end: 10 });
   });
 
   it("normalizes a zero-duration video to a minimum-length segment", () => {

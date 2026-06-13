@@ -88,6 +88,19 @@ function mountYouTubePlayer() {
   return { player, progressBar, video };
 }
 
+// Mount a player, reveal the UI, and turn the loop on — the shared setup for
+// the wrap/latch tests below.
+function mountWithLoopEnabled() {
+  const ctx = mountYouTubePlayer();
+  act(() => {
+    setPageUiVisible(ctx.player, true);
+  });
+  act(() => {
+    enableLoop();
+  });
+  return ctx;
+}
+
 // In-memory browser.storage.local good enough for loadEntry/takeLaunch.
 function stubBrowserStorage(initial: Record<string, unknown>) {
   let data: Record<string, unknown> = { ...initial };
@@ -365,30 +378,18 @@ describe("page UI", () => {
   });
 
   it("wraps the playhead to the segment start when it crosses the end", () => {
-    const { player, video } = mountYouTubePlayer();
-    act(() => {
-      setPageUiVisible(player, true);
-    });
-    act(() => {
-      enableLoop();
-    });
+    const { video } = mountWithLoopEnabled();
 
-    // Default loop on a 120s video is the middle three-fifths: 24–96.
-    video.currentTime = 97;
+    // Default loop on a 120s video spans the whole timeline: 0–120.
+    video.currentTime = 120;
     act(() => {
       fireEvent.timeUpdate(video);
     });
-    expect(video.currentTime).toBe(24);
+    expect(video.currentTime).toBe(0);
   });
 
   it("does not stack a second seek while one is already in flight", () => {
-    const { player, video } = mountYouTubePlayer();
-    act(() => {
-      setPageUiVisible(player, true);
-    });
-    act(() => {
-      enableLoop();
-    });
+    const { video } = mountWithLoopEnabled();
 
     // A seek to the segment start is mid-flight: `seeking` is true and
     // `currentTime` still reads the pre-seek (past-end) value. Acting on it
@@ -402,6 +403,36 @@ describe("page UI", () => {
       fireEvent.timeUpdate(video);
     });
     expect(video.currentTime).toBe(97);
+  });
+
+  it("latches after a wrap so a stalled seek does not re-fire every tick", () => {
+    const { video } = mountWithLoopEnabled();
+
+    // First wrap: the playhead crosses the end, so it seeks to the start.
+    video.currentTime = 120;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(0);
+
+    // The seek hasn't landed yet (unbuffered start): the playhead still reads
+    // past the end and `seeked` has not fired. The latch must suppress another
+    // seek — otherwise it re-fires every frame and spirals into a freeze.
+    video.currentTime = 120;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(120);
+
+    // Once the seek lands (`seeked`), looping resumes normally.
+    act(() => {
+      fireEvent(video, new Event("seeked"));
+    });
+    video.currentTime = 120;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(0);
   });
 
   it("auto-enables the loop when launched from the popup", async () => {

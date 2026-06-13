@@ -131,4 +131,72 @@ describe("playback controller", () => {
     expect(element.pause).toHaveBeenCalled();
     expect(result.oneShotCompleted).toBe(true);
   });
+
+  // `sought` drives the caller's latch that stops a wrap into an unbuffered
+  // point from re-firing every frame (the multi-second freeze on tight loops).
+  it("reports sought=true when it wraps from the end", () => {
+    const element = video({ currentTime: 8.01 });
+    const result = enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "loop"
+    });
+
+    expect(result.sought).toBe(true);
+  });
+
+  // Regression: seeking to a fractional start lands a sliver below it, so a
+  // strict `currentTime < start` re-fired every frame after the wrap (measured
+  // up to 4 seeks per wrap, the start-cursor stutter). A sub-frame undershoot
+  // must read as "at the start", not "before the region".
+  it("does not re-seek when the playhead is a sliver below a fractional start", () => {
+    const element = video({ currentTime: 85.224 });
+    const result = enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 85.2241, end: 91.616 },
+      playMode: "loop"
+    });
+
+    expect(element.currentTime).toBe(85.224);
+    expect(result.sought).toBe(false);
+  });
+
+  it("still snaps in when the playhead is clearly before the start", () => {
+    const element = video({ currentTime: 84.5 });
+    enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 85.2241, end: 91.616 },
+      playMode: "loop"
+    });
+
+    expect(element.currentTime).toBe(85.2241);
+  });
+
+  it("reports sought=false while the playhead is inside the segment", () => {
+    const element = video({ currentTime: 6 });
+    const result = enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: true,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "loop"
+    });
+
+    expect(element.currentTime).toBe(6);
+    expect(result.sought).toBe(false);
+  });
+
+  it("reports sought=false when loop is disabled", () => {
+    const element = video({ currentTime: 8.01 });
+    const result = enforceSegmentEnd(element, {
+      ...createInitialPlaybackState(),
+      loopEnabled: false,
+      loopSegment: { start: 5, end: 8 },
+      playMode: "loop"
+    });
+
+    expect(result.sought).toBe(false);
+  });
 });

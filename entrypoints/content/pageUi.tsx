@@ -118,6 +118,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       });
     }
     state = playbackReducer(state, { type: "setLoopEnabled", enabled: true });
+    // Prime the start: snap the playhead into the region now so YouTube begins
+    // buffering `start` the moment the loop turns on, not on the first wrap.
+    // The rAF driver only runs while playing, so without this a narrow loop
+    // enabled while paused waits until play to seek, then stalls on the first
+    // restart. enforce() only seeks when the playhead is outside the region, so
+    // the whole-timeline default (playhead already inside) is a no-op — no rewind.
+    enforce();
   };
 
   const clearZoomCloseTimer = () => {
@@ -418,16 +425,40 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // the segment start when the user presses play again. No-op until a segment
   // is set.
   //
+  // Latch a wrap seek until it settles. `video.seeking` alone is not enough: a
+  // wrap into an unbuffered point can clear `seeking` with the playhead still
+  // past `end` (the fetch hasn't landed), so the next rAF tick wraps again, and
+  // again — dozens of stacked seeks per second that spiral the player into a
+  // multi-second freeze (worst on tight zoom loops, which wrap constantly). Once
+  // we issue a wrap, hold off all enforcement until `seeked` fires (the seek
+  // truly landed) or a fail-safe timeout elapses, so YouTube's buffer can settle
+  // and we contribute at most one seek per wrap.
+  const WRAP_SETTLE_TIMEOUT_MS = 1000;
+  let wrapSeekPending = false;
+  let wrapSeekAt = 0;
+  const onSeeked = () => {
+    wrapSeekPending = false;
+  };
+
   // Skip while a seek is in flight: setting `currentTime` is async, so on the
   // next tick `currentTime` may still read the pre-seek value; acting on it
   // would stack a second seek onto the first and make YouTube re-buffer (the
   // loading spinner that used to flash on loop restart).
   const enforce = () => {
     if (video.seeking) return;
+    if (wrapSeekPending) {
+      if (performance.now() - wrapSeekAt < WRAP_SETTLE_TIMEOUT_MS) return;
+      // Fail-safe: `seeked` never arrived (rare); release so looping resumes.
+      wrapSeekPending = false;
+    }
     const result = enforceSegmentEnd(video, {
       ...state,
       loopSegment: effectiveSegment()
     });
+    if (result.sought) {
+      wrapSeekPending = true;
+      wrapSeekAt = performance.now();
+    }
     if (result.oneShotCompleted !== state.oneShotCompleted) {
       state = playbackReducer(state, {
         type: "markOneShotCompleted",
@@ -506,6 +537,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   };
 
   video.addEventListener("timeupdate", enforce);
+  video.addEventListener("seeked", onSeeked);
   video.addEventListener("play", startEnforce);
   video.addEventListener("playing", startEnforce);
   video.addEventListener("pause", stopEnforce);
@@ -526,6 +558,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       clearZoomCloseTimer();
       stopEnforce();
       video.removeEventListener("timeupdate", enforce);
+      video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("play", startEnforce);
       video.removeEventListener("playing", startEnforce);
       video.removeEventListener("pause", stopEnforce);

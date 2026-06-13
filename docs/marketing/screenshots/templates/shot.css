@@ -1,0 +1,296 @@
+/* fallow-ignore-file unused-file -- loaded at runtime by generate-screenshots.mjs */
+/* Brand scaffolding for the graphical store screenshots.
+   The focal UI in each shot is the REAL extension UI: the production
+   PAGE_UI_STYLES string is injected verbatim by the generator and the markup
+   uses the real .you-loop-* class names. This file only adds the brand canvas
+   (glow, grain, caption, annotation, wordmark) and a few standalone overrides
+   that let player-anchored components render centred on a flat backdrop instead
+   of pinned to a YouTube progress bar. Nothing here restyles the UI itself. */
+
+:root {
+  --bg: #0b0c0d;
+  --ink: #f2f1ed;
+  --muted: rgba(242, 241, 237, 0.55);
+  --faint: rgba(242, 241, 237, 0.3);
+  --teal: #14b8a6;
+  --teal-light: #5eead4;
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Instrument Sans", system-ui, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 1280px;
+  height: 800px;
+  overflow: hidden;
+  position: relative;
+  background:
+    radial-gradient(ellipse 72% 50% at 50% -8%, rgba(20, 184, 166, 0.17), transparent 60%),
+    radial-gradient(ellipse 46% 40% at 88% 114%, rgba(20, 184, 166, 0.08), transparent 70%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+/* grain */
+body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.stage {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 74px 92px 88px;
+}
+
+/* ---- caption ---- */
+.caption { display: flex; align-items: flex-start; gap: 20px; flex: none; }
+.tick {
+  width: 9px;
+  height: 40px;
+  border-radius: 5px;
+  background: var(--teal);
+  box-shadow: 0 0 22px rgba(20, 184, 166, 0.6);
+  flex: none;
+  margin-top: 3px;
+}
+.caption h2 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 43px;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  max-width: 880px;
+}
+.caption h2 em { font-style: normal; color: var(--teal-light); }
+.caption-sub {
+  display: block;
+  margin-top: 12px;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* ---- scene ---- */
+.scene {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 46px;
+}
+
+.annot {
+  max-width: 820px;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.annot strong { color: var(--ink); font-weight: 600; }
+.annot .t { color: var(--teal-light); font-weight: 600; }
+
+/* ---- wordmark stamp ---- */
+.stamp {
+  position: absolute;
+  z-index: 3;
+  left: 92px;
+  bottom: 38px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(242, 241, 237, 0.42);
+}
+.stamp .eacute { position: relative; display: inline-block; font-style: italic; }
+.stamp .eacute .acc {
+  position: absolute; inset: 0;
+  color: var(--teal-light);
+  clip-path: inset(0 0 62% 0);
+}
+.tag {
+  position: absolute;
+  z-index: 3;
+  right: 92px;
+  bottom: 42px;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
+/* magnifier wrapper: scales the real UI up crisply (vectors stay sharp). */
+.mag { transform-origin: center center; }
+
+/* =====================================================================
+   Standalone overrides — let player-anchored real components sit on the
+   flat brand canvas. Visual styling is untouched; only positioning that
+   assumed a YouTube player is neutralised.
+   ===================================================================== */
+
+/* control pill: production pins it under the scrubber; centre it here. */
+.you-loop-panel {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+}
+
+/* zoom strip: production floats it above the timeline; lay it out inline. */
+.you-loop-zoom {
+  position: static !important;
+  width: 480px !important;
+  margin: 0 !important;
+  animation: none !important;
+  bottom: auto !important;
+  left: auto !important;
+}
+
+/* speed popover: production absolutely-anchors + animates it; show it upright.
+   Stays position:relative so its own absolute children (the needle value and
+   the snap-back reset target) anchor to the rail instead of escaping. */
+.you-loop-speed-pop {
+  position: relative !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+/* modals: drop the dimmed full-bleed backdrop — the cards float on the canvas. */
+.you-loop-help-card,
+.you-loop-lm-card {
+  animation: none !important;
+  position: static !important;
+}
+
+/* ---- timeline context (shot 2): a stand-in for YouTube's scrubber that the
+   real loop band + handles paint onto, so the handles read in context. ---- */
+.scrubber {
+  position: relative;
+  width: 470px;
+  height: 64px;
+}
+.scrubber .rail {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  transform: translateY(-50%);
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(242, 241, 237, 0.22);
+}
+.scrubber .watched {
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  height: 9px; width: 22%;
+  border-radius: 2px 0 0 2px;
+  background: #ff0033;
+}
+.scrubber .yt-playhead {
+  position: absolute;
+  left: 22%; top: 50%;
+  width: 16px; height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #ff0033;
+  box-shadow: 0 0 0 4px rgba(255, 0, 51, 0.18);
+}
+/* the real loop band + handles live in a full-width timeline over the rail */
+.scrubber .you-loop-timeline { position: absolute; inset: 0; }
+
+/* ---- big keycaps (shot 1): physical keys, not UI chrome ---- */
+.keys { display: flex; gap: 30px; }
+.keyitem { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 230px; }
+.keycap {
+  width: 78px; height: 78px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(242, 241, 237, 0.08), rgba(242, 241, 237, 0.03));
+  border: 1px solid rgba(242, 241, 237, 0.18);
+  border-bottom-width: 4px;
+  font-family: ui-monospace, "SF Mono", "Roboto Mono", monospace;
+  font-size: 36px; font-weight: 500;
+  color: var(--ink);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.keyitem .knm { font-size: 20px; font-weight: 600; color: var(--ink); }
+.keyitem .kdesc { font-size: 15px; line-height: 1.45; color: var(--muted); text-align: center; max-width: 210px; }
+.keyitem .khold {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--teal-light);
+}
+
+/* faint label chips that name controls in the overview shot */
+.legend { display: flex; flex-wrap: wrap; gap: 10px 14px; justify-content: center; max-width: 760px; }
+.legend span {
+  font-size: 15px; color: var(--muted);
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(242, 241, 237, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(242, 241, 237, 0.08);
+}
+.legend span b { color: var(--teal-light); font-weight: 600; }
+
+/* divider word */
+.or {
+  font-size: 16px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* keyboard-shortcuts eyebrow above the A/S/D keys */
+.kbd-eyebrow {
+  font-size: 14px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--teal-light);
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+/* ---- callout diagram (overview, combined shots) ----
+   transform-scaled UI reports visual rects via getBoundingClientRect, so a JS
+   pass measures each control and draws a connector line to a floating label.
+   Reserve boxes keep scaled elements from overlapping in normal flow. */
+.reserve { display: flex; align-items: center; justify-content: center; }
+.cl-layer {
+  position: fixed; inset: 0;
+  z-index: 4; pointer-events: none; overflow: visible;
+}
+.cl-line { stroke: rgba(94, 234, 212, 0.55); stroke-width: 1.5; }
+.cl-dot { fill: var(--teal-light); }
+.cl-funnel-line { stroke: rgba(94, 234, 212, 0.5); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.cl-funnel-fill { fill: rgba(20, 184, 166, 0.07); }
+.cl-label {
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 5; pointer-events: none;
+  text-align: center;
+  font-size: 19px; font-weight: 600; color: var(--ink);
+  white-space: nowrap;
+}
+.cl-label .sub {
+  display: block; margin-top: 2px;
+  font-size: 14px; font-weight: 400; color: var(--muted);
+}
+/* a small magnify pill that sits in the zoom funnel */
+.zoom-funnel-badge {
+  position: fixed; z-index: 5; transform: translate(-50%, -50%);
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 16px 7px 12px; border-radius: 999px;
+  background: rgba(20, 184, 166, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.4);
+  color: var(--teal-light);
+  font-size: 15px; font-weight: 600; letter-spacing: 0.02em;
+}
+.zoom-funnel-badge svg { width: 17px; height: 17px; }

@@ -164,7 +164,77 @@ export function LoopPanel({
                 </button>
               ))}
             </div>
-  
+
+            <button
+              type="button"
+              className="you-loop-mode-compact"
+              data-mode={mode}
+              data-disabled={!enabled}
+              disabled={!enabled}
+              aria-label={
+                mode === "loop" ? "Switch to one-shot" : "Switch to loop"
+              }
+              onPointerDown={swallow}
+              onMouseDown={swallow}
+              onClick={(event) => {
+                swallow(event);
+                onToggleMode();
+              }}
+            >
+              {mode === "loop" ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M5 9a4 4 0 0 1 4-4h7"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M13 2.5 16.5 5 13 7.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M19 15a4 4 0 0 1-4 4H8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M11 21.5 7.5 19 11 16.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4 12h14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M14 7l5 5-5 5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </button>
+
             <SpeedControl
               rate={playbackRate}
               disabled={!enabled}

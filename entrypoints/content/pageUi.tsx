@@ -29,6 +29,18 @@ import {
 import { takeLaunch } from "../../features/persistence/settingsStore";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
+// Player-width thresholds for the compact panel form, with a dead band so a
+// pill sitting right at the edge does not oscillate between forms.
+const COMPACT_ENTER_PX = 480;
+const COMPACT_EXIT_PX = 500;
+
+// Pure width→compact decision. `prev` is the current compact flag; the band
+// between ENTER and EXIT holds whatever state we are already in.
+export function nextCompactState(width: number, prev: boolean): boolean {
+  if (prev) return width < COMPACT_EXIT_PX; // stay compact until clearly wide
+  return width < COMPACT_ENTER_PX; // go compact once clearly narrow
+}
+
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
 // Must match the you-loop-zoom-out animation duration in the stylesheet.
@@ -654,6 +666,32 @@ function watchAutohide(video: HTMLVideoElement, panel: HTMLElement) {
   return () => observer.disconnect();
 }
 
+// Drive the compact panel form from the player's content width. The page-ui
+// element has `inset: 0`, so its width tracks the player. Writes
+// `panel.dataset.compact` only when the form flips, so resize bursts don't
+// churn the DOM. CSS keys the compact styles off this attribute.
+export function watchPlayerWidth(panel: HTMLElement) {
+  let compact = false;
+
+  const sync = () => {
+    const next = nextCompactState(panel.clientWidth, compact);
+    if (next === compact && panel.dataset.compact != null) return;
+    compact = next;
+    panel.dataset.compact = next ? "true" : "false";
+  };
+
+  sync();
+
+  if (typeof ResizeObserver === "undefined") {
+    return () => {};
+  }
+
+  const observer = new ResizeObserver(sync);
+  observer.observe(panel);
+
+  return () => observer.disconnect();
+}
+
 export function createPageUiElement(video: HTMLVideoElement) {
   ensureDocumentStyles();
 
@@ -677,6 +715,7 @@ export function createPageUiElement(video: HTMLVideoElement) {
     }
   });
   const stopAutohide = watchAutohide(video, panel);
+  const stopWidth = watchPlayerWidth(panel);
   const { root, stop } = renderTimelineCursors(panel, video);
 
   mountedPageUis.set(panel, {
@@ -685,6 +724,7 @@ export function createPageUiElement(video: HTMLVideoElement) {
     cleanup: () => {
       stopTimeline();
       stopAutohide();
+      stopWidth();
       // Leave the attach point stock: we only ever set these inline (the
       // stylesheet values, if any, come back when the inline overrides go).
       const timeline = panel.parentElement;

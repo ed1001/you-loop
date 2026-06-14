@@ -489,6 +489,29 @@ describe("nextCompactState", () => {
   });
 });
 
+describe("compact mode toggle", () => {
+  it("renders a mode toggle button reflecting the current mode", () => {
+    const mounted = mountYouTubePlayer();
+    act(() => {
+      setPageUiVisible(mounted.player, true);
+    });
+    act(() => {
+      enableLoop();
+    });
+
+    const toggle = screen.getByLabelText(/switch to one-shot/i);
+    expect(toggle.dataset.mode).toBe("loop");
+
+    act(() => {
+      fireEvent.click(toggle);
+    });
+
+    expect(screen.getByLabelText(/switch to loop/i).dataset.mode).toBe(
+      "one-shot"
+    );
+  });
+});
+
 describe("watchPlayerWidth", () => {
   it("sets data-compact on the panel from the observed width", () => {
     const callbacks: ResizeObserverCallback[] = [];

@@ -1600,4 +1600,90 @@ export const PAGE_UI_STYLES = `
         transition-duration: 0.01ms !important;
       }
     }
+
+    /* Compact mode toggle: a single icon button replacing the segmented
+       Loop/One-shot control on narrow players. Hidden in the full form. */
+    .you-loop-mode-compact {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: none;
+      flex: none;
+      height: 26px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 26px;
+    }
+
+    .you-loop-mode-compact svg {
+      height: 16px;
+      width: 16px;
+    }
+
+    .you-loop-mode-compact:not(:disabled):hover {
+      background: rgba(20, 184, 166, 0.18);
+      color: #14b8a6;
+    }
+
+    .you-loop-mode-compact[data-disabled="true"] {
+      opacity: 0.4;
+    }
+
+    .you-loop-mode-compact:disabled {
+      cursor: default;
+    }
+
+    /* ── Compact form ──────────────────────────────────────────────────────
+       Active when the player is narrow (data-compact set by
+       watchPlayerWidth). Shrinks the round controls, tightens the pill, swaps
+       the segmented mode control for the icon button, and drops the wordmark
+       so the off-state pill is just power + help. */
+    .you-loop-page-ui[data-compact="true"] .you-loop-panel {
+      gap: 4px;
+      padding: 3px;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-power,
+    .you-loop-page-ui[data-compact="true"] .you-loop-zoom-toggle,
+    .you-loop-page-ui[data-compact="true"] .you-loop-loops-toggle,
+    .you-loop-page-ui[data-compact="true"] .you-loop-help-toggle {
+      height: 26px;
+      width: 26px;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-power svg {
+      height: 15px;
+      width: 15px;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-zoom-toggle svg,
+    .you-loop-page-ui[data-compact="true"] .you-loop-loops-toggle svg,
+    .you-loop-page-ui[data-compact="true"] .you-loop-help-toggle svg {
+      height: 14px;
+      width: 14px;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-modes {
+      display: none;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-mode-compact {
+      display: inline-flex;
+    }
+
+    /* No wordmark in compact: collapse its reserved slot and hide the text, so
+       the off-state pill stays tiny. Equal specificity (0,3,0) to the default
+       off-state slot rule, so this wins on source order — it is appended
+       after. */
+    .you-loop-page-ui[data-compact="true"] .you-loop-wordmark {
+      display: none;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-wordmark-slot {
+      width: 0;
+    }
 `;

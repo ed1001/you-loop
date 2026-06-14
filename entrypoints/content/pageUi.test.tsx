@@ -1,7 +1,7 @@
 import { act } from "react";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setPageUiVisible } from "./pageUi";
+import { setPageUiVisible, nextCompactState } from "./pageUi";
 import { SAVED_STORE_KEY } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY } from "../../features/persistence/settingsStore";
 
@@ -458,5 +458,33 @@ describe("page UI", () => {
     expect(await screen.findByLabelText("Loop start")).toBeInTheDocument();
     // One-shot: consumed.
     expect(storage.dump()[LAUNCH_KEY]).toBeNull();
+  });
+});
+
+describe("nextCompactState", () => {
+  it("becomes compact when clearly narrow", () => {
+    expect(nextCompactState(479, false)).toBe(true);
+  });
+
+  it("stays full at the enter boundary", () => {
+    expect(nextCompactState(480, false)).toBe(false);
+  });
+
+  it("stays full when clearly wide", () => {
+    expect(nextCompactState(900, false)).toBe(false);
+  });
+
+  it("holds compact across the dead band", () => {
+    expect(nextCompactState(485, true)).toBe(true);
+    expect(nextCompactState(499, true)).toBe(true);
+  });
+
+  it("exits compact only at or past the exit boundary", () => {
+    expect(nextCompactState(500, true)).toBe(false);
+    expect(nextCompactState(520, true)).toBe(false);
+  });
+
+  it("holds full across the dead band coming from wide", () => {
+    expect(nextCompactState(485, false)).toBe(false);
   });
 });

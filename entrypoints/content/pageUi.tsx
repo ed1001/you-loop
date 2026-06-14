@@ -29,6 +29,18 @@ import {
 import { takeLaunch } from "../../features/persistence/settingsStore";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
+// Player-width thresholds for the compact panel form, with a dead band so a
+// pill sitting right at the edge does not oscillate between forms.
+const COMPACT_ENTER_PX = 480;
+const COMPACT_EXIT_PX = 500;
+
+// Pure width→compact decision. `prev` is the current compact flag; the band
+// between ENTER and EXIT holds whatever state we are already in.
+export function nextCompactState(width: number, prev: boolean): boolean {
+  if (prev) return width < COMPACT_EXIT_PX; // stay compact until clearly wide
+  return width < COMPACT_ENTER_PX; // go compact once clearly narrow
+}
+
 const PAGE_UI_SELECTOR = "[data-you-loop-page-ui]";
 const PAGE_UI_STYLE_SELECTOR = "style[data-you-loop-page-ui-style]";
 // Must match the you-loop-zoom-out animation duration in the stylesheet.

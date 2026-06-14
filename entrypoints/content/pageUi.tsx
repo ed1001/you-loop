@@ -31,8 +31,8 @@ import { PAGE_UI_STYLES } from "./pageUi.styles";
 
 // Player-width thresholds for the compact panel form, with a dead band so a
 // pill sitting right at the edge does not oscillate between forms.
-const COMPACT_ENTER_PX = 480;
-const COMPACT_EXIT_PX = 500;
+const COMPACT_ENTER_PX = 735;
+const COMPACT_EXIT_PX = 755;
 
 // Pure width→compact decision. `prev` is the current compact flag; the band
 // between ENTER and EXIT holds whatever state we are already in.

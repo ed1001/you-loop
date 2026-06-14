@@ -103,6 +103,10 @@ export const PAGE_UI_STYLES = `
       position: absolute;
       top: 100%;
       transform: translate(-50%, 12px);
+      /* max-content stops the absolute pill's shrink-to-fit width from clamping
+         to the player width on narrow players — without it the grid collapses,
+         overflow:hidden clips the controls, and the icons get cut off. */
+      width: max-content;
       z-index: 2147483647;
     }
 
@@ -1673,17 +1677,5 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-page-ui[data-compact="true"] .you-loop-mode-compact {
       display: inline-flex;
-    }
-
-    /* No wordmark in compact: collapse its reserved slot and hide the text, so
-       the off-state pill stays tiny. Equal specificity (0,3,0) to the default
-       off-state slot rule, so this wins on source order — it is appended
-       after. */
-    .you-loop-page-ui[data-compact="true"] .you-loop-wordmark {
-      display: none;
-    }
-
-    .you-loop-page-ui[data-compact="true"] .you-loop-wordmark-slot {
-      width: 0;
     }
 `;

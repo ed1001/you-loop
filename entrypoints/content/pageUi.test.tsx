@@ -524,7 +524,6 @@ describe("watchPlayerWidth", () => {
       disconnect() {}
       unobserve() {}
     }
-    // @ts-expect-error test stub
     window.ResizeObserver = StubRO;
 
     const panel = document.createElement("div");
@@ -545,7 +544,6 @@ describe("watchPlayerWidth", () => {
     expect(panel.dataset.compact).toBe("false");
 
     stop();
-    // @ts-expect-error test restore
     window.ResizeObserver = original;
   });
 });

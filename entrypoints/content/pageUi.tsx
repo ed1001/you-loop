@@ -666,6 +666,32 @@ function watchAutohide(video: HTMLVideoElement, panel: HTMLElement) {
   return () => observer.disconnect();
 }
 
+// Drive the compact panel form from the player's content width. The page-ui
+// element has `inset: 0`, so its width tracks the player. Writes
+// `panel.dataset.compact` only when the form flips, so resize bursts don't
+// churn the DOM. CSS keys the compact styles off this attribute.
+export function watchPlayerWidth(panel: HTMLElement) {
+  let compact = false;
+
+  const sync = () => {
+    const next = nextCompactState(panel.clientWidth, compact);
+    if (next === compact && panel.dataset.compact != null) return;
+    compact = next;
+    panel.dataset.compact = next ? "true" : "false";
+  };
+
+  sync();
+
+  if (typeof ResizeObserver === "undefined") {
+    return () => {};
+  }
+
+  const observer = new ResizeObserver(sync);
+  observer.observe(panel);
+
+  return () => observer.disconnect();
+}
+
 export function createPageUiElement(video: HTMLVideoElement) {
   ensureDocumentStyles();
 
@@ -689,6 +715,7 @@ export function createPageUiElement(video: HTMLVideoElement) {
     }
   });
   const stopAutohide = watchAutohide(video, panel);
+  const stopWidth = watchPlayerWidth(panel);
   const { root, stop } = renderTimelineCursors(panel, video);
 
   mountedPageUis.set(panel, {
@@ -697,6 +724,7 @@ export function createPageUiElement(video: HTMLVideoElement) {
     cleanup: () => {
       stopTimeline();
       stopAutohide();
+      stopWidth();
       // Leave the attach point stock: we only ever set these inline (the
       // stylesheet values, if any, come back when the inline overrides go).
       const timeline = panel.parentElement;

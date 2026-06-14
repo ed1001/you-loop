@@ -1,7 +1,7 @@
 import { act } from "react";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setPageUiVisible, nextCompactState } from "./pageUi";
+import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { SAVED_STORE_KEY } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY } from "../../features/persistence/settingsStore";
 
@@ -486,5 +486,43 @@ describe("nextCompactState", () => {
 
   it("holds full across the dead band coming from wide", () => {
     expect(nextCompactState(485, false)).toBe(false);
+  });
+});
+
+describe("watchPlayerWidth", () => {
+  it("sets data-compact on the panel from the observed width", () => {
+    const callbacks: ResizeObserverCallback[] = [];
+    const original = window.ResizeObserver;
+    class StubRO {
+      constructor(cb: ResizeObserverCallback) {
+        callbacks.push(cb);
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+    // @ts-expect-error test stub
+    window.ResizeObserver = StubRO;
+
+    const panel = document.createElement("div");
+    Object.defineProperty(panel, "clientWidth", {
+      configurable: true,
+      value: 300
+    });
+
+    const stop = watchPlayerWidth(panel);
+    // initial sync runs in the helper
+    expect(panel.dataset.compact).toBe("true");
+
+    Object.defineProperty(panel, "clientWidth", {
+      configurable: true,
+      value: 900
+    });
+    callbacks[0]([], {} as ResizeObserver);
+    expect(panel.dataset.compact).toBe("false");
+
+    stop();
+    // @ts-expect-error test restore
+    window.ResizeObserver = original;
   });
 });

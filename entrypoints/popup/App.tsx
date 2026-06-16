@@ -3,7 +3,6 @@ import {
   listEntries,
   removeVideo,
   type SavedVideo,
-  type StorageArea,
   type SyncArea
 } from "../../features/persistence/loopStore";
 import {
@@ -17,7 +16,7 @@ import { EtudeWordmark } from "../../features/player-overlay/EtudeWordmark";
 
 type Props = {
   // Test seams; production uses the real extension APIs.
-  area?: StorageArea;
+  area?: SyncArea;
   openTab?: (url: string) => void;
   closeWindow?: () => void;
 };
@@ -32,7 +31,7 @@ export function App({
 
   useEffect(() => {
     void getEnabled(area).then(setEnabledState);
-    void listEntries(area ? { sync: area as unknown as SyncArea, local: area as unknown as SyncArea } : undefined).then(setVideos);
+    void listEntries(area ? { sync: area, local: area } : undefined).then(setVideos);
   }, [area]);
 
   const toggle = () => {
@@ -51,7 +50,7 @@ export function App({
 
   const handleDelete = (videoId: string) => {
     setVideos((prev) => prev.filter((v) => v.videoId !== videoId));
-    void removeVideo(videoId, area ? { sync: area as unknown as SyncArea, local: area as unknown as SyncArea } : undefined);
+    void removeVideo(videoId, area ? { sync: area, local: area } : undefined);
   };
 
   return (

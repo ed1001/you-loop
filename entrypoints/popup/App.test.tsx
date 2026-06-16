@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { keyFor, type StorageArea } from "../../features/persistence/loopStore";
+import { keyFor, type SyncArea } from "../../features/persistence/loopStore";
 import { ENABLED_KEY, LAUNCH_KEY } from "../../features/persistence/settingsStore";
 import { App } from "./App";
 
 function makeArea(
   initial: Record<string, unknown> = {}
-): StorageArea & { dump: () => Record<string, unknown> } {
+): SyncArea & { dump: () => Record<string, unknown> } {
   const data = new Map<string, unknown>(Object.entries(initial));
   return {
     async get(key: string | null) {
@@ -20,7 +20,7 @@ function makeArea(
       data.delete(key);
     },
     dump: () => Object.fromEntries(data)
-  } as unknown as StorageArea & { dump: () => Record<string, unknown> };
+  } as unknown as SyncArea & { dump: () => Record<string, unknown> };
 }
 
 const seededStore = {

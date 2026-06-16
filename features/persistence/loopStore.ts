@@ -59,7 +59,6 @@ export type SyncArea = {
 // local; reads merge both with sync winning.
 export type LoopStorage = { sync: SyncArea; local: SyncArea };
 
-// fallow-ignore-next-line unused-export
 export function resolveStorage(storage?: Partial<LoopStorage>): LoopStorage {
   return {
     sync: storage?.sync ?? (browser.storage.sync as unknown as SyncArea),

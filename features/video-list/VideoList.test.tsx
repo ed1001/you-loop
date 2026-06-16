@@ -4,8 +4,8 @@ import type { SavedVideo } from "../persistence/loopStore";
 import { VideoList } from "./VideoList";
 
 const videos: SavedVideo[] = [
-  { videoId: "vid1", title: "Caprice 24", count: 2, lastSeen: 20 },
-  { videoId: "vid2", title: undefined, count: 1, lastSeen: 10 }
+  { videoId: "vid1", title: "Caprice 24", count: 2, addedAt: 20 },
+  { videoId: "vid2", title: undefined, count: 1, addedAt: 10 }
 ];
 
 describe("VideoList", () => {

@@ -272,7 +272,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       return;
     }
 
-    const entry = await loadEntry(id, undefined, undefined, getVideoTitle() ?? undefined);
+    const entry = await loadEntry(id, undefined, getVideoTitle() ?? undefined);
     if (videoId !== id) return; // navigated away mid-await
 
     // Arrived via the popup's saved-videos list: the user picked this video to
@@ -298,7 +298,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     selectedLoopId = loop.id;
     // Persist the title now so this video shows a name in the index without
     // waiting for a later revisit to backfill it.
-    await loadEntry(videoId, undefined, undefined, getVideoTitle() ?? undefined);
+    await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
     await refreshLibrary();
     // Stay open so the new loop appears in the list as confirmation.
     render();

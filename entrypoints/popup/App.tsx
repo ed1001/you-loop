@@ -3,7 +3,8 @@ import {
   listEntries,
   removeVideo,
   type SavedVideo,
-  type StorageArea
+  type StorageArea,
+  type SyncArea
 } from "../../features/persistence/loopStore";
 import {
   getEnabled,
@@ -31,7 +32,7 @@ export function App({
 
   useEffect(() => {
     void getEnabled(area).then(setEnabledState);
-    void listEntries(area).then(setVideos);
+    void listEntries(area ? { sync: area as unknown as SyncArea, local: area as unknown as SyncArea } : undefined).then(setVideos);
   }, [area]);
 
   const toggle = () => {
@@ -50,7 +51,7 @@ export function App({
 
   const handleDelete = (videoId: string) => {
     setVideos((prev) => prev.filter((v) => v.videoId !== videoId));
-    void removeVideo(videoId, area);
+    void removeVideo(videoId, area ? { sync: area as unknown as SyncArea, local: area as unknown as SyncArea } : undefined);
   };
 
   return (

@@ -2,7 +2,7 @@ import { act } from "react";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
-import { SAVED_STORE_KEY } from "../../features/persistence/loopStore";
+import { keyFor } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY } from "../../features/persistence/settingsStore";
 
 function enableLoop() {
@@ -101,23 +101,27 @@ function mountWithLoopEnabled() {
   return ctx;
 }
 
-// In-memory browser.storage.local good enough for loadEntry/takeLaunch.
-function stubBrowserStorage(initial: Record<string, unknown>) {
-  let data: Record<string, unknown> = { ...initial };
-  vi.stubGlobal("browser", {
-    storage: {
-      local: {
-        async get(key: string) {
-          return key in data ? { [key]: data[key] } : {};
-        },
-        async set(items: Record<string, unknown>) {
-          data = { ...data, ...items };
-        }
-      }
+// In-memory browser.storage stub covering both sync and local, with get(null)
+// support required by listEntries/loadEntry.
+function stubBrowserStorage(initial: Record<string, unknown> = {}) {
+  const data = new Map<string, unknown>(Object.entries(initial));
+  const area = {
+    async get(key: string | null) {
+      if (key === null) return Object.fromEntries(data);
+      return data.has(key) ? { [key]: data.get(key) } : {};
     },
+    async set(items: Record<string, unknown>) {
+      for (const [k, v] of Object.entries(items)) data.set(k, v);
+    },
+    async remove(key: string) {
+      data.delete(key);
+    }
+  };
+  vi.stubGlobal("browser", {
+    storage: { sync: area, local: area },
     runtime: { getURL: (p: string) => p }
   });
-  return { dump: () => data };
+  return { dump: () => Object.fromEntries(data) };
 }
 
 describe("page UI", () => {
@@ -438,13 +442,11 @@ describe("page UI", () => {
   it("auto-enables the loop when launched from the popup", async () => {
     window.history.replaceState(null, "", "/watch?v=vid1");
     const storage = stubBrowserStorage({
-      [SAVED_STORE_KEY]: {
-        vid1: {
-          loops: [{ id: "l1", name: "A", main: { start: 5, end: 9 }, zoom: null }],
-          lastUsedId: "l1",
-          lastSeen: 10,
-          title: "Caprice 24"
-        }
+      [keyFor("vid1")]: {
+        loops: [{ id: "l1", name: "A", main: { start: 5, end: 9 }, zoom: null }],
+        lastUsedId: "l1",
+        addedAt: 10,
+        title: "Caprice 24"
       },
       [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
     });

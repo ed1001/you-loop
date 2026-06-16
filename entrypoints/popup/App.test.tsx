@@ -1,41 +1,43 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SAVED_STORE_KEY, type StorageArea } from "../../features/persistence/loopStore";
+import { keyFor, type StorageArea } from "../../features/persistence/loopStore";
 import { ENABLED_KEY, LAUNCH_KEY } from "../../features/persistence/settingsStore";
 import { App } from "./App";
 
 function makeArea(
   initial: Record<string, unknown> = {}
 ): StorageArea & { dump: () => Record<string, unknown> } {
-  let data: Record<string, unknown> = { ...initial };
+  const data = new Map<string, unknown>(Object.entries(initial));
   return {
-    async get(key: string) {
-      return key in data ? { [key]: data[key] } : {};
+    async get(key: string | null) {
+      if (key === null) return Object.fromEntries(data);
+      return data.has(key) ? { [key]: data.get(key) } : {};
     },
     async set(items: Record<string, unknown>) {
-      data = { ...data, ...items };
+      for (const [k, v] of Object.entries(items)) data.set(k, v);
     },
-    dump: () => data
-  };
+    async remove(key: string) {
+      data.delete(key);
+    },
+    dump: () => Object.fromEntries(data)
+  } as unknown as StorageArea & { dump: () => Record<string, unknown> };
 }
 
 const seededStore = {
-  [SAVED_STORE_KEY]: {
-    vid1: {
-      loops: [{ id: "l1", name: "A", main: { start: 1, end: 2 }, zoom: null }],
-      lastUsedId: "l1",
-      lastSeen: 10,
-      title: "Caprice 24"
-    },
-    vid2: {
-      loops: [
-        { id: "l2", name: "B", main: { start: 3, end: 4 }, zoom: null },
-        { id: "l3", name: "C", main: { start: 5, end: 6 }, zoom: null }
-      ],
-      lastUsedId: "l2",
-      lastSeen: 20,
-      title: "Giant Steps"
-    }
+  [keyFor("vid1")]: {
+    loops: [{ id: "l1", name: "A", main: { start: 1, end: 2 }, zoom: null }],
+    lastUsedId: "l1",
+    addedAt: 10,
+    title: "Caprice 24"
+  },
+  [keyFor("vid2")]: {
+    loops: [
+      { id: "l2", name: "B", main: { start: 3, end: 4 }, zoom: null },
+      { id: "l3", name: "C", main: { start: 5, end: 6 }, zoom: null }
+    ],
+    lastUsedId: "l2",
+    addedAt: 20,
+    title: "Giant Steps"
   }
 };
 
@@ -104,9 +106,8 @@ describe("popup App", () => {
 
     expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
     await vi.waitFor(() => {
-      const store = area.dump()[SAVED_STORE_KEY] as Record<string, unknown>;
-      expect(store["vid1"]).toBeUndefined();
-      expect(store["vid2"]).toBeDefined();
+      expect(area.dump()[keyFor("vid1")]).toBeUndefined();
+      expect(area.dump()[keyFor("vid2")]).toBeDefined();
     });
   });
 

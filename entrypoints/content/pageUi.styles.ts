@@ -567,13 +567,6 @@ export const PAGE_UI_STYLES = `
       cursor: none !important;
     }
 
-    /* Same idea while scrubbing the playhead or dragging a loop cursor in the
-       zoom strip: hide the OS cursor so the teal handle/playhead is the focus
-       and reads as locked to the pointer. */
-    .html5-video-player[data-you-loop-scrubbing="true"],
-    .html5-video-player[data-you-loop-scrubbing="true"] * {
-      cursor: none !important;
-    }
 
     /* Snap-back target: chevrons pointing at a 1× ring off the rail's right
        edge. It idles faint as a hint that dragging right does something,

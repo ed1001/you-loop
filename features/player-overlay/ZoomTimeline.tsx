@@ -64,6 +64,9 @@ export function ZoomTimeline({
   const wasPlayingRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
   const seekRafRef = useRef(0);
+  // Last time the scrub painted to, so cleanup can commit without re-reading the
+  // pointer — correct even when capture is lost off-element (no usable event).
+  const lastScrubTimeRef = useRef<number | null>(null);
 
   // Loop-cursor drag state.
   const draggingEdgeRef = useRef<Edge | null>(null);
@@ -167,12 +170,14 @@ export function ZoomTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video, win.start, win.end]);
 
+  // Map a pointer's clientX to a time, clamped to the window. Vertical position
+  // is never read, so the drag ignores it; horizontal travel past an edge pins
+  // to that edge instead of running off the strip.
   const timeFromPointer = (clientX: number): number => {
     const rect = trackRef.current?.getBoundingClientRect();
     if (rect == null || rect.width <= 0) {
       return win.start;
     }
-
     const percent = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     return win.start + percent * winSpan;
   };
@@ -210,6 +215,7 @@ export function ZoomTimeline({
     event.preventDefault();
     event.stopPropagation();
     const time = timeFromPointer(event.clientX);
+    lastScrubTimeRef.current = time;
     paintPlayhead(time);
     queueSeek(time);
   };
@@ -222,7 +228,11 @@ export function ZoomTimeline({
     // finger instead of fighting live playback; resume on release.
     wasPlayingRef.current = !video.paused;
     video.pause();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // keep the drag alive uncaptured
+    }
     scrubTo(event);
   };
 
@@ -233,26 +243,39 @@ export function ZoomTimeline({
     scrubTo(event);
   };
 
-  const endScrub = (event: PointerEvent<HTMLDivElement>) => {
+  // Commit and clear the scrub. Idempotent (guarded by scrubbingRef) so it can
+  // run from pointerup AND from lostpointercapture/pointercancel without
+  // double-firing. Commits lastScrubTimeRef rather than re-reading the pointer,
+  // so it's correct even when capture was lost off-element. No releasePointer-
+  // Capture: capture is implicitly released on pointerup (same as the cursors).
+  const finishScrub = () => {
     if (!scrubbingRef.current) {
       return;
     }
     scrubbingRef.current = false;
     setDragLock(false);
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
 
     if (seekRafRef.current !== 0) {
       cancelAnimationFrame(seekRafRef.current);
       seekRafRef.current = 0;
     }
-    const time = timeFromPointer(event.clientX);
+    const time = lastScrubTimeRef.current ?? video.currentTime;
     video.currentTime = time;
     paintPlayhead(time);
     if (wasPlayingRef.current) {
       void video.play();
     }
+  };
+
+  const endScrub = (event: PointerEvent<HTMLDivElement>) => {
+    if (!scrubbingRef.current) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    // Fold in the precise release point before committing.
+    lastScrubTimeRef.current = timeFromPointer(event.clientX);
+    finishScrub();
   };
 
   // --- Loop cursor dragging (refines the loop within the window) ---
@@ -308,7 +331,11 @@ export function ZoomTimeline({
     onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      event.currentTarget.setPointerCapture(event.pointerId);
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // keep the drag alive uncaptured
+      }
       suppressNextClick();
       draggingEdgeRef.current = edge;
       liveLoopRef.current = loop;
@@ -379,6 +406,11 @@ export function ZoomTimeline({
         onPointerMove={onTrackPointerMove}
         onPointerUp={endScrub}
         onPointerCancel={endScrub}
+        // If capture is lost before pointerup (release lands outside the
+        // player, the pointer leaves the window, etc.) pointerup never fires on
+        // us — without this the scrub stays armed: the playhead keeps tracking
+        // the mouse and the OS cursor stays hidden. Mirrors the loop cursors.
+        onLostPointerCapture={finishScrub}
       >
         <div
           ref={fillRef}

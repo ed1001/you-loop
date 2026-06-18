@@ -137,6 +137,8 @@ describe("ZoomTimeline Shift+cursor drag (window mode)", () => {
     });
 
     expect(onLoopChange).toHaveBeenCalledTimes(1);
+    // Committed unchanged: a zero-delta window drag yields the original loop.
+    expect(onLoopChange.mock.calls[0][0]).toEqual({ start: 25, end: 30 });
     expect(onWindowMove).not.toHaveBeenCalled();
   });
 });

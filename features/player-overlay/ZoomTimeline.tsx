@@ -322,7 +322,9 @@ export function ZoomTimeline({
     // A window-mode drag (Shift held at pointerdown) that actually moved the
     // loop (start changed) routes through onWindowMove so the caller can seek
     // to the new start. A no-move window drag, or any resize drag, uses
-    // onLoopChange (no seek).
+    // onLoopChange (no seek). The start compare is exact-safe: both `next` (from
+    // translateSegment) and the grabbed loop are rounded to 3dp, so an unmoved
+    // drag yields the identical value, not a float-epsilon-off one.
     if (dragModeRef.current === "window" && next.start !== grabLoopRef.current.start && onWindowMove != null) {
       onWindowMove(next);
     } else {

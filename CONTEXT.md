@@ -40,6 +40,10 @@ _Avoid_: Welcome screen, plugin screen, homepage
 The behavior used when playback reaches the end of a **Loop Segment**.
 _Avoid_: Loop type, playback option
 
+**Window Shift**:
+Moving a **Loop Segment** along the timeline without changing its length, by dragging the loop band or stepping/nudging it with the keyboard.
+_Avoid_: Pan, scroll, drag-all
+
 ## Relationships
 
 - A **Video Player Adapter** belongs to exactly one supported video site or player family.
@@ -49,6 +53,7 @@ _Avoid_: Loop type, playback option
 - A **Player Overlay** controls the active video through a **Video Player Adapter**.
 - **Loop Handles** define exactly one **Loop Segment**.
 - A **Play Mode** applies to the active **Loop Segment**.
+- A **Window Shift** preserves the length of the active **Loop Segment**.
 - A **Zoom Panel** belongs to exactly one **Loop Segment**.
 - A **Waveform Track** appears inside the **Zoom Panel**.
 - The **Toolbar Popup** controls extension-wide availability for supported pages.

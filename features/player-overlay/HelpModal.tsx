@@ -143,6 +143,16 @@ const SHORTCUTS: Shortcut[] = [
     name: "Push-to-play",
     desc: "Play from the playhead; release pauses in place. Hold again to carry on.",
   },
+  {
+    keys: "[ ]",
+    name: "Step window",
+    desc: "Move the loop forward/back by its own length, keeping the length.",
+  },
+  {
+    keys: "⇧ [ ]",
+    name: "Nudge window",
+    desc: "Nudge the loop forward/back a little, keeping the length.",
+  },
 ];
 
 export function HelpModal({ open, container, onClose }: Props) {

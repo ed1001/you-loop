@@ -48,7 +48,7 @@ describe("HelpModal", () => {
     const keys = Array.from(container.querySelectorAll(".you-loop-kbd")).map(
       (el) => el.textContent
     );
-    expect(keys).toEqual(["A", "S", "D"]);
+    expect(keys).toEqual(["A", "S", "D", "[ ]", "⇧ [ ]"]);
   });
 
   it("calls onClose when the backdrop is clicked", () => {
@@ -87,5 +87,14 @@ describe("HelpModal", () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("documents the window step and nudge keys", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    render(<HelpModal open container={container} onClose={() => {}} />);
+    const card = container.querySelector(".you-loop-help-card");
+    expect(card!.textContent).toContain("Step window");
+    expect(card!.textContent).toContain("Nudge window");
   });
 });

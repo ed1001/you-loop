@@ -19,11 +19,10 @@ Two input paths:
 
 - **Free drag** — grab the highlighted loop band on the main timeline and slide
   both edges together, length preserved.
-- **Step / nudge keys** — `]`/`[` jump the window forward/back by one full
-  length; `Shift+]`/`Shift+[` nudge it by a small fixed amount.
+- **Step / nudge keys** — `[`/`]` nudge the window back/forward by a small fixed
+  amount; `Shift+[`/`Shift+]` jump it by one full length ("goalpost march").
 
-Non-goals: on-screen step buttons; per-platform/site work beyond YouTube; any
-playhead-seek behaviour beyond what loop enforcement already does.
+Non-goals: on-screen step buttons; per-platform/site work beyond YouTube.
 
 ## Behaviour
 
@@ -33,12 +32,19 @@ Moving the window never changes its duration. Near a boundary the *delta* is
 clamped so the window slides flush to the edge and keeps its length; pushing
 further is a no-op.
 
-### No bespoke playback follow
+### A window move seeks to the new start
 
-Moving the window only changes the loop bounds. Playback continues; if the
-playhead ends up outside the new window, loop enforcement pulls it in on the
-next wrap — identical to what happens today when you drag a handle. There is no
-special seek.
+Moving the window (step/nudge keys, or a band drag-on-release) seeks the
+playhead to the **new window start** — so you can skip around and immediately
+see/hear what is at each start point. The seek only fires when the start
+actually changes: a boundary no-op step, or a band click with no movement, does
+not seek. Play/pause state is left untouched — paused, you see the start frame;
+playing, it auditions from the start.
+
+This applies to **window moves only**. Single-handle resizes (dragging the start
+or end handle to change length) do **not** seek — unchanged behaviour. A move of
+the **main** loop commits through `setLoopSegment` (which re-clamps the zoom
+sub-region); a move of the **zoom sub-region** seeks within it.
 
 ### Two regions, two clamp bounds
 
@@ -119,10 +125,13 @@ In `features/playback/reducer.ts`, alongside the existing playback constants
 - On range pointermove: `delta = pointerTime - grabTime`;
   `live = translateSegment(grabSegment, delta, { min: 0, max: safeDuration })`;
   paint `live`.
-- On drop: commit `live` via `onSegmentChange` (the existing main-loop commit
-  path → `setLoopSegment` + zoom re-clamp in pageUi).
-- The per-handle (`start`/`end`) branches are unchanged; only the `"range"`
-  branch uses `translateSegment` instead of `clampSegment`.
+- On drop: if the start actually changed, commit `live` via a distinct
+  `onWindowMove` prop (so pageUi can seek to the new start); otherwise (a click
+  with no movement) commit via `onSegmentChange` with no seek. `onWindowMove`
+  falls back to `onSegmentChange` when not provided.
+- The per-handle (`start`/`end`) branches are unchanged: they commit via
+  `onSegmentChange` and never seek; only the `"range"` branch uses
+  `translateSegment` and routes through `onWindowMove`.
 
 CSS (`entrypoints/content/pageUi.styles.ts`, `.you-loop-loop-range`):
 `cursor: grab; pointer-events: auto;` and a `grabbing` cursor while dragging.
@@ -133,9 +142,9 @@ CSS (`entrypoints/content/pageUi.styles.ts`, `.you-loop-loop-range`):
   (`[`) — because Shift changes `event.key` (`[` → `{`) but not `event.code`.
   The existing `a`/`s`/`d` continue to match on `event.key`.
 - Mapping (active region from `getSegment()`, `len = end - start`):
-  - `]` → `moveActiveWindow(+len)`,  `[` → `moveActiveWindow(-len)`
-  - `Shift+]` → `moveActiveWindow(+NUDGE_SECONDS)`,
-    `Shift+[` → `moveActiveWindow(-NUDGE_SECONDS)`
+  - `]` → `moveActiveWindow(+NUDGE_SECONDS)`,  `[` → `moveActiveWindow(-NUDGE_SECONDS)`
+  - `Shift+]` → `moveActiveWindow(+len)`,  `Shift+[` → `moveActiveWindow(-len)`
+  - (bare = small nudge; Shift = full-length jump)
 - Gated by the existing `resolveEvent` (typing target, `isActive()`, non-null
   segment).
 - **OS auto-repeat is allowed** for the bracket keys (hold `]` to march the
@@ -148,17 +157,20 @@ New pageUi `moveActiveWindow(delta)`:
 
 - If zoomed and `zoomLoop != null`:
   `zoomLoop = translateSegment(zoomLoop, delta, { min: mainLoop.start, max: mainLoop.end })`;
-  then the existing zoom-change render path.
+  the existing zoom-change render path; then seek (below).
 - Else, with `state.loopSegment != null`:
   `setLoopSegment(translateSegment(loopSegment, delta, { min: 0, max: duration }))`,
-  re-clamp `zoomLoop` into the new main loop, render. (Same body as
-  `onMainLoopChange`.)
+  re-clamp `zoomLoop` into the new main loop, render (same body as
+  `onMainLoopChange`); then seek (below).
 - No-op when there is no active segment.
+- **Seek:** after committing, if the moved segment's `start` differs from the
+  pre-move start, set `video.currentTime = movedStart`. The band drag-on-release
+  path does the same via `onWindowMove`. Play/pause is left untouched.
 
 ## Discoverability
 
-- **Help modal:** add rows for `[` / `]` (step window by its length) and
-  `Shift+[` / `Shift+]` (nudge window).
+- **Help modal:** add rows for `[` / `]` (nudge window) and `Shift+[` /
+  `Shift+]` (step window by its length).
 - **CONTEXT.md:** add a domain term for the gesture (e.g. **Window Shift** — move
   a Loop Segment without changing its length). Keep it short.
 

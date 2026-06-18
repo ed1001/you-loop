@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type PointerEvent, type MouseEvent } from "react";
 import type { LoopSegment } from "../playback/types";
+import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 
@@ -9,7 +10,7 @@ type Props = {
   onSegmentChange: (segment: LoopSegment) => void;
 };
 
-type Handle = "start" | "end";
+type Handle = "start" | "end" | "range";
 
 export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -40,6 +41,11 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   // only on drop.
   const draggingRef = useRef<Handle | null>(null);
   const liveRef = useRef<LoopSegment>(committed);
+
+  // For a "range" (whole-window) drag: the pointer time and segment captured at
+  // grab, so each move is a delta from the grab point rather than absolute.
+  const grabTimeRef = useRef(0);
+  const grabSegRef = useRef<LoopSegment>(committed);
 
   const setDragLock = (on: boolean) =>
     setPlayerDragLock(timelineRef.current, on);
@@ -97,7 +103,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   }, [committed.start, committed.end, safeDuration]);
 
   // Block YouTube's scrubber: it binds mousedown/click on the progress bar.
-  const blockMouse = (event: MouseEvent) => {
+  const blockMouse = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
   };
@@ -107,37 +113,48 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   // is live (callers then paint or commit).
   const applyHandleFromPointer = (
     handle: Handle,
-    event: PointerEvent<HTMLButtonElement>
+    event: PointerEvent<HTMLElement>
   ): boolean => {
     if (draggingRef.current !== handle) {
       return false;
     }
     event.preventDefault();
     event.stopPropagation();
-    const value = valueFromPointer(event.clientX);
-    liveRef.current = clampSegment(handle, value, liveRef.current);
+    if (handle === "range") {
+      const delta = valueFromPointer(event.clientX) - grabTimeRef.current;
+      liveRef.current = translateSegment(grabSegRef.current, delta, {
+        min: 0,
+        max: safeDuration
+      });
+    } else {
+      const value = valueFromPointer(event.clientX);
+      liveRef.current = clampSegment(handle, value, liveRef.current);
+    }
     return true;
   };
 
   const createDragHandlers = (handle: Handle) => ({
     onMouseDown: blockMouse,
     onClick: blockMouse,
-    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+    onPointerDown: (event: PointerEvent<HTMLElement>) => {
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
       suppressNextClick();
       draggingRef.current = handle;
       liveRef.current = committed;
+      if (handle === "range") {
+        grabTimeRef.current = valueFromPointer(event.clientX);
+        grabSegRef.current = committed;
+      }
       setDragLock(true);
     },
-    onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
+    onPointerMove: (event: PointerEvent<HTMLElement>) => {
       if (applyHandleFromPointer(handle, event)) {
         paint(liveRef.current);
       }
     },
-    onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
-      // Fold in the release point, then commit + clear.
+    onPointerUp: (event: PointerEvent<HTMLElement>) => {
       if (applyHandleFromPointer(handle, event)) {
         finishDrag(handle);
       }
@@ -162,7 +179,9 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
       <div
         ref={rangeRef}
         className="you-loop-loop-range"
+        data-testid="loop-range"
         style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }}
+        {...createDragHandlers("range")}
       />
       <button
         ref={startRef}

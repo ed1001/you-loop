@@ -57,15 +57,22 @@ export const PAGE_UI_STYLES = `
       width: 100%;
     }
 
-    /* Teal band over the progress bar marking the loop segment. */
+    /* Teal band over the progress bar marking the loop segment. Draggable to
+       slide the whole loop as a fixed-length window. */
     .you-loop-loop-range {
       background: rgba(20, 184, 166, 0.55);
       border-radius: 1px;
+      cursor: grab;
       height: 9px;
-      pointer-events: none;
+      pointer-events: auto;
       position: absolute;
       top: 50%;
+      touch-action: none;
       transform: translateY(-50%);
+    }
+
+    .you-loop-loop-range:active {
+      cursor: grabbing;
     }
 
     .you-loop-handle {

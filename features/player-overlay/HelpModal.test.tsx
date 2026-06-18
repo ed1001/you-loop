@@ -48,7 +48,7 @@ describe("HelpModal", () => {
     const keys = Array.from(container.querySelectorAll(".you-loop-kbd")).map(
       (el) => el.textContent
     );
-    expect(keys).toEqual(["A", "S", "D", "[ ]", "⇧ [ ]"]);
+    expect(keys).toEqual(["A", "S", "D", "[ ]", "⇧ [ ]", "⇧ drag"]);
   });
 
   it("calls onClose when the backdrop is clicked", () => {
@@ -97,5 +97,6 @@ describe("HelpModal", () => {
     expect(card).not.toBeNull();
     expect(card!.textContent).toContain("Step window");
     expect(card!.textContent).toContain("Nudge window");
+    expect(card!.textContent).toContain("Move window");
   });
 });

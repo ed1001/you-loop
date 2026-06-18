@@ -153,6 +153,11 @@ const SHORTCUTS: Shortcut[] = [
     name: "Step window",
     desc: "Move the loop forward/back by its own length, keeping the length.",
   },
+  {
+    keys: "⇧ drag",
+    name: "Move window",
+    desc: "Hold Shift and drag a loop handle (main timeline or zoom) to slide the whole loop, length unchanged. Releases to the new start.",
+  },
 ];
 
 export function HelpModal({ open, container, onClose }: Props) {

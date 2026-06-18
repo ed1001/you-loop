@@ -411,6 +411,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             window={state.loopSegment!}
             loop={zoomLoop!}
             onLoopChange={onZoomLoopChange}
+            onWindowMove={(loop) => {
+              onZoomLoopChange(loop);
+              video.currentTime = loop.start;
+            }}
             closing={zoomClosing}
           />
         )}

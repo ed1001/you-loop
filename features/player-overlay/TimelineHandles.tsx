@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, type PointerEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, type PointerEvent, type MouseEvent } from "react";
 import type { LoopSegment } from "../playback/types";
 import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
+import { buildTimeMap, type Segment, type TimeMap } from "./chapterMapping";
 
 type Props = {
   duration: number;
@@ -30,8 +31,36 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
     end: safeDuration * 0.5
   };
 
-  const startPercent = (committed.start / safeDuration) * 100;
-  const endPercent = (committed.end / safeDuration) * 100;
+  // Time<->position map. On chaptered videos YouTube lays the bar out as
+  // gapped per-chapter segments, so position is piecewise in time; mapping
+  // linearly drifts the band right of the native playhead. Rebuilt from the
+  // live chapter geometry (refreshChapterMap) on mount, resize, and drag start.
+  const mapRef = useRef<TimeMap>(buildTimeMap([], safeDuration));
+
+  const readSegments = (): Segment[] => {
+    const tl = timelineRef.current;
+    if (tl == null) return [];
+    const rect = tl.getBoundingClientRect();
+    if (rect.width <= 0) return [];
+    const lists = tl
+      .closest(".ytp-progress-bar")
+      ?.querySelectorAll(".ytp-progress-list");
+    if (lists == null || lists.length < 2) return [];
+    return Array.from(lists, (el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        startFrac: (r.left - rect.left) / rect.width,
+        endFrac: (r.right - rect.left) / rect.width
+      };
+    });
+  };
+
+  const refreshChapterMap = () => {
+    mapRef.current = buildTimeMap(readSegments(), safeDuration);
+  };
+
+  const startPercent = mapRef.current.timeToPercent(committed.start);
+  const endPercent = mapRef.current.timeToPercent(committed.end);
 
   // The handle is 10px wide and positioned by its left edge. Anchoring the nub
   // centre on the percentage would push half of it past the track at 0%/100%,
@@ -87,8 +116,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
       return 0;
     }
 
-    const percent = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    return Number((percent * safeDuration).toFixed(2));
+    const percent = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+    return Number(mapRef.current.percentToTime(percent).toFixed(2));
   };
 
   const clampSegment = (handle: Handle, value: number, from: LoopSegment): LoopSegment => {
@@ -100,8 +129,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
 
   // Move the handles/range directly so dragging does not trigger a re-render.
   const paint = (seg: LoopSegment) => {
-    const start = (seg.start / safeDuration) * 100;
-    const end = (seg.end / safeDuration) * 100;
+    const start = mapRef.current.timeToPercent(seg.start);
+    const end = mapRef.current.timeToPercent(seg.end);
 
     if (startRef.current) startRef.current.style.left = handleLeft(start);
     if (endRef.current) endRef.current.style.left = handleLeft(end);
@@ -111,11 +140,32 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
     }
   };
 
-  // Keep the range highlight synced with committed state (and resize).
+  // Keep the range highlight synced with committed state. Refresh the chapter
+  // map first so a freshly-committed segment paints against current geometry.
   useLayoutEffect(() => {
+    refreshChapterMap();
     if (draggingRef.current == null) {
       paint(committed);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [committed.start, committed.end, safeDuration]);
+
+  // Chapter segment pixel widths shift when the bar resizes (theater, fullscreen,
+  // sidebar, window) because the inter-chapter gaps are fixed pixels, not
+  // proportional. Rebuild the map and repaint so the band tracks the new layout.
+  useEffect(() => {
+    const tl = timelineRef.current;
+    if (tl == null || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      refreshChapterMap();
+      if (draggingRef.current == null) {
+        paint(committed);
+      }
+    });
+    observer.observe(tl);
+    return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committed.start, committed.end, safeDuration]);
 
@@ -158,6 +208,9 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
       suppressNextClick();
+      // Snapshot current chapter geometry so the drag maps against an accurate
+      // layout for its whole duration.
+      refreshChapterMap();
       draggingRef.current = handle;
       liveRef.current = committed;
       if (event.shiftKey) {

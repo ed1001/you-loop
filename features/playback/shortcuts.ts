@@ -62,7 +62,7 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     if (segment == null) return true;
     const dir = event.code === "BracketRight" ? 1 : -1;
     const len = segment.end - segment.start;
-    deps.moveActiveWindow(event.shiftKey ? dir * NUDGE_SECONDS : dir * len);
+    deps.moveActiveWindow(event.shiftKey ? dir * len : dir * NUDGE_SECONDS);
     return true;
   };
 

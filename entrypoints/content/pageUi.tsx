@@ -222,25 +222,31 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // Move the active loop window by `delta` seconds, length preserved. While
   // magnified it slides the zoom sub-region inside the main loop; otherwise it
   // slides the main loop within the timeline (which re-clamps the zoom
-  // sub-region, via onMainLoopChange). No seek — loop enforcement pulls the
-  // playhead in on the next wrap, exactly as a handle drag does.
+  // sub-region, via onMainLoopChange). Seeks the playhead to the new window
+  // start when the start actually changes (boundary no-ops do not seek).
   const moveActiveWindow = (delta: number) => {
     if (zoomed && zoomLoop != null && state.loopSegment != null) {
-      onZoomLoopChange(
-        translateSegment(zoomLoop, delta, {
-          min: state.loopSegment.start,
-          max: state.loopSegment.end
-        })
-      );
+      const preMoveStart = zoomLoop.start;
+      const moved = translateSegment(zoomLoop, delta, {
+        min: state.loopSegment.start,
+        max: state.loopSegment.end
+      });
+      onZoomLoopChange(moved);
+      if (moved.start !== preMoveStart) {
+        video.currentTime = moved.start;
+      }
       return;
     }
     if (state.loopSegment == null) return;
-    onMainLoopChange(
-      translateSegment(state.loopSegment, delta, {
-        min: 0,
-        max: getVideoDuration(video)
-      })
-    );
+    const preMoveStart = state.loopSegment.start;
+    const moved = translateSegment(state.loopSegment, delta, {
+      min: 0,
+      max: getVideoDuration(video)
+    });
+    onMainLoopChange(moved);
+    if (moved.start !== preMoveStart) {
+      video.currentTime = moved.start;
+    }
   };
 
   // Speed control: independent of the loop. Apply the rate straight to the
@@ -413,6 +419,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             duration={duration}
             segment={state.loopSegment}
             onSegmentChange={onMainLoopChange}
+            onWindowMove={(seg) => {
+              onMainLoopChange(seg);
+              video.currentTime = seg.start;
+            }}
           />
         )}
         <LoopPanel

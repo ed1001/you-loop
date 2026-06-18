@@ -8,11 +8,15 @@ type Props = {
   duration: number;
   segment: LoopSegment | null;
   onSegmentChange: (segment: LoopSegment) => void;
+  // Called instead of onSegmentChange when the band is dragged and the window
+  // actually moved (start changed). Callers use this to seek the playhead to
+  // the new start. Falls back to onSegmentChange when not provided.
+  onWindowMove?: (segment: LoopSegment) => void;
 };
 
 type Handle = "start" | "end" | "range";
 
-export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
+export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMove }: Props) {
   const timelineRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLButtonElement>(null);
   const endRef = useRef<HTMLButtonElement>(null);
@@ -61,7 +65,15 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
     setDragLock(false);
     const next = liveRef.current;
     paint(next);
-    onSegmentChange(next);
+    // A band drag that actually moved the window (start changed) routes through
+    // onWindowMove so the caller can seek to the new start. A click-with-no-move
+    // (start unchanged) falls through to onSegmentChange. Handle drags always
+    // use onSegmentChange.
+    if (handle === "range" && next.start !== grabSegRef.current.start && onWindowMove != null) {
+      onWindowMove(next);
+    } else {
+      onSegmentChange(next);
+    }
   };
 
   const valueFromPointer = (clientX: number) => {

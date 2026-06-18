@@ -145,13 +145,13 @@ const SHORTCUTS: Shortcut[] = [
   },
   {
     keys: "[ ]",
-    name: "Step window",
-    desc: "Move the loop forward/back by its own length, keeping the length.",
+    name: "Nudge window",
+    desc: "Nudge the loop forward/back a little, keeping the length.",
   },
   {
     keys: "⇧ [ ]",
-    name: "Nudge window",
-    desc: "Nudge the loop forward/back a little, keeping the length.",
+    name: "Step window",
+    desc: "Move the loop forward/back by its own length, keeping the length.",
   },
 ];
 

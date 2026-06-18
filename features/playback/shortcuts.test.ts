@@ -134,29 +134,30 @@ describe("loop key handlers", () => {
 });
 
 describe("window step/nudge keys", () => {
-  it("] steps the window forward by its own length", () => {
+  it("] nudges the window forward by NUDGE_SECONDS", () => {
     const { moveActiveWindow, handlers } = setup();
     handlers.onKeyDown(keyEvent("]", { code: "BracketRight" }));
-    expect(moveActiveWindow).toHaveBeenCalledWith(3);
-  });
-
-  it("[ steps the window backward by its own length", () => {
-    const { moveActiveWindow, handlers } = setup();
-    handlers.onKeyDown(keyEvent("[", { code: "BracketLeft" }));
-    expect(moveActiveWindow).toHaveBeenCalledWith(-3);
-  });
-
-  it("Shift+] nudges forward by NUDGE_SECONDS (matched via code under shift)", () => {
-    const { moveActiveWindow, handlers } = setup();
-    // Shift turns the key into "}", but event.code stays BracketRight.
-    handlers.onKeyDown(keyEvent("}", { code: "BracketRight", shiftKey: true }));
     expect(moveActiveWindow).toHaveBeenCalledWith(NUDGE_SECONDS);
   });
 
-  it("Shift+[ nudges backward by NUDGE_SECONDS", () => {
+  it("[ nudges the window backward by NUDGE_SECONDS", () => {
+    const { moveActiveWindow, handlers } = setup();
+    handlers.onKeyDown(keyEvent("[", { code: "BracketLeft" }));
+    expect(moveActiveWindow).toHaveBeenCalledWith(-NUDGE_SECONDS);
+  });
+
+  it("Shift+] steps forward by its own length (matched via code under shift)", () => {
+    const { moveActiveWindow, handlers } = setup();
+    // Shift turns the key into "}", but event.code stays BracketRight.
+    // segment is {start:5,end:8} so len=3.
+    handlers.onKeyDown(keyEvent("}", { code: "BracketRight", shiftKey: true }));
+    expect(moveActiveWindow).toHaveBeenCalledWith(3);
+  });
+
+  it("Shift+[ steps backward by its own length", () => {
     const { moveActiveWindow, handlers } = setup();
     handlers.onKeyDown(keyEvent("{", { code: "BracketLeft", shiftKey: true }));
-    expect(moveActiveWindow).toHaveBeenCalledWith(-NUDGE_SECONDS);
+    expect(moveActiveWindow).toHaveBeenCalledWith(-3);
   });
 
   it("repeats on OS auto-repeat (hold to march)", () => {

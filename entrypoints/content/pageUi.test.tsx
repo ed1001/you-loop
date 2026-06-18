@@ -451,8 +451,8 @@ describe("page UI", () => {
     expect(storage.dump()[LAUNCH_KEY]).toBeNull();
   });
 
-  it("] steps the main loop window forward by its length", () => {
-    const { player, progressBar } = mountWithLoopEnabled();
+  it("] nudges the main loop window forward by NUDGE_SECONDS and seeks to the new start", () => {
+    const { player, video } = mountWithLoopEnabled();
 
     const timeline = player.querySelector(
       "[data-testid='timeline-handles']"
@@ -485,15 +485,29 @@ describe("page UI", () => {
     expect(band.style.left).toBe("16.666666666666664%"); // 20/120
     expect(band.style.width).toBe("16.666666666666664%"); // (40-20)/120
 
-    // Press ] — steps forward by len (20s) to 40–60.
+    // Press ] — nudges forward by NUDGE_SECONDS (1s): 20–40 → 21–41.
     act(() => {
       document.dispatchEvent(
         new KeyboardEvent("keydown", { code: "BracketRight", bubbles: true })
       );
     });
 
-    expect(band.style.left).toBe("33.33333333333333%"); // 40/120
-    expect(band.style.width).toBe("16.66666666666667%"); // ~16.67% — loop length unchanged; float repr differs by 1 ULP
+    expect(band.style.left).toBe("17.5%"); // 21/120
+    expect(band.style.width).toBe("16.666666666666664%"); // 20/120 — length unchanged
+    // Playhead seeks to the new window start.
+    expect(video.currentTime).toBe(21);
+
+    // Press Shift+] — steps forward by full length (20s): 21–41 → 41–61.
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "BracketRight", shiftKey: true, bubbles: true })
+      );
+    });
+
+    expect(band.style.left).toBe("34.166666666666664%"); // 41/120
+    expect(band.style.width).toBe("16.666666666666664%"); // 20/120 — length unchanged
+    // Playhead seeks to the new window start.
+    expect(video.currentTime).toBe(41);
   });
 });
 

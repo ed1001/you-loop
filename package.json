@@ -2,7 +2,7 @@
   "name": "etude",
   "description": "Practice tools for YouTube — loop a section, slow it down, zoom in for precision.",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "scripts": {
     "dev": "wxt",

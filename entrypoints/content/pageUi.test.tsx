@@ -450,6 +450,65 @@ describe("page UI", () => {
     // One-shot: consumed.
     expect(storage.dump()[LAUNCH_KEY]).toBeNull();
   });
+
+  it("] nudges the main loop window forward by NUDGE_SECONDS and seeks to the new start", () => {
+    const { player, video } = mountWithLoopEnabled();
+
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    // 1px == 1s so pointer clientX maps directly to seconds (duration is 120).
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+
+    const startHandle = screen.getByLabelText("Loop start");
+    const endHandle = screen.getByLabelText("Loop end");
+
+    // jsdom does not implement setPointerCapture; stub it on both handles so the
+    // TimelineHandles onPointerDown handler does not throw.
+    startHandle.setPointerCapture = () => {};
+    endHandle.setPointerCapture = () => {};
+
+    // Drag handles to make a 20–40 loop.
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+    });
+    act(() => {
+      fireEvent.pointerDown(endHandle, { pointerId: 2, clientX: 120 });
+      fireEvent.pointerMove(endHandle, { pointerId: 2, clientX: 40 });
+      fireEvent.pointerUp(endHandle, { pointerId: 2, clientX: 40 });
+    });
+
+    const band = player.querySelector(".you-loop-loop-range") as HTMLElement;
+    expect(band.style.left).toBe("16.666666666666664%"); // 20/120
+    expect(band.style.width).toBe("16.666666666666664%"); // (40-20)/120
+
+    // Press ] — nudges forward by NUDGE_SECONDS (1s): 20–40 → 21–41.
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "BracketRight", bubbles: true })
+      );
+    });
+
+    expect(band.style.left).toBe("17.5%"); // 21/120
+    expect(band.style.width).toBe("16.666666666666664%"); // 20/120 — length unchanged
+    // Playhead seeks to the new window start.
+    expect(video.currentTime).toBe(21);
+
+    // Press Shift+] — steps forward by full length (20s): 21–41 → 41–61.
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "BracketRight", shiftKey: true, bubbles: true })
+      );
+    });
+
+    expect(band.style.left).toBe("34.166666666666664%"); // 41/120
+    expect(band.style.width).toBe("16.666666666666664%"); // 20/120 — length unchanged
+    // Playhead seeks to the new window start.
+    expect(video.currentTime).toBe(41);
+  });
 });
 
 describe("nextCompactState", () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createLoopKeyHandlers, type LoopKeyDeps } from "./shortcuts";
 import type { LoopSegment } from "./types";
+import { NUDGE_SECONDS } from "./reducer";
 
 function video(overrides: Partial<HTMLVideoElement> = {}) {
   return {
@@ -15,20 +16,24 @@ function video(overrides: Partial<HTMLVideoElement> = {}) {
 function setup(depsOverrides: Partial<LoopKeyDeps> = {}) {
   const vid = video();
   const resetOneShot = vi.fn();
+  const moveActiveWindow = vi.fn();
   const segment: LoopSegment = { start: 5, end: 8 };
   const deps: LoopKeyDeps = {
     video: vid,
     getSegment: () => segment,
     isActive: () => true,
     resetOneShot,
+    moveActiveWindow,
     ...depsOverrides
   };
-  return { vid, resetOneShot, handlers: createLoopKeyHandlers(deps) };
+  return { vid, resetOneShot, moveActiveWindow, handlers: createLoopKeyHandlers(deps) };
 }
 
 function keyEvent(key: string, overrides: Partial<KeyboardEvent> = {}) {
   return {
     key,
+    code: "",
+    shiftKey: false,
     repeat: false,
     target: document.body,
     preventDefault: vi.fn(),
@@ -125,5 +130,59 @@ describe("loop key handlers", () => {
     handlers.onKeyDown(event);
     expect(vid.play).not.toHaveBeenCalled();
     expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+});
+
+describe("window step/nudge keys", () => {
+  it("] nudges the window forward by NUDGE_SECONDS", () => {
+    const { moveActiveWindow, handlers } = setup();
+    handlers.onKeyDown(keyEvent("]", { code: "BracketRight" }));
+    expect(moveActiveWindow).toHaveBeenCalledWith(NUDGE_SECONDS);
+  });
+
+  it("[ nudges the window backward by NUDGE_SECONDS", () => {
+    const { moveActiveWindow, handlers } = setup();
+    handlers.onKeyDown(keyEvent("[", { code: "BracketLeft" }));
+    expect(moveActiveWindow).toHaveBeenCalledWith(-NUDGE_SECONDS);
+  });
+
+  it("Shift+] steps forward by its own length (matched via code under shift)", () => {
+    const { moveActiveWindow, handlers } = setup();
+    // Shift turns the key into "}", but event.code stays BracketRight.
+    // segment is {start:5,end:8} so len=3.
+    handlers.onKeyDown(keyEvent("}", { code: "BracketRight", shiftKey: true }));
+    expect(moveActiveWindow).toHaveBeenCalledWith(3);
+  });
+
+  it("Shift+[ steps backward by its own length", () => {
+    const { moveActiveWindow, handlers } = setup();
+    handlers.onKeyDown(keyEvent("{", { code: "BracketLeft", shiftKey: true }));
+    expect(moveActiveWindow).toHaveBeenCalledWith(-3);
+  });
+
+  it("repeats on OS auto-repeat (hold to march)", () => {
+    const { moveActiveWindow, handlers } = setup();
+    handlers.onKeyDown(keyEvent("]", { code: "BracketRight" }));
+    handlers.onKeyDown(keyEvent("]", { code: "BracketRight", repeat: true }));
+    expect(moveActiveWindow).toHaveBeenCalledTimes(2);
+  });
+
+  it("is inert when the loop is off", () => {
+    const { moveActiveWindow, handlers } = setup({ isActive: () => false });
+    handlers.onKeyDown(keyEvent("]", { code: "BracketRight" }));
+    expect(moveActiveWindow).not.toHaveBeenCalled();
+  });
+
+  it("is inert when there is no active segment", () => {
+    const { moveActiveWindow, handlers } = setup({ getSegment: () => null });
+    handlers.onKeyDown(keyEvent("]", { code: "BracketRight" }));
+    expect(moveActiveWindow).not.toHaveBeenCalled();
+  });
+
+  it("ignores brackets while typing", () => {
+    const { moveActiveWindow, handlers } = setup();
+    const input = document.createElement("input");
+    handlers.onKeyDown(keyEvent("]", { code: "BracketRight", target: input }));
+    expect(moveActiveWindow).not.toHaveBeenCalled();
   });
 });

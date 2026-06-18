@@ -57,7 +57,8 @@ export const PAGE_UI_STYLES = `
       width: 100%;
     }
 
-    /* Teal band over the progress bar marking the loop segment. */
+    /* Teal band over the progress bar marking the loop segment. Visual only —
+       window drag is handled by Shift+handle drag, not the band. */
     .you-loop-loop-range {
       background: rgba(20, 184, 166, 0.55);
       border-radius: 1px;

@@ -15,6 +15,7 @@ import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
 import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
+import { translateSegment } from "../../features/playback/translateSegment";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
@@ -218,6 +219,36 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  // Move the active loop window by `delta` seconds, length preserved. While
+  // magnified it slides the zoom sub-region inside the main loop; otherwise it
+  // slides the main loop within the timeline (which re-clamps the zoom
+  // sub-region, via onMainLoopChange). Seeks the playhead to the new window
+  // start when the start actually changes (boundary no-ops do not seek).
+  const moveActiveWindow = (delta: number) => {
+    if (zoomed && zoomLoop != null && state.loopSegment != null) {
+      const preMoveStart = zoomLoop.start;
+      const moved = translateSegment(zoomLoop, delta, {
+        min: state.loopSegment.start,
+        max: state.loopSegment.end
+      });
+      onZoomLoopChange(moved);
+      if (moved.start !== preMoveStart) {
+        video.currentTime = moved.start;
+      }
+      return;
+    }
+    if (state.loopSegment == null) return;
+    const preMoveStart = state.loopSegment.start;
+    const moved = translateSegment(state.loopSegment, delta, {
+      min: 0,
+      max: getVideoDuration(video)
+    });
+    onMainLoopChange(moved);
+    if (moved.start !== preMoveStart) {
+      video.currentTime = moved.start;
+    }
+  };
+
   // Speed control: independent of the loop. Apply the rate straight to the
   // video so the scrub is audible live, step by step.
   const setSpeed = (rate: number) => {
@@ -380,6 +411,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             window={state.loopSegment!}
             loop={zoomLoop!}
             onLoopChange={onZoomLoopChange}
+            onWindowMove={(loop) => {
+              onZoomLoopChange(loop);
+              video.currentTime = loop.start;
+            }}
             closing={zoomClosing}
           />
         )}
@@ -388,6 +423,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             duration={duration}
             segment={state.loopSegment}
             onSegmentChange={onMainLoopChange}
+            onWindowMove={(seg) => {
+              onMainLoopChange(seg);
+              video.currentTime = seg.start;
+            }}
           />
         )}
         <LoopPanel
@@ -528,6 +567,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     video,
     getSegment: effectiveSegment,
     isActive: () => state.loopEnabled,
+    moveActiveWindow,
     resetOneShot: () => {
       state = playbackReducer(state, {
         type: "markOneShotCompleted",

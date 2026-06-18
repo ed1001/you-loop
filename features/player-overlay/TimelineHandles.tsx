@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type PointerEvent, type MouseEvent } from "react";
 import type { LoopSegment } from "../playback/types";
+import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 
@@ -7,11 +8,16 @@ type Props = {
   duration: number;
   segment: LoopSegment | null;
   onSegmentChange: (segment: LoopSegment) => void;
+  // Called instead of onSegmentChange when a Shift+handle drag moves the window
+  // (start changed). Callers use this to seek the playhead to the new start.
+  // Falls back to onSegmentChange when not provided.
+  onWindowMove?: (segment: LoopSegment) => void;
 };
 
 type Handle = "start" | "end";
+type DragMode = "resize" | "window";
 
-export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
+export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMove }: Props) {
   const timelineRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLButtonElement>(null);
   const endRef = useRef<HTMLButtonElement>(null);
@@ -41,6 +47,14 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   const draggingRef = useRef<Handle | null>(null);
   const liveRef = useRef<LoopSegment>(committed);
 
+  // Per-drag mode: "window" when Shift was held at pointerdown, "resize" otherwise.
+  const dragModeRef = useRef<DragMode>("resize");
+
+  // For a window drag: the pointer time and segment captured at grab, so each
+  // move is a delta from the grab point rather than absolute.
+  const grabTimeRef = useRef(0);
+  const grabSegRef = useRef<LoopSegment>(committed);
+
   const setDragLock = (on: boolean) =>
     setPlayerDragLock(timelineRef.current, on);
 
@@ -55,7 +69,16 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
     setDragLock(false);
     const next = liveRef.current;
     paint(next);
-    onSegmentChange(next);
+    // A window-mode drag (Shift held at pointerdown) that actually moved the
+    // window (start changed) routes through onWindowMove so the caller can seek
+    // to the new start. A no-move window drag, or any resize drag, uses
+    // onSegmentChange (no seek).
+    if (dragModeRef.current === "window" && next.start !== grabSegRef.current.start && onWindowMove != null) {
+      onWindowMove(next);
+    } else {
+      onSegmentChange(next);
+    }
+    dragModeRef.current = "resize";
   };
 
   const valueFromPointer = (clientX: number) => {
@@ -97,7 +120,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   }, [committed.start, committed.end, safeDuration]);
 
   // Block YouTube's scrubber: it binds mousedown/click on the progress bar.
-  const blockMouse = (event: MouseEvent) => {
+  const blockMouse = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
   };
@@ -107,37 +130,51 @@ export function TimelineHandles({ duration, segment, onSegmentChange }: Props) {
   // is live (callers then paint or commit).
   const applyHandleFromPointer = (
     handle: Handle,
-    event: PointerEvent<HTMLButtonElement>
+    event: PointerEvent<HTMLElement>
   ): boolean => {
     if (draggingRef.current !== handle) {
       return false;
     }
     event.preventDefault();
     event.stopPropagation();
-    const value = valueFromPointer(event.clientX);
-    liveRef.current = clampSegment(handle, value, liveRef.current);
+    if (dragModeRef.current === "window") {
+      const delta = valueFromPointer(event.clientX) - grabTimeRef.current;
+      liveRef.current = translateSegment(grabSegRef.current, delta, {
+        min: 0,
+        max: safeDuration
+      });
+    } else {
+      const value = valueFromPointer(event.clientX);
+      liveRef.current = clampSegment(handle, value, liveRef.current);
+    }
     return true;
   };
 
   const createDragHandlers = (handle: Handle) => ({
     onMouseDown: blockMouse,
     onClick: blockMouse,
-    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+    onPointerDown: (event: PointerEvent<HTMLElement>) => {
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
       suppressNextClick();
       draggingRef.current = handle;
       liveRef.current = committed;
+      if (event.shiftKey) {
+        dragModeRef.current = "window";
+        grabTimeRef.current = valueFromPointer(event.clientX);
+        grabSegRef.current = committed;
+      } else {
+        dragModeRef.current = "resize";
+      }
       setDragLock(true);
     },
-    onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
+    onPointerMove: (event: PointerEvent<HTMLElement>) => {
       if (applyHandleFromPointer(handle, event)) {
         paint(liveRef.current);
       }
     },
-    onPointerUp: (event: PointerEvent<HTMLButtonElement>) => {
-      // Fold in the release point, then commit + clear.
+    onPointerUp: (event: PointerEvent<HTMLElement>) => {
       if (applyHandleFromPointer(handle, event)) {
         finishDrag(handle);
       }

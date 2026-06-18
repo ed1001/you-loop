@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { LoopSegment } from "../playback/types";
 import { MIN_SEGMENT_DURATION_SECONDS } from "../playback/reducer";
+import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 
@@ -24,6 +25,10 @@ type Props = {
   // The actual loop, refined by the cursors in here. Playback obeys this.
   loop: LoopSegment;
   onLoopChange: (loop: LoopSegment) => void;
+  // Called instead of onLoopChange when a Shift+cursor drag moves the whole
+  // zoom loop as a window (start changed). Callers use this to seek the playhead
+  // to the new start. Falls back to onLoopChange when not provided.
+  onWindowMove?: (loop: LoopSegment) => void;
   // Plays the exit animation while the strip is unmounting.
   closing?: boolean;
 };
@@ -49,6 +54,7 @@ export function ZoomTimeline({
   window: win,
   loop,
   onLoopChange,
+  onWindowMove,
   closing = false
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -71,6 +77,14 @@ export function ZoomTimeline({
   // Loop-cursor drag state.
   const draggingEdgeRef = useRef<Edge | null>(null);
   const liveLoopRef = useRef<LoopSegment>(loop);
+
+  // Per-drag mode: "window" when Shift was held at pointerdown, "resize" otherwise.
+  const dragModeRef = useRef<"resize" | "window">("resize");
+
+  // For a window drag: the pointer time and loop captured at grab, so each move
+  // is a delta from the grab point rather than absolute.
+  const grabTimeRef = useRef(0);
+  const grabLoopRef = useRef<LoopSegment>(loop);
 
   const pct = (time: number) =>
     Math.min(100, Math.max(0, ((time - win.start) / winSpan) * 100));
@@ -305,7 +319,18 @@ export function ZoomTimeline({
     setDragLock(false);
     const next = liveLoopRef.current;
     paintLoop(next);
-    onLoopChange(next);
+    // A window-mode drag (Shift held at pointerdown) that actually moved the
+    // loop (start changed) routes through onWindowMove so the caller can seek
+    // to the new start. A no-move window drag, or any resize drag, uses
+    // onLoopChange (no seek). The start compare is exact-safe: both `next` (from
+    // translateSegment) and the grabbed loop are rounded to 3dp, so an unmoved
+    // drag yields the identical value, not a float-epsilon-off one.
+    if (dragModeRef.current === "window" && next.start !== grabLoopRef.current.start && onWindowMove != null) {
+      onWindowMove(next);
+    } else {
+      onLoopChange(next);
+    }
+    dragModeRef.current = "resize";
   };
 
   // Shared move/up body: if this edge is the one being dragged, swallow the
@@ -320,8 +345,16 @@ export function ZoomTimeline({
     }
     event.preventDefault();
     event.stopPropagation();
-    const value = timeFromPointer(event.clientX);
-    liveLoopRef.current = clampEdge(edge, value, liveLoopRef.current);
+    if (dragModeRef.current === "window") {
+      const delta = timeFromPointer(event.clientX) - grabTimeRef.current;
+      liveLoopRef.current = translateSegment(grabLoopRef.current, delta, {
+        min: win.start,
+        max: win.end
+      });
+    } else {
+      const value = timeFromPointer(event.clientX);
+      liveLoopRef.current = clampEdge(edge, value, liveLoopRef.current);
+    }
     return true;
   };
 
@@ -339,6 +372,13 @@ export function ZoomTimeline({
       suppressNextClick();
       draggingEdgeRef.current = edge;
       liveLoopRef.current = loop;
+      if (event.shiftKey) {
+        dragModeRef.current = "window";
+        grabTimeRef.current = timeFromPointer(event.clientX);
+        grabLoopRef.current = loop;
+      } else {
+        dragModeRef.current = "resize";
+      }
       setDragLock(true);
     },
     onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {

@@ -17,8 +17,10 @@ hop it forward/back by exactly its own length ("goalpost march").
 
 Two input paths:
 
-- **Free drag** — grab the highlighted loop band on the main timeline and slide
-  both edges together, length preserved.
+- **Shift + handle drag** — hold Shift and drag either loop handle to slide both
+  edges together (length preserved), instead of resizing that one edge. (The
+  thin loop band itself is not reliably grabbable on YouTube's progress bar, so
+  the handles carry the gesture. Shift = "window-level", matching `Shift+[`/`]`.)
 - **Step / nudge keys** — `[`/`]` nudge the window back/forward by a small fixed
   amount; `Shift+[`/`Shift+]` jump it by one full length ("goalpost march").
 
@@ -34,15 +36,15 @@ further is a no-op.
 
 ### A window move seeks to the new start
 
-Moving the window (step/nudge keys, or a band drag-on-release) seeks the
+Moving the window (step/nudge keys, or a Shift+handle drag-on-release) seeks the
 playhead to the **new window start** — so you can skip around and immediately
 see/hear what is at each start point. The seek only fires when the start
-actually changes: a boundary no-op step, or a band click with no movement, does
+actually changes: a boundary no-op step, or a Shift+drag with no movement, does
 not seek. Play/pause state is left untouched — paused, you see the start frame;
 playing, it auditions from the start.
 
-This applies to **window moves only**. Single-handle resizes (dragging the start
-or end handle to change length) do **not** seek — unchanged behaviour. A move of
+This applies to **window moves only**. A plain (no-Shift) single-handle resize
+that changes length does **not** seek — unchanged behaviour. A move of
 the **main** loop commits through `setLoopSegment` (which re-clamps the zoom
 sub-region); a move of the **zoom sub-region** seeks within it.
 
@@ -67,9 +69,9 @@ new main loop — exactly as `onMainLoopChange` already does.
 
 ### Surfaces
 
-- **Main timeline:** band drag + step/nudge keys.
+- **Main timeline:** Shift+handle drag + step/nudge keys.
 - **Zoom panel:** keys only. The zoom track body (`you-loop-zoom-track`) is
-  already the playhead-scrub surface, so it is NOT repurposed for window drag.
+  already the playhead-scrub surface, and its cursors stay plain resizers.
   Stepping/nudging while zoomed moves the zoom sub-region (keys route through
   `effectiveSegment`).
 
@@ -113,28 +115,29 @@ In `features/playback/reducer.ts`, alongside the existing playback constants
 - `NUDGE_SECONDS = 1.0` — fine-nudge delta. Tunable.
 - Step delta is computed at the call site as `±len`, not a constant.
 
-### Input path A — main band drag (`features/player-overlay/TimelineHandles.tsx`)
+### Input path A — Shift + handle drag (`features/player-overlay/TimelineHandles.tsx`)
 
-- Extend the `Handle` union with `"range"`.
-- Give the existing `rangeRef` band the same pointer machinery the handles use:
-  `setPointerCapture`, direct-DOM `paint`, `finishDrag`, `onLostPointerCapture`,
-  `onPointerCancel`, `suppressNextClick`, and `blockMouse` on mousedown/click
-  (to keep YouTube's scrubber from reacting).
-- On range pointerdown: capture the grab time (`valueFromPointer(clientX)`) and
-  the committed segment at grab.
-- On range pointermove: `delta = pointerTime - grabTime`;
+The whole-window drag rides on the existing start/end handle drags, gated by
+Shift held at pointerdown — not on the (ungrabbable) band.
+
+- A per-drag mode captured at pointerdown: `event.shiftKey` → `"window"` mode,
+  else `"resize"` mode (the existing behaviour).
+- In `"window"` mode, capture the grab time (`valueFromPointer(clientX)`) and the
+  committed segment at grab, exactly as the handle drag already captures state.
+- On move in `"window"` mode: `delta = pointerTime - grabTime`;
   `live = translateSegment(grabSegment, delta, { min: 0, max: safeDuration })`;
-  paint `live`.
-- On drop: if the start actually changed, commit `live` via a distinct
-  `onWindowMove` prop (so pageUi can seek to the new start); otherwise (a click
-  with no movement) commit via `onSegmentChange` with no seek. `onWindowMove`
-  falls back to `onSegmentChange` when not provided.
-- The per-handle (`start`/`end`) branches are unchanged: they commit via
-  `onSegmentChange` and never seek; only the `"range"` branch uses
-  `translateSegment` and routes through `onWindowMove`.
+  paint `live`. In `"resize"` mode, the existing `clampSegment` path is unchanged.
+- On drop: in `"window"` mode, if the start actually changed, commit via a
+  distinct `onWindowMove` prop (so pageUi seeks to the new start); if it didn't
+  change, commit via `onSegmentChange` (no seek). In `"resize"` mode, always
+  commit via `onSegmentChange` (never seeks). `onWindowMove` falls back to
+  `onSegmentChange` when not provided.
+- Either handle works — Shift mode is per-drag, independent of which handle is
+  grabbed.
 
-CSS (`entrypoints/content/pageUi.styles.ts`, `.you-loop-loop-range`):
-`cursor: grab; pointer-events: auto;` and a `grabbing` cursor while dragging.
+The loop band (`.you-loop-loop-range`) stays a non-interactive visual marker
+(`pointer-events: none`, no grab cursor) — reverting the earlier draggable-band
+CSS.
 
 ### Input path B — step / nudge keys (`features/playback/shortcuts.ts` + pageUi)
 
@@ -187,9 +190,10 @@ New pageUi `moveActiveWindow(delta)`:
 - **pageUi (integration, `pageUi.test.tsx`):** `moveActiveWindow` routes to the
   main loop when not zoomed and to the zoom sub-region when zoomed; moving the
   main loop re-clamps the zoom sub-region.
-- **`TimelineHandles` (component):** band drag translates both edges by the same
-  delta and commits; clamps flush at both timeline edges; per-handle drags are
-  unaffected.
+- **`TimelineHandles` (component):** a Shift+handle drag translates both edges by
+  the same delta and commits via `onWindowMove`; clamps flush at both timeline
+  edges; a plain (no-Shift) handle drag still resizes one edge via
+  `onSegmentChange` and does not move the window.
 
 ## Files touched
 

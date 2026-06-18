@@ -8,13 +8,14 @@ type Props = {
   duration: number;
   segment: LoopSegment | null;
   onSegmentChange: (segment: LoopSegment) => void;
-  // Called instead of onSegmentChange when the band is dragged and the window
-  // actually moved (start changed). Callers use this to seek the playhead to
-  // the new start. Falls back to onSegmentChange when not provided.
+  // Called instead of onSegmentChange when a Shift+handle drag moves the window
+  // (start changed). Callers use this to seek the playhead to the new start.
+  // Falls back to onSegmentChange when not provided.
   onWindowMove?: (segment: LoopSegment) => void;
 };
 
-type Handle = "start" | "end" | "range";
+type Handle = "start" | "end";
+type DragMode = "resize" | "window";
 
 export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMove }: Props) {
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -46,8 +47,11 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
   const draggingRef = useRef<Handle | null>(null);
   const liveRef = useRef<LoopSegment>(committed);
 
-  // For a "range" (whole-window) drag: the pointer time and segment captured at
-  // grab, so each move is a delta from the grab point rather than absolute.
+  // Per-drag mode: "window" when Shift was held at pointerdown, "resize" otherwise.
+  const dragModeRef = useRef<DragMode>("resize");
+
+  // For a window drag: the pointer time and segment captured at grab, so each
+  // move is a delta from the grab point rather than absolute.
   const grabTimeRef = useRef(0);
   const grabSegRef = useRef<LoopSegment>(committed);
 
@@ -65,15 +69,16 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
     setDragLock(false);
     const next = liveRef.current;
     paint(next);
-    // A band drag that actually moved the window (start changed) routes through
-    // onWindowMove so the caller can seek to the new start. A click-with-no-move
-    // (start unchanged) falls through to onSegmentChange. Handle drags always
-    // use onSegmentChange.
-    if (handle === "range" && next.start !== grabSegRef.current.start && onWindowMove != null) {
+    // A window-mode drag (Shift held at pointerdown) that actually moved the
+    // window (start changed) routes through onWindowMove so the caller can seek
+    // to the new start. A no-move window drag, or any resize drag, uses
+    // onSegmentChange (no seek).
+    if (dragModeRef.current === "window" && next.start !== grabSegRef.current.start && onWindowMove != null) {
       onWindowMove(next);
     } else {
       onSegmentChange(next);
     }
+    dragModeRef.current = "resize";
   };
 
   const valueFromPointer = (clientX: number) => {
@@ -132,7 +137,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
     }
     event.preventDefault();
     event.stopPropagation();
-    if (handle === "range") {
+    if (dragModeRef.current === "window") {
       const delta = valueFromPointer(event.clientX) - grabTimeRef.current;
       liveRef.current = translateSegment(grabSegRef.current, delta, {
         min: 0,
@@ -155,9 +160,12 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
       suppressNextClick();
       draggingRef.current = handle;
       liveRef.current = committed;
-      if (handle === "range") {
+      if (event.shiftKey) {
+        dragModeRef.current = "window";
         grabTimeRef.current = valueFromPointer(event.clientX);
         grabSegRef.current = committed;
+      } else {
+        dragModeRef.current = "resize";
       }
       setDragLock(true);
     },
@@ -191,9 +199,7 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
       <div
         ref={rangeRef}
         className="you-loop-loop-range"
-        data-testid="loop-range"
         style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }}
-        {...createDragHandlers("range")}
       />
       <button
         ref={startRef}

@@ -27,11 +27,20 @@ KEYBOARD-FIRST DRILLING
 • S — cue: hold to play from the top of the loop, release to snap straight back
 • D — push-to-play: hold to listen, release to pause, hold again to carry on
 
+MOVE THE LOOP, KEEP ITS LENGTH
+Dial in the right length once, then walk it through the piece — the loop slides, its length stays put.
+• [ and ] nudge the loop back or forward by a second
+• Shift+[ and Shift+] step it by its own length — march through a passage one phrase at a time
+• Shift+drag a loop handle (on the timeline or in the zoom panel) to slide the whole loop; playback picks up at the new start
+
 SAVED LOOPS
 Name and save loops per video. Come back tomorrow; your work is where you left it.
 
+SYNCED ACROSS YOUR DEVICES
+Saved loops follow you between computers through your browser's own account sync — set a loop at the desk, pick it up on the laptop. No Étude account and no server; when browser sync is off, loops simply stay local.
+
 FREE. NO ACCOUNT. NO TRACKING.
-Étude collects no data — declared in the extension manifest, enforced by the only permission it asks for (storage, to keep your saved loops on your machine). Loops are stored locally; uninstalling the extension removes them.
+Étude collects no data — declared in the extension manifest, enforced by the only permission it asks for (storage, for your saved loops). Loops live in your browser and ride its built-in account sync (Chrome / Firefox) across your devices — never through an Étude server. Uninstalling the extension removes the local copy.
 
 ## Category
 

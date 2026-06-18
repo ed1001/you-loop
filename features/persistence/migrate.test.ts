@@ -2,25 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { SyncArea, VideoEntry } from "./loopStore";
 import { SAVED_STORE_KEY, keyFor } from "./loopStore";
 import { MIGRATED_KEY, migrateToSync } from "./migrate";
+import { makeMemoryArea } from "./memoryArea.testutil";
 
+// makeMemoryArea plus has(); `.data` is the backing Map for key assertions.
 function makeArea(initial: Record<string, unknown> = {}) {
-  const data = new Map<string, unknown>(Object.entries(initial));
-  return {
-    async get(key: string | null) {
-      if (key === null) return Object.fromEntries(data);
-      return data.has(key) ? { [key]: data.get(key) } : {};
-    },
-    async set(items: Record<string, unknown>) {
-      for (const [k, v] of Object.entries(items)) data.set(k, v);
-    },
-    async remove(key: string) {
-      data.delete(key);
-    },
-    has: (key: string) => data.has(key),
-    get raw() {
-      return data;
-    }
-  };
+  const a = makeMemoryArea(initial);
+  return Object.assign(a, { has: (key: string) => a.data.has(key) });
 }
 
 const legacyBlob = {
@@ -65,7 +52,7 @@ describe("migrateToSync", () => {
     const sync = makeArea();
     await migrateToSync({ sync, local }, 1234);
     expect(local.has(MIGRATED_KEY)).toBe(true);
-    expect([...sync.raw.keys()]).toHaveLength(0);
+    expect([...sync.data.keys()]).toHaveLength(0);
   });
 
   it("leaves the guard unset when a sync write fails, so it retries", async () => {
@@ -84,6 +71,6 @@ describe("migrateToSync", () => {
     const local = makeArea({ ...legacyBlob, [MIGRATED_KEY]: true });
     const sync = makeArea();
     await migrateToSync({ sync, local }, 1234);
-    expect([...sync.raw.keys()]).toHaveLength(0);
+    expect([...sync.data.keys()]).toHaveLength(0);
   });
 });

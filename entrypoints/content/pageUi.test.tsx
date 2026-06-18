@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { keyFor } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY } from "../../features/persistence/settingsStore";
+import { makeMemoryArea } from "../../features/persistence/memoryArea.testutil";
 
 function enableLoop() {
   fireEvent.click(screen.getByLabelText("Enable loop range"));
@@ -104,24 +105,12 @@ function mountWithLoopEnabled() {
 // In-memory browser.storage stub covering both sync and local, with get(null)
 // support required by listEntries/loadEntry.
 function stubBrowserStorage(initial: Record<string, unknown> = {}) {
-  const data = new Map<string, unknown>(Object.entries(initial));
-  const area = {
-    async get(key: string | null) {
-      if (key === null) return Object.fromEntries(data);
-      return data.has(key) ? { [key]: data.get(key) } : {};
-    },
-    async set(items: Record<string, unknown>) {
-      for (const [k, v] of Object.entries(items)) data.set(k, v);
-    },
-    async remove(key: string) {
-      data.delete(key);
-    }
-  };
+  const area = makeMemoryArea(initial);
   vi.stubGlobal("browser", {
     storage: { sync: area, local: area },
     runtime: { getURL: (p: string) => p }
   });
-  return { dump: () => Object.fromEntries(data) };
+  return { dump: area.dump };
 }
 
 describe("page UI", () => {

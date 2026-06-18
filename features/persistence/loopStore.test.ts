@@ -10,31 +10,15 @@ import {
   removeVideo,
   setLastUsed
 } from "./loopStore";
+import { makeMemoryArea } from "./memoryArea.testutil";
 
-// In-memory SyncArea. get(null) returns every key. Optionally throws on set
-// after `failSetsAfter` successful sets, to exercise the local fallback.
+// makeMemoryArea plus the key/entry accessors this suite asserts on.
 function makeArea(opts: { failSetsAfter?: number } = {}) {
-  const data = new Map<string, unknown>();
-  let sets = 0;
-  return {
-    async get(key: string | null) {
-      if (key === null) return Object.fromEntries(data);
-      return data.has(key) ? { [key]: data.get(key) } : {};
-    },
-    async set(items: Record<string, unknown>) {
-      if (opts.failSetsAfter != null && sets >= opts.failSetsAfter) {
-        sets++;
-        throw new Error("QUOTA_BYTES quota exceeded");
-      }
-      sets++;
-      for (const [k, v] of Object.entries(items)) data.set(k, v);
-    },
-    async remove(key: string) {
-      data.delete(key);
-    },
-    keys: () => [...data.keys()],
-    raw: (videoId: string) => data.get(keyFor(videoId)) as VideoEntry | undefined
-  };
+  const a = makeMemoryArea({}, opts);
+  return Object.assign(a, {
+    keys: () => [...a.data.keys()],
+    raw: (videoId: string) => a.data.get(keyFor(videoId)) as VideoEntry | undefined
+  });
 }
 
 type FakeArea = ReturnType<typeof makeArea>;

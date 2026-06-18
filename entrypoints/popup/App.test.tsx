@@ -1,27 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { keyFor, type SyncArea } from "../../features/persistence/loopStore";
+import { keyFor } from "../../features/persistence/loopStore";
 import { ENABLED_KEY, LAUNCH_KEY } from "../../features/persistence/settingsStore";
+import { makeMemoryArea as makeArea } from "../../features/persistence/memoryArea.testutil";
 import { App } from "./App";
-
-function makeArea(
-  initial: Record<string, unknown> = {}
-): SyncArea & { dump: () => Record<string, unknown> } {
-  const data = new Map<string, unknown>(Object.entries(initial));
-  return {
-    async get(key: string | null) {
-      if (key === null) return Object.fromEntries(data);
-      return data.has(key) ? { [key]: data.get(key) } : {};
-    },
-    async set(items: Record<string, unknown>) {
-      for (const [k, v] of Object.entries(items)) data.set(k, v);
-    },
-    async remove(key: string) {
-      data.delete(key);
-    },
-    dump: () => Object.fromEntries(data)
-  } as unknown as SyncArea & { dump: () => Record<string, unknown> };
-}
 
 const seededStore = {
   [keyFor("vid1")]: {

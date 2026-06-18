@@ -15,6 +15,7 @@ import { ZoomTimeline } from "../../features/player-overlay/ZoomTimeline";
 import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
+import { translateSegment } from "../../features/playback/translateSegment";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
@@ -216,6 +217,30 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const onZoomLoopChange = (segment: LoopSegment) => {
     zoomLoop = segment;
     render();
+  };
+
+  // Move the active loop window by `delta` seconds, length preserved. While
+  // magnified it slides the zoom sub-region inside the main loop; otherwise it
+  // slides the main loop within the timeline (which re-clamps the zoom
+  // sub-region, via onMainLoopChange). No seek — loop enforcement pulls the
+  // playhead in on the next wrap, exactly as a handle drag does.
+  const moveActiveWindow = (delta: number) => {
+    if (zoomed && zoomLoop != null && state.loopSegment != null) {
+      onZoomLoopChange(
+        translateSegment(zoomLoop, delta, {
+          min: state.loopSegment.start,
+          max: state.loopSegment.end
+        })
+      );
+      return;
+    }
+    if (state.loopSegment == null) return;
+    onMainLoopChange(
+      translateSegment(state.loopSegment, delta, {
+        min: 0,
+        max: getVideoDuration(video)
+      })
+    );
   };
 
   // Speed control: independent of the loop. Apply the rate straight to the
@@ -528,6 +553,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     video,
     getSegment: effectiveSegment,
     isActive: () => state.loopEnabled,
+    moveActiveWindow,
     resetOneShot: () => {
       state = playbackReducer(state, {
         type: "markOneShotCompleted",

@@ -450,6 +450,51 @@ describe("page UI", () => {
     // One-shot: consumed.
     expect(storage.dump()[LAUNCH_KEY]).toBeNull();
   });
+
+  it("] steps the main loop window forward by its length", () => {
+    const { player, progressBar } = mountWithLoopEnabled();
+
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    // 1px == 1s so pointer clientX maps directly to seconds (duration is 120).
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+
+    const startHandle = screen.getByLabelText("Loop start");
+    const endHandle = screen.getByLabelText("Loop end");
+
+    // jsdom does not implement setPointerCapture; stub it on both handles so the
+    // TimelineHandles onPointerDown handler does not throw.
+    startHandle.setPointerCapture = () => {};
+    endHandle.setPointerCapture = () => {};
+
+    // Drag handles to make a 20–40 loop.
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+    });
+    act(() => {
+      fireEvent.pointerDown(endHandle, { pointerId: 2, clientX: 120 });
+      fireEvent.pointerMove(endHandle, { pointerId: 2, clientX: 40 });
+      fireEvent.pointerUp(endHandle, { pointerId: 2, clientX: 40 });
+    });
+
+    const band = player.querySelector(".you-loop-loop-range") as HTMLElement;
+    expect(band.style.left).toBe("16.666666666666664%"); // 20/120
+    expect(band.style.width).toBe("16.666666666666664%"); // (40-20)/120
+
+    // Press ] — steps forward by len (20s) to 40–60.
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "BracketRight", bubbles: true })
+      );
+    });
+
+    expect(band.style.left).toBe("33.33333333333333%"); // 40/120
+    expect(band.style.width).toBe("16.66666666666667%"); // unchanged
+  });
 });
 
 describe("nextCompactState", () => {

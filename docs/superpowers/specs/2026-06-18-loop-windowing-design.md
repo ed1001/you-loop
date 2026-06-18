@@ -70,8 +70,10 @@ new main loop — exactly as `onMainLoopChange` already does.
 ### Surfaces
 
 - **Main timeline:** Shift+handle drag + step/nudge keys.
-- **Zoom panel:** keys only. The zoom track body (`you-loop-zoom-track`) is
-  already the playhead-scrub surface, and its cursors stay plain resizers.
+- **Zoom panel:** Shift+cursor drag + step/nudge keys. The zoom loop cursors get
+  the same Shift→window gesture as the main handles (clamped to the zoom window,
+  which equals the main loop). The zoom track BODY (`you-loop-zoom-track`) stays
+  the playhead-scrub surface — only the cursors carry the window gesture.
   Stepping/nudging while zoomed moves the zoom sub-region (keys route through
   `effectiveSegment`).
 
@@ -139,6 +141,13 @@ The loop band (`.you-loop-loop-range`) stays a non-interactive visual marker
 (`pointer-events: none`, no grab cursor) — reverting the earlier draggable-band
 CSS.
 
+The **zoom loop cursors** (`features/player-overlay/ZoomTimeline.tsx`) get the
+identical Shift→window gesture: a `dragMode` captured from `event.shiftKey` at
+cursor pointerdown, `translateSegment` of the whole zoom loop clamped to the zoom
+window (`{ min: win.start, max: win.end }`, which equals the main loop), and an
+`onWindowMove` commit path that seeks. Plain (no-Shift) cursor drags still resize
+one edge via `onLoopChange`. The playhead-scrub on the track body is untouched.
+
 ### Input path B — step / nudge keys (`features/playback/shortcuts.ts` + pageUi)
 
 - New keys matched by **`event.code`** — `BracketRight` (`]`) and `BracketLeft`
@@ -172,8 +181,9 @@ New pageUi `moveActiveWindow(delta)`:
 
 ## Discoverability
 
-- **Help modal:** add rows for `[` / `]` (nudge window) and `Shift+[` /
-  `Shift+]` (step window by its length).
+- **Help modal:** rows for `[` / `]` (nudge window) and `Shift+[` / `Shift+]`
+  (step window by its length), AND a row documenting the **Shift+drag** gesture
+  (hold Shift and drag a loop handle/cursor to slide the whole loop).
 - **CONTEXT.md:** add a domain term for the gesture (e.g. **Window Shift** — move
   a Loop Segment without changing its length). Keep it short.
 
@@ -194,6 +204,9 @@ New pageUi `moveActiveWindow(delta)`:
   the same delta and commits via `onWindowMove`; clamps flush at both timeline
   edges; a plain (no-Shift) handle drag still resizes one edge via
   `onSegmentChange` and does not move the window.
+- **`ZoomTimeline` (component):** a Shift+cursor drag translates the whole zoom
+  loop and commits via `onWindowMove`; a plain cursor drag still resizes one edge
+  via `onLoopChange`; the playhead scrub on the track body is unaffected.
 
 ## Files touched
 

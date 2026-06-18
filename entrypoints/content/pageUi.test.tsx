@@ -493,7 +493,7 @@ describe("page UI", () => {
     });
 
     expect(band.style.left).toBe("33.33333333333333%"); // 40/120
-    expect(band.style.width).toBe("16.66666666666667%"); // unchanged
+    expect(band.style.width).toBe("16.66666666666667%"); // ~16.67% — loop length unchanged; float repr differs by 1 ULP
   });
 });
 

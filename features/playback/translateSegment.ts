@@ -11,7 +11,7 @@ export function translateSegment(
   delta: number,
   bounds: MoveBounds
 ): LoopSegment {
-  const len = segment.end - segment.start;
+  const len = Number((segment.end - segment.start).toFixed(3));
   const maxStart = Math.max(bounds.min, bounds.max - len);
   const start = Math.min(maxStart, Math.max(bounds.min, segment.start + delta));
   return {

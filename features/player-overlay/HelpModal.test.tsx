@@ -94,6 +94,7 @@ describe("HelpModal", () => {
     document.body.append(container);
     render(<HelpModal open container={container} onClose={() => {}} />);
     const card = container.querySelector(".you-loop-help-card");
+    expect(card).not.toBeNull();
     expect(card!.textContent).toContain("Step window");
     expect(card!.textContent).toContain("Nudge window");
   });

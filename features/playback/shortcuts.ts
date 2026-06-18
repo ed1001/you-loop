@@ -54,16 +54,20 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     return segment;
   };
 
-  // fallow-ignore-next-line complexity
+  // Returns true if the event was a window step/nudge key (handled or
+  // deliberately ignored by the gate), so onKeyDown can stop.
+  const handleStepKey = (event: KeyboardEvent): boolean => {
+    if (!STEP_CODES.has(event.code)) return false;
+    const segment = resolveEvent(event);
+    if (segment == null) return true;
+    const dir = event.code === "BracketRight" ? 1 : -1;
+    const len = segment.end - segment.start;
+    deps.moveActiveWindow(event.shiftKey ? dir * NUDGE_SECONDS : dir * len);
+    return true;
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
-    if (STEP_CODES.has(event.code)) {
-      const segment = resolveEvent(event);
-      if (segment == null) return;
-      const dir = event.code === "BracketRight" ? 1 : -1;
-      const len = segment.end - segment.start;
-      deps.moveActiveWindow(event.shiftKey ? dir * NUDGE_SECONDS : dir * len);
-      return;
-    }
+    if (handleStepKey(event)) return;
 
     const key = event.key.toLowerCase();
     if (!HANDLED_KEYS.has(key)) return;

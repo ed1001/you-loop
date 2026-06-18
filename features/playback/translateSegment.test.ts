@@ -45,6 +45,11 @@ describe("translateSegment", () => {
     });
   });
 
+  it("keeps the output length exactly 3dp for a sub-3dp input length", () => {
+    const out = translateSegment({ start: 1.0001, end: 2.0007 }, 0, bounds);
+    expect(Number((out.end - out.start).toFixed(3))).toBe(out.end - out.start);
+  });
+
   it("pins to the low edge when the window is as wide as its bounds", () => {
     expect(
       translateSegment({ start: 0, end: 40 }, 10, { min: 0, max: 40 })

@@ -183,10 +183,10 @@ New pageUi `moveActiveWindow(delta)`:
   length preserved); delta larger than available room; negative delta; zoom
   bounds (non-zero min); length preserved exactly; 3dp rounding; degenerate
   window-wider-than-bounds guard.
-- **`shortcuts` (unit):** `]`/`[` call `moveActiveWindow` with `±len`;
-  `Shift+]`/`Shift+[` with `±NUDGE_SECONDS`; matching works under Shift (via
-  `event.code`); gated off when typing / inactive / null segment; auto-repeat
-  produces repeated moves.
+- **`shortcuts` (unit):** `]`/`[` call `moveActiveWindow` with `±NUDGE_SECONDS`;
+  `Shift+]`/`Shift+[` with `±len`; matching works under Shift (via `event.code`);
+  gated off when typing / inactive / null segment; auto-repeat produces repeated
+  moves.
 - **pageUi (integration, `pageUi.test.tsx`):** `moveActiveWindow` routes to the
   main loop when not zoomed and to the zoom sub-region when zoomed; moving the
   main loop re-clamps the zoom sub-region.

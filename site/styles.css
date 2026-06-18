@@ -263,13 +263,6 @@
         color: var(--muted);
         font-size: 14.5px;
       }
-      /* Inline keys in feature prose: compact, unlike the big A/S/D tab keys. */
-      .feature p kbd {
-        min-width: 0;
-        padding: 1px 7px;
-        font-size: 12.5px;
-        vertical-align: baseline;
-      }
 
       /* ---- hero pill showcase ---- */
       /* stage: faux timeline the pill rides on */

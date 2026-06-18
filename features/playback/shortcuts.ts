@@ -1,4 +1,5 @@
 import type { LoopSegment } from "./types";
+import { NUDGE_SECONDS } from "./reducer";
 
 export type LoopKeyDeps = {
   video: HTMLVideoElement;
@@ -9,6 +10,9 @@ export type LoopKeyDeps = {
   isActive: () => boolean;
   // Clears a prior one-shot completion so the segment replays from the top.
   resetOneShot: () => void;
+  // Move the active region (zoom sub-region when zoomed, else the main loop) by
+  // `delta` seconds, length preserved. The caller picks the clamp bounds.
+  moveActiveWindow: (delta: number) => void;
 };
 
 export type LoopKeyHandlers = {
@@ -20,6 +24,10 @@ const RESTART_KEY = "a";
 const SNAP_BACK_KEY = "s";
 const PUSH_TO_HEAR_KEY = "d";
 const HANDLED_KEYS = new Set([RESTART_KEY, SNAP_BACK_KEY, PUSH_TO_HEAR_KEY]);
+
+// Bracket keys move the window; matched by event.code so Shift (which turns
+// "[" into "{") doesn't change the match.
+const STEP_CODES = new Set(["BracketLeft", "BracketRight"]);
 
 // Don't steal keys while the user is typing (e.g. the YouTube search box).
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -46,7 +54,17 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     return segment;
   };
 
+  // fallow-ignore-next-line complexity
   const onKeyDown = (event: KeyboardEvent) => {
+    if (STEP_CODES.has(event.code)) {
+      const segment = resolveEvent(event);
+      if (segment == null) return;
+      const dir = event.code === "BracketRight" ? 1 : -1;
+      const len = segment.end - segment.start;
+      deps.moveActiveWindow(event.shiftKey ? dir * NUDGE_SECONDS : dir * len);
+      return;
+    }
+
     const key = event.key.toLowerCase();
     if (!HANDLED_KEYS.has(key)) return;
 

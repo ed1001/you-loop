@@ -12,6 +12,9 @@ export const MIN_PLAYBACK_RATE = 0.25;
 export const MAX_PLAYBACK_RATE = 3;
 export const PLAYBACK_RATE_STEP = 0.05;
 
+// Fine-nudge distance for Shift+[ / Shift+] window moves, in seconds. Tunable.
+export const NUDGE_SECONDS = 1.0;
+
 export function createInitialPlaybackState(): PlaybackState {
   return {
     enabled: true,

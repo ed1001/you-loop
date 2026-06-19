@@ -656,7 +656,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         completed: false
       });
       render();
-    }
+    },
+    // Restart (A) counts you in too when count-in is on. Declared below; only
+    // invoked on a keypress, so it is initialized by call time.
+    startCountIn: () => countInController.start()
   });
 
   const countInPlayer = createCountInPlayer();

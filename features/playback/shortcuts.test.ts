@@ -51,6 +51,32 @@ describe("loop key handlers", () => {
     expect(vid.play).toHaveBeenCalledTimes(1);
   });
 
+  it("restart (a) requests a count-in and skips its own play when a count starts", () => {
+    const startCountIn = vi.fn(() => true);
+    const { vid, resetOneShot, handlers } = setup({ startCountIn });
+    handlers.onKeyDown(keyEvent("a"));
+    expect(resetOneShot).toHaveBeenCalledTimes(1);
+    expect(vid.currentTime).toBe(5); // still seeks to the region start
+    expect(startCountIn).toHaveBeenCalledTimes(1);
+    expect(vid.play).not.toHaveBeenCalled(); // the count owns the play
+  });
+
+  it("restart (a) plays normally when count-in declines", () => {
+    const startCountIn = vi.fn(() => false);
+    const { vid, handlers } = setup({ startCountIn });
+    handlers.onKeyDown(keyEvent("a"));
+    expect(startCountIn).toHaveBeenCalledTimes(1);
+    expect(vid.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("snap-back (s) does not request a count-in", () => {
+    const startCountIn = vi.fn(() => true);
+    const { vid, handlers } = setup({ startCountIn });
+    handlers.onKeyDown(keyEvent("s"));
+    expect(startCountIn).not.toHaveBeenCalled();
+    expect(vid.play).toHaveBeenCalledTimes(1);
+  });
+
   it("snap-back (s) plays from start on press, pauses+rewinds on release", () => {
     const { vid, resetOneShot, handlers } = setup();
     handlers.onKeyDown(keyEvent("s"));

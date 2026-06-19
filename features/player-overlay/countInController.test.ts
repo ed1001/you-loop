@@ -43,6 +43,25 @@ describe("countInController", () => {
     expect(video.pause).not.toHaveBeenCalled();
   });
 
+  it("start() returns true and pauses when a count begins", () => {
+    const { controller, video } = setup();
+    expect(controller.start()).toBe(true);
+    expect(video.pause).toHaveBeenCalledTimes(1);
+    expect(controller.isCounting()).toBe(true);
+    // resume-on-done is covered by the onWrap test (shared code path).
+  });
+
+  it("start() returns false when disabled", () => {
+    const { controller, video } = setup({ enabled: false });
+    expect(controller.start()).toBe(false);
+    expect(video.pause).not.toHaveBeenCalled();
+  });
+
+  it("start() returns false when audio is unavailable", () => {
+    const { controller } = setup({ audioOk: false });
+    expect(controller.start()).toBe(false);
+  });
+
   it("ignores a second wrap while counting", () => {
     const { controller, player } = setup();
     controller.onWrap();

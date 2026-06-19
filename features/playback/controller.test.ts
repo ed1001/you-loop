@@ -200,3 +200,37 @@ describe("playback controller", () => {
     expect(result.sought).toBe(false);
   });
 });
+
+function loopState(over: Partial<typeof createInitialPlaybackState> = {}) {
+  return {
+    ...createInitialPlaybackState(),
+    enabled: true,
+    loopEnabled: true,
+    loopSegment: { start: 10, end: 20 },
+    playMode: "loop" as const,
+    ...over
+  };
+}
+
+describe("enforceSegmentEnd wrapped flag", () => {
+  it("sets wrapped on the end→start wrap", () => {
+    const element = video({ currentTime: 21 });
+    const r = enforceSegmentEnd(element, loopState());
+    expect(r.sought).toBe(true);
+    expect(r.wrapped).toBe(true);
+  });
+
+  it("does not set wrapped on the front-edge snap", () => {
+    const element = video({ currentTime: 5 });
+    const r = enforceSegmentEnd(element, loopState());
+    expect(r.sought).toBe(true);
+    expect(r.wrapped).toBe(false);
+  });
+
+  it("does not set wrapped when inside the loop", () => {
+    const element = video({ currentTime: 15 });
+    const r = enforceSegmentEnd(element, loopState());
+    expect(r.sought).toBe(false);
+    expect(r.wrapped).toBe(false);
+  });
+});

@@ -19,6 +19,7 @@ export function applyPlaybackState(
 export type EnforceResult = {
   oneShotCompleted: boolean;
   sought: boolean;
+  wrapped: boolean;
 };
 
 // Tolerance for the front-edge snap. Seeking to a fractional `start` lands on
@@ -37,7 +38,7 @@ export function enforceSegmentEnd(
   state: PlaybackState
 ): EnforceResult {
   if (!state.enabled || !state.loopEnabled || !state.loopSegment) {
-    return { oneShotCompleted: state.oneShotCompleted, sought: false };
+    return { oneShotCompleted: state.oneShotCompleted, sought: false, wrapped: false };
   }
 
   const { start, end } = state.loopSegment;
@@ -49,10 +50,11 @@ export function enforceSegmentEnd(
       video.currentTime >= end ||
       video.currentTime < start - START_SNAP_TOLERANCE_SECONDS
     ) {
+      const wrapped = video.currentTime >= end;
       video.currentTime = start;
-      return { oneShotCompleted: false, sought: true };
+      return { oneShotCompleted: false, sought: true, wrapped };
     }
-    return { oneShotCompleted: false, sought: false };
+    return { oneShotCompleted: false, sought: false, wrapped: false };
   }
 
   // Restrict the front edge like loop mode: anywhere before the start snaps to
@@ -60,11 +62,11 @@ export function enforceSegmentEnd(
   // play the pre-region stretch).
   if (video.currentTime < start - START_SNAP_TOLERANCE_SECONDS) {
     video.currentTime = start;
-    return { oneShotCompleted: false, sought: true };
+    return { oneShotCompleted: false, sought: true, wrapped: false };
   }
 
   if (video.currentTime < end) {
-    return { oneShotCompleted: state.oneShotCompleted, sought: false };
+    return { oneShotCompleted: state.oneShotCompleted, sought: false, wrapped: false };
   }
 
   // Playback resumed after the one-shot already finished (the user pressed
@@ -73,10 +75,10 @@ export function enforceSegmentEnd(
   // ordering of the `play`/`timeupdate` events that resume fires.
   if (state.oneShotCompleted && !video.paused) {
     video.currentTime = start;
-    return { oneShotCompleted: false, sought: true };
+    return { oneShotCompleted: false, sought: true, wrapped: false };
   }
 
   video.currentTime = end;
   video.pause();
-  return { oneShotCompleted: true, sought: true };
+  return { oneShotCompleted: true, sought: true, wrapped: false };
 }

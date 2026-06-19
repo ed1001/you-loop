@@ -1,5 +1,6 @@
 import "./content/style.css";
 import { setPageUiVisible } from "./content/pageUi";
+import { isYouTubeWatchPage } from "../adapters/youtube/watch-page";
 import { getEnabled, watchEnabled } from "../features/persistence/settingsStore";
 
 function findYouTubePlayer() {
@@ -39,10 +40,13 @@ export default defineContentScript({
     await waitForYouTubePlayer();
 
     // Re-applied on toggle and on SPA navigation: mounting is idempotent and
-    // no-ops off watch pages, so the panel returns as soon as a timeline
+    // scoped to the watch page, so the panel returns as soon as a timeline
     // exists again (e.g. disable → navigate home → enable → open a video).
+    // Scoping to /watch keeps Étude off inline preview / mini / channel-trailer
+    // players, which also use `.html5-video-player` but aren't the main video.
     let desired = true;
-    const apply = () => setPageUiVisible(document.body, desired);
+    const apply = () =>
+      setPageUiVisible(document.body, desired && isYouTubeWatchPage());
 
     // Watch before the initial read so a toggle racing the read isn't lost.
     watchEnabled((enabled) => {

@@ -6,6 +6,8 @@ import {
   LAUNCH_TTL_MS,
   getEnabled,
   setEnabled,
+  getLoopOn,
+  setLoopOn,
   watchEnabled,
   requestLaunch,
   takeLaunch,
@@ -45,6 +47,26 @@ describe("settingsStore enabled flag", () => {
 
   it("treats a malformed stored value as enabled", async () => {
     expect(await getEnabled(makeArea({ [ENABLED_KEY]: "nope" }))).toBe(true);
+  });
+});
+
+describe("settingsStore loop-on flag", () => {
+  it("defaults to off when the key is absent", async () => {
+    expect(await getLoopOn(makeArea())).toBe(false);
+  });
+
+  it("round-trips set/get", async () => {
+    const area = makeArea();
+    await setLoopOn(true, area);
+    expect(await getLoopOn(area)).toBe(true);
+    await setLoopOn(false, area);
+    expect(await getLoopOn(area)).toBe(false);
+  });
+
+  it("treats a malformed stored value as off", async () => {
+    expect(await getLoopOn(makeArea({ ["you-loop:loop-on"]: "nope" }))).toBe(
+      false
+    );
   });
 });
 

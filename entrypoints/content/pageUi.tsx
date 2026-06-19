@@ -27,7 +27,11 @@ import {
   type SavedVideo,
   type VideoEntry
 } from "../../features/persistence/loopStore";
-import { takeLaunch } from "../../features/persistence/settingsStore";
+import {
+  getLoopOn,
+  setLoopOn,
+  takeLaunch
+} from "../../features/persistence/settingsStore";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
 // Player-width thresholds for the compact panel form, with a dead band so a
@@ -147,21 +151,26 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   };
 
+  // Turn the loop off. Hides the zoom timeline (render gates it on loopEnabled)
+  // but keeps `zoomed`/`zoomLoop` so the zoom sub-region resumes when the loop
+  // is turned back on. Speed control is tied to the loop being on, so this also
+  // snaps playback back to 1× and hands rate control back to YouTube.
+  const disableLoop = () => {
+    clearZoomCloseTimer();
+    zoomClosing = false;
+    state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
+    state = playbackReducer(state, { type: "resetPlaybackRate" });
+    applyPlaybackState(video, state);
+  };
+
   const toggleLoop = () => {
     if (state.loopEnabled) {
-      // Turning the loop off hides the zoom timeline (render gates it on
-      // loopEnabled) but keeps `zoomed`/`zoomLoop` so the zoom sub-region
-      // resumes when the loop is turned back on, instead of being lost.
-      clearZoomCloseTimer();
-      zoomClosing = false;
-      state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
-      // Speed control is tied to the loop being on: turning the loop off snaps
-      // playback back to 1× and hands rate control back to YouTube.
-      state = playbackReducer(state, { type: "resetPlaybackRate" });
-      applyPlaybackState(video, state);
+      disableLoop();
     } else {
       enableLoop();
     }
+    // Persist the panel's on/off so it sticks across reloads, tabs, and videos.
+    void setLoopOn(state.loopEnabled);
     render();
   };
 
@@ -290,6 +299,29 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         : null;
   };
 
+  // Set the panel's on/off for the freshly loaded video. A popup launch loads
+  // the last-used loop and forces the panel on (persisting it so the on state
+  // carries through the session); otherwise the persisted global preference
+  // wins. Turning on is non-intrusive — the default whole-timeline loop never
+  // seeks — so no saved loop is auto-applied here.
+  const applyPanelActivation = (
+    launched: boolean,
+    entry: VideoEntry | null,
+    persistedOn: boolean
+  ) => {
+    if (launched && entry != null) {
+      applySavedEntry(entry);
+      enableLoop();
+      void setLoopOn(true);
+    } else if (persistedOn) {
+      enableLoop();
+    } else if (state.loopEnabled) {
+      // Carried-on in-memory state contradicts a persisted-off preference
+      // (e.g. toggled off elsewhere): honour the preference and switch off.
+      disableLoop();
+    }
+  };
+
   // Seed or restore positions for the current video. Runs on mount and on
   // navigation. Gated on a known duration so percentage seeding is meaningful.
   const loadForVideo = async () => {
@@ -311,14 +343,22 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const launched = await takeLaunch(id);
     if (videoId !== id) return;
 
+    // Seed the editable region to the default. A specific saved loop is applied
+    // only by an explicit action (picking it in the modal, or a popup launch
+    // below) — never silently on load — so navigation never yanks the playhead
+    // into a region the user didn't just choose.
+    seedDefaultLoop(duration);
     if (entry != null && entry.loops.length > 0) {
-      applySavedEntry(entry);
-    } else {
-      seedDefaultLoop(duration);
+      // Expose the saved loops to the modal without selecting/applying one.
+      savedLoops = entry.loops;
     }
-    if (launched) {
-      enableLoop();
-    }
+
+    // The panel's on/off is a persisted global preference, so it sticks across
+    // reloads, tabs, and navigation.
+    const persistedOn = await getLoopOn();
+    if (videoId !== id) return; // navigated away mid-await
+
+    applyPanelActivation(launched, entry, persistedOn);
     render();
   };
 
@@ -589,6 +629,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     selectedLoopId = null;
     savedLoops = [];
     loopsOpen = false;
+    // Clear the previous video's loop segment before the async reload so the
+    // rAF/timeupdate enforcer can't snap the playhead to that stale region in
+    // the gap before loadForVideo() resolves (enforceSegmentEnd no-ops while
+    // loopSegment is null). The on/off state is intentionally preserved: an
+    // active panel stays active into the next video (restoring its loops if it
+    // has any), an inactive one stays off.
+    clearZoomCloseTimer();
+    zoomLoop = null;
+    zoomed = false;
+    zoomClosing = false;
+    state = playbackReducer(state, { type: "clearLoop" });
+    render();
     void loadForVideo();
   };
 
@@ -778,22 +830,65 @@ export function createPageUiElement(video: HTMLVideoElement) {
   return panel;
 }
 
+// Attempt the mount; returns true once the panel exists. Both deps (the
+// <video> and the `.ytp-progress-bar`) can lag behind `.html5-video-player`
+// on a cold load, so a false result means "not yet" — the caller rearms.
+function tryMountPageUi(): boolean {
+  if (document.querySelector(PAGE_UI_SELECTOR) != null) {
+    return true;
+  }
+
+  const video = findYouTubeVideo();
+  if (video == null) {
+    return false;
+  }
+
+  const timeline = findYouTubeTimeline(video);
+  if (timeline == null) {
+    return false;
+  }
+
+  timeline.append(createPageUiElement(video));
+  return true;
+}
+
+// One-shot retry: when the mount deps aren't ready yet, watch the DOM and try
+// again as each node lands. Without this the panel silently never appears on a
+// slow load and only a manual refresh brings it back. A single live observer
+// at a time; a `setPageUiVisible(false)` cancels it.
+let pendingMount: MutationObserver | null = null;
+
+function cancelPendingMount() {
+  pendingMount?.disconnect();
+  pendingMount = null;
+}
+
+function armPendingMount() {
+  cancelPendingMount();
+  const observer = new MutationObserver(() => {
+    if (tryMountPageUi()) {
+      cancelPendingMount();
+    }
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+  pendingMount = observer;
+}
+
 export function setPageUiVisible(_host: Element, visible: boolean) {
   const existing = document.querySelector(PAGE_UI_SELECTOR);
 
   if (visible && existing == null) {
-    const video = findYouTubeVideo();
-    if (video == null) {
-      return;
+    if (!tryMountPageUi()) {
+      armPendingMount();
     }
-
-    const timeline = findYouTubeTimeline(video);
-    if (timeline == null) {
-      return;
-    }
-
-    timeline.append(createPageUiElement(video));
     return;
+  }
+
+  if (!visible) {
+    cancelPendingMount();
   }
 
   if (!visible && existing != null) {

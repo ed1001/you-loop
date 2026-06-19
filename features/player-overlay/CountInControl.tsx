@@ -38,15 +38,38 @@ export function CountInControl({
   now = () => performance.now()
 }: CountInControlProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   const tapsRef = useRef<number[]>([]);
   const dragRef = useRef<{ y: number; bpm: number } | null>(null);
-  const [open, setOpen] = useState(on);
+  const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState({ left: 0, top: 0 });
 
-  // Close the popover whenever on transitions to false externally.
+  // Dismiss the popover on an outside click or Escape — it is a persistent
+  // panel (unlike the speed scrubber, which lives only for the duration of a
+  // drag), so it needs explicit dismissal. The pointerdown listener is on the
+  // capture phase so it sees clicks even though the popover's own handlers
+  // stopPropagation; the ref guards keep clicks inside the popover or on the
+  // pill button from closing it.
   useEffect(() => {
-    if (!on) setOpen(false);
-  }, [on]);
+    if (!open) return;
+    const onDocDown = (e: Event) => {
+      const t = e.target as Node | null;
+      if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onDocDown, true);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onDocDown, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
 
   const updateAnchor = () => {
     const btn = btnRef.current;
@@ -56,16 +79,12 @@ export function CountInControl({
     setAnchor({ left: b.left + b.width / 2 - h.left, top: b.top - h.top });
   };
 
+  // The pill button only opens/closes the settings popover. On/off lives on the
+  // switch inside the popover, so the button never has to mean two things.
   const onButtonClick = (e: MouseEvent) => {
     swallow(e);
-    if (on) {
-      updateAnchor();
-      setOpen((v) => !v);
-    } else {
-      onToggle(); // turning on
-      updateAnchor();
-      setOpen(true);
-    }
+    if (!open) updateAnchor();
+    setOpen((v) => !v);
   };
 
   const tap = (e: MouseEvent) => {
@@ -122,12 +141,35 @@ export function CountInControl({
         container != null &&
         createPortal(
           <div
+            ref={popRef}
             className="you-loop-countin-pop"
             style={{ left: `${anchor.left}px`, top: `${anchor.top}px` } as CSSProperties}
             onPointerDown={swallow}
             onMouseDown={swallow}
             onClick={swallow}
           >
+            <div className="you-loop-countin-head">
+              <span className="you-loop-countin-headname">Count-in</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={on}
+                aria-label={on ? "Turn count-in off" : "Turn count-in on"}
+                className="you-loop-countin-switch"
+                data-on={on}
+                onClick={(e) => {
+                  swallow(e);
+                  onToggle();
+                }}
+              />
+            </div>
+
+            <p className="you-loop-countin-hint">
+              Plays a metronome count before each loop repeat. You come in on the
+              downbeat.
+            </p>
+
+            <span className="you-loop-countin-label">Tempo</span>
             <button type="button" className="you-loop-countin-tap" onClick={tap}>
               Tap in time
             </button>
@@ -150,6 +192,7 @@ export function CountInControl({
               </div>
             </div>
 
+            <span className="you-loop-countin-label">Time signature</span>
             <div className="you-loop-countin-seg" role="group" aria-label="Time signature">
               {SIGS.map((s) => (
                 <button
@@ -167,6 +210,7 @@ export function CountInControl({
               ))}
             </div>
 
+            <span className="you-loop-countin-label">Bars</span>
             <div className="you-loop-countin-seg" role="group" aria-label="Bars">
               {[1, 2, 3, 4].map((n) => (
                 <button

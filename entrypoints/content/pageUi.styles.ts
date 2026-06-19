@@ -1685,9 +1685,38 @@ export const PAGE_UI_STYLES = `
     .you-loop-countin-toggle:disabled { opacity: 0.4; cursor: default; }
     .you-loop-countin-pop {
       position: absolute; transform: translate(-50%, -100%) translateY(-12px);
-      width: 220px; padding: 14px; border-radius: 14px;
+      width: 230px; padding: 14px; border-radius: 14px;
       background: rgba(16, 18, 18, 0.98); border: 1px solid rgba(94, 234, 212, 0.3);
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); z-index: 2147483647;
+    }
+    .you-loop-countin-head {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .you-loop-countin-headname {
+      color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+    }
+    .you-loop-countin-switch {
+      position: relative; width: 38px; height: 22px; padding: 0; cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1); transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .you-loop-countin-switch::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: rgba(255, 255, 255, 0.7); transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .you-loop-countin-switch[data-on="true"] {
+      background: #14b8a6; border-color: #5eead4;
+    }
+    .you-loop-countin-switch[data-on="true"]::after {
+      transform: translateX(16px); background: #06302b;
+    }
+    .you-loop-countin-hint {
+      margin: 8px 0 12px; color: rgba(255, 255, 255, 0.5); font-size: 11px; line-height: 1.45;
+    }
+    .you-loop-countin-label {
+      display: block; margin-top: 12px; margin-bottom: 6px;
+      color: #14b8a6; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
     .you-loop-countin-tap {
       width: 100%; height: 64px; border-radius: 10px; cursor: pointer;

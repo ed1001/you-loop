@@ -35,19 +35,77 @@ const base = {
   onSettingsChange: vi.fn()
 };
 
+const toggleBtn = () =>
+  host!.querySelector(".you-loop-countin-toggle") as HTMLElement;
+const popover = () =>
+  document.body.querySelector(".you-loop-countin-pop") as HTMLElement | null;
+const openPopover = () => act(() => fireEvent.click(toggleBtn()));
+
 describe("CountInControl", () => {
-  it("toggles on click", () => {
+  it("opens the popover on button click and closes it on a second click", () => {
+    render(<CountInControl {...base} container={document.body} />);
+    expect(popover()).toBeNull();
+    openPopover();
+    expect(popover()).not.toBeNull();
+    act(() => fireEvent.click(toggleBtn()));
+    expect(popover()).toBeNull();
+  });
+
+  it("does NOT toggle on/off from the pill button (only the switch does)", () => {
     const onToggle = vi.fn();
-    render(<CountInControl {...base} onToggle={onToggle} />);
-    const btn = host!.querySelector(".you-loop-countin-toggle") as HTMLElement;
-    act(() => fireEvent.click(btn));
-    expect(onToggle).toHaveBeenCalledTimes(1);
+    render(<CountInControl {...base} container={document.body} onToggle={onToggle} />);
+    openPopover();
+    expect(onToggle).not.toHaveBeenCalled();
   });
 
   it("reflects the on state with data-on", () => {
     render(<CountInControl {...base} on={true} container={document.body} />);
-    const btn = host!.querySelector(".you-loop-countin-toggle") as HTMLElement;
-    expect(btn.dataset.on).toBe("true");
+    expect(toggleBtn().dataset.on).toBe("true");
+  });
+
+  it("toggles count-in from the switch inside the popover", () => {
+    const onToggle = vi.fn();
+    render(<CountInControl {...base} container={document.body} onToggle={onToggle} />);
+    openPopover();
+    const sw = document.body.querySelector(".you-loop-countin-switch") as HTMLElement;
+    act(() => fireEvent.click(sw));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses the popover on an outside pointerdown", () => {
+    render(<CountInControl {...base} container={document.body} />);
+    openPopover();
+    expect(popover()).not.toBeNull();
+    const outside = document.createElement("div");
+    document.body.append(outside);
+    act(() => fireEvent.pointerDown(outside));
+    expect(popover()).toBeNull();
+    outside.remove();
+  });
+
+  it("dismisses the popover on Escape", () => {
+    render(<CountInControl {...base} container={document.body} />);
+    openPopover();
+    expect(popover()).not.toBeNull();
+    act(() => fireEvent.keyDown(document, { key: "Escape" }));
+    expect(popover()).toBeNull();
+  });
+
+  it("keeps the popover open when clicking inside it", () => {
+    render(<CountInControl {...base} container={document.body} />);
+    openPopover();
+    const pad = document.body.querySelector(".you-loop-countin-tap") as HTMLElement;
+    act(() => fireEvent.pointerDown(pad));
+    expect(popover()).not.toBeNull();
+  });
+
+  it("shows visible section labels", () => {
+    render(<CountInControl {...base} container={document.body} />);
+    openPopover();
+    const text = popover()!.textContent ?? "";
+    expect(text).toContain("Tempo");
+    expect(text).toContain("Time signature");
+    expect(text).toContain("Bars");
   });
 
   it("computes BPM from taps and reports it", () => {
@@ -56,12 +114,12 @@ describe("CountInControl", () => {
     render(
       <CountInControl
         {...base}
-        on={true}
         container={document.body}
         onSettingsChange={onSettingsChange}
         now={() => (t += 500)} // each call advances 500ms → 120 BPM
       />
     );
+    openPopover();
     const pad = document.body.querySelector(".you-loop-countin-tap") as HTMLElement;
     act(() => { fireEvent.click(pad); fireEvent.click(pad); fireEvent.click(pad); });
     expect(onSettingsChange).toHaveBeenLastCalledWith(
@@ -71,9 +129,8 @@ describe("CountInControl", () => {
 
   it("changes time signature", () => {
     const onSettingsChange = vi.fn();
-    render(
-      <CountInControl {...base} on={true} container={document.body} onSettingsChange={onSettingsChange} />
-    );
+    render(<CountInControl {...base} container={document.body} onSettingsChange={onSettingsChange} />);
+    openPopover();
     const threeFour = document.body.querySelector('[data-sig="3"]') as HTMLElement;
     act(() => fireEvent.click(threeFour));
     expect(onSettingsChange).toHaveBeenLastCalledWith(
@@ -83,9 +140,8 @@ describe("CountInControl", () => {
 
   it("changes bar count", () => {
     const onSettingsChange = vi.fn();
-    render(
-      <CountInControl {...base} on={true} container={document.body} onSettingsChange={onSettingsChange} />
-    );
+    render(<CountInControl {...base} container={document.body} onSettingsChange={onSettingsChange} />);
+    openPopover();
     const twoBars = document.body.querySelector('[data-bars="2"]') as HTMLElement;
     act(() => fireEvent.click(twoBars));
     expect(onSettingsChange).toHaveBeenLastCalledWith(

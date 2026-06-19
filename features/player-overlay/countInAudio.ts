@@ -12,6 +12,8 @@ export type CountInPlayer = {
     hooks: { onBeat?: (index: number) => void; onDone?: () => void }
   ): boolean;
   cancel(): void;
+  /** Clear timers and close the AudioContext. Safe to call multiple times. */
+  dispose(): void;
 };
 
 const GAIN = 0.3;
@@ -94,6 +96,17 @@ export function createCountInPlayer(
     },
     cancel() {
       clearTimers();
+    },
+    dispose() {
+      clearTimers();
+      if (ctx != null) {
+        try {
+          void ctx.close();
+        } catch {
+          // ignore — close() can throw or reject in some environments
+        }
+        ctx = null;
+      }
     }
   };
 }

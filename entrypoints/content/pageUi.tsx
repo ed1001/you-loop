@@ -172,6 +172,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const disableLoop = () => {
     clearZoomCloseTimer();
     zoomClosing = false;
+    countInController.cancel();
     state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
     state = playbackReducer(state, { type: "resetPlaybackRate" });
     applyPlaybackState(video, state);
@@ -459,7 +460,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const onCountInSettingsChange = (next: CountInSettings) => {
     countInSettings = next;
     countInPlayer.unlock();
-    void saveCountInSettings(videoId ?? "", next);
+    if (videoId != null) void saveCountInSettings(videoId, next);
     render();
   };
 
@@ -702,6 +703,14 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     void loadForVideo();
   };
 
+  // Cancel a running count when the USER seeks (scrubs) during the count.
+  // Guard on !wrapSeekPending: the controller's own wrap seek sets
+  // wrapSeekPending synchronously in enforce() before the queued `seeking`
+  // event fires, so we only cancel on genuine user scrubs.
+  const onSeeking = () => {
+    if (countInController.isCounting() && !wrapSeekPending) countInController.cancel();
+  };
+
   video.addEventListener("timeupdate", enforce);
   video.addEventListener("seeked", onSeeked);
   video.addEventListener("play", startEnforce);
@@ -711,9 +720,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   video.addEventListener("ratechange", onRateChange);
   video.addEventListener("loadedmetadata", onLoadedMetadata);
   video.addEventListener("durationchange", onLoadedMetadata);
-  video.addEventListener("seeking", () => {
-    if (countInController.isCounting()) countInController.cancel();
-  });
+  video.addEventListener("seeking", onSeeking);
   document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);
@@ -726,6 +733,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     stop: () => {
       clearZoomCloseTimer();
       stopEnforce();
+      countInController.cancel();
+      countInPlayer.dispose();
       video.removeEventListener("timeupdate", enforce);
       video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("play", startEnforce);
@@ -735,6 +744,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       video.removeEventListener("ratechange", onRateChange);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("durationchange", onLoadedMetadata);
+      video.removeEventListener("seeking", onSeeking);
       document.removeEventListener("yt-navigate-finish", onNavigate);
       document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
       document.removeEventListener("keyup", keyHandlers.onKeyUp, true);

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { keyFor } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY, LOOP_ON_KEY } from "../../features/persistence/settingsStore";
+import { COUNT_IN_KEY } from "../../features/persistence/countInStore";
 import { makeMemoryArea } from "../../features/persistence/memoryArea.testutil";
 
 function enableLoop() {
@@ -703,6 +704,99 @@ describe("page UI", () => {
     expect(band.style.width).toBe("16.666666666666664%"); // 20/120 — length unchanged
     // Playhead seeks to the new window start.
     expect(video.currentTime).toBe(41);
+  });
+
+  // Regression test for Fix 1: the controller's own wrap seek must NOT cancel
+  // the count-in it just started.
+  //
+  // Root cause: enforce() sets video.currentTime = start (the wrap seek) and
+  // then calls countInController.onWrap() (sets counting=true, pauses video).
+  // Setting currentTime fires a `seeking` event as a queued task. Without the
+  // !wrapSeekPending guard the `seeking` listener sees isCounting()===true and
+  // immediately cancels the count on every single wrap.
+  //
+  // The fix sets wrapSeekPending=true synchronously in enforce() (on
+  // result.sought) before the queued `seeking` fires, so the listener skips
+  // the cancel for the controller's own wrap seek. A genuine user scrub (which
+  // does NOT set wrapSeekPending) still cancels correctly.
+  //
+  // We cannot drive a full AudioContext in jsdom, so we stub window.AudioContext
+  // with a minimal mock that returns state:"running" — just enough for
+  // countInPlayer.play() to return true (which is required for counting=true).
+  it("wrap seek does not cancel the count-in it triggered", async () => {
+    // Stub AudioContext so countInPlayer.play() can return true.
+    // The mock satisfies: ctx.state === "running", ctx.currentTime,
+    // ctx.createOscillator(), ctx.createGain(), ctx.destination, ctx.resume().
+    const mockGain = {
+      connect: () => {},
+      gain: {
+        setValueAtTime: () => {},
+        linearRampToValueAtTime: () => {},
+        exponentialRampToValueAtTime: () => {}
+      }
+    };
+    const mockOsc = {
+      type: "",
+      frequency: { value: 0 },
+      connect: () => {},
+      start: () => {},
+      stop: () => {}
+    };
+    class MockAudioContext {
+      state = "running";
+      currentTime = 0;
+      destination = {};
+      createOscillator() { return mockOsc; }
+      createGain() { return mockGain; }
+      resume() { return Promise.resolve(); }
+      close() { return Promise.resolve(); }
+    }
+    vi.stubGlobal("AudioContext", MockAudioContext);
+
+    // Mount with loop on and count-in enabled via storage.
+    window.history.replaceState(null, "", "/watch?v=wrap-seek-test");
+    const area = makeMemoryArea({ [COUNT_IN_KEY]: true, [LOOP_ON_KEY]: true });
+    vi.stubGlobal("browser", {
+      storage: { sync: area, local: area },
+      runtime: { getURL: (p: string) => p }
+    });
+
+    const { video } = mountYouTubePlayer();
+    await act(async () => {
+      setPageUiVisible(video.closest(".html5-video-player")!, true);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    // Sanity: loop is on (persisted LOOP_ON_KEY=true loaded from storage).
+    expect(screen.getByLabelText("Disable loop range")).toBeInTheDocument();
+
+    // Spy on video.play so we can detect whether cancel() resumed playback.
+    // cancel() calls video.play() when the video is paused; if the wrap's own
+    // seeking event incorrectly triggers cancel(), play() is called here.
+    const playSpy = vi.spyOn(video, "play").mockResolvedValue(undefined);
+
+    // Trigger a wrap: advance past the loop end (default 0–120) and fire
+    // timeupdate. enforce() will:
+    //   1. set video.currentTime = 0 (wrap seek) → sets wrapSeekPending=true
+    //   2. call countInController.onWrap() → sets counting=true, pauses video
+    video.currentTime = 120;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+
+    // Now dispatch the `seeking` event that the browser queues asynchronously
+    // after setting currentTime in enforce(). Before Fix 1, this would see
+    // isCounting()===true and cancel the count — calling video.play() to
+    // resume playback. After the fix, wrapSeekPending===true so the cancel
+    // is skipped and play() is NOT called here.
+    act(() => {
+      fireEvent(video, new Event("seeking"));
+    });
+
+    // play() must NOT have been called: the wrap's own seeking event must not
+    // have cancelled the count-in. Before the fix this would have been called
+    // once (cancel → play to resume).
+    expect(playSpy).not.toHaveBeenCalled();
   });
 });
 

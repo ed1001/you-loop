@@ -13,7 +13,8 @@ function setup(opts: { enabled?: boolean; audioOk?: boolean } = {}) {
       captured = hooks;
       return audioOk;
     }),
-    cancel: vi.fn()
+    cancel: vi.fn(),
+    dispose: vi.fn()
   };
   const controller = createCountInController({
     video,

@@ -1672,4 +1672,39 @@ export const PAGE_UI_STYLES = `
     .you-loop-page-ui[data-compact="true"] .you-loop-mode-compact {
       display: inline-flex;
     }
+
+    .you-loop-countin { display: inline-flex; align-items: center; }
+    .you-loop-countin-toggle {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; color: #ffffff; border-radius: 50%; cursor: pointer;
+    }
+    .you-loop-countin-toggle svg { width: 20px; height: 20px; }
+    .you-loop-countin-toggle[data-on="true"] { color: #5eead4; background: rgba(94, 234, 212, 0.16); }
+    .you-loop-countin-toggle:disabled { opacity: 0.4; cursor: default; }
+    .you-loop-countin-pop {
+      position: absolute; transform: translate(-50%, -100%) translateY(-12px);
+      width: 220px; padding: 14px; border-radius: 14px;
+      background: rgba(16, 18, 18, 0.98); border: 1px solid rgba(94, 234, 212, 0.3);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); z-index: 2147483647;
+    }
+    .you-loop-countin-tap {
+      width: 100%; height: 64px; border-radius: 10px; cursor: pointer;
+      border: 1px dashed rgba(94, 234, 212, 0.45); background: rgba(94, 234, 212, 0.07);
+      color: #5eead4; font-size: 13px;
+    }
+    .you-loop-countin-tap:active { background: rgba(94, 234, 212, 0.2); }
+    .you-loop-countin-bpmrow { display: flex; justify-content: center; margin: 14px 0; }
+    .you-loop-countin-bpm {
+      font-size: 26px; color: #5eead4; cursor: ns-resize; user-select: none;
+      font-variant-numeric: tabular-nums;
+    }
+    .you-loop-countin-bpm-unit { font-size: 11px; color: #7dd; margin-left: 4px; }
+    .you-loop-countin-seg { display: flex; gap: 5px; margin-top: 8px; }
+    .you-loop-countin-seg button {
+      flex: 1; padding: 6px 0; border-radius: 8px; cursor: pointer; font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: #cfd2d2;
+    }
+    .you-loop-countin-seg button[data-active="true"] {
+      border-color: #5eead4; color: #5eead4; background: rgba(94, 234, 212, 0.2);
+    }
 `;

@@ -3,7 +3,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { keyFor } from "../../features/persistence/loopStore";
-import { LAUNCH_KEY } from "../../features/persistence/settingsStore";
+import { LAUNCH_KEY, LOOP_ON_KEY } from "../../features/persistence/settingsStore";
 import { makeMemoryArea } from "../../features/persistence/memoryArea.testutil";
 
 function enableLoop() {
@@ -111,6 +111,55 @@ function stubBrowserStorage(initial: Record<string, unknown> = {}) {
     runtime: { getURL: (p: string) => p }
   });
   return { dump: area.dump };
+}
+
+// A video entry with one saved loop, the fixture every saved-loop test reuses.
+const SAVED_ENTRY = {
+  loops: [{ id: "l1", name: "A", main: { start: 5, end: 9 }, zoom: null }],
+  lastUsedId: "l1",
+  addedAt: 10,
+  title: "Caprice 24"
+} as const;
+
+// Flush the async load chain (loadEntry → takeLaunch → getLoopOn).
+async function flushAsync() {
+  await act(async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  });
+}
+
+// Mount on a watch page with the given storage and reveal the UI.
+async function mountWatch(
+  videoId: string,
+  initial: Record<string, unknown> = {}
+) {
+  window.history.replaceState(null, "", `/watch?v=${videoId}`);
+  const storage = stubBrowserStorage(initial);
+  const ctx = mountYouTubePlayer();
+  await act(async () => {
+    setPageUiVisible(ctx.player, true);
+  });
+  return { ...ctx, ...storage };
+}
+
+// Fire SPA navigation to a new video and flush the async reload.
+async function navigateTo(videoId: string) {
+  window.history.replaceState(null, "", `/watch?v=${videoId}`);
+  await act(async () => {
+    document.dispatchEvent(new CustomEvent("yt-navigate-finish"));
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  });
+}
+
+function expectPanelOn() {
+  expect(screen.getByLabelText("Disable loop range")).toBeInTheDocument();
+}
+
+function expectPanelOff() {
+  expect(screen.getByLabelText("Enable loop range")).toBeInTheDocument();
+  expect(
+    screen.queryByLabelText("Disable loop range")
+  ).not.toBeInTheDocument();
 }
 
 describe("page UI", () => {
@@ -429,26 +478,120 @@ describe("page UI", () => {
   });
 
   it("auto-enables the loop when launched from the popup", async () => {
-    window.history.replaceState(null, "", "/watch?v=vid1");
-    const storage = stubBrowserStorage({
-      [keyFor("vid1")]: {
-        loops: [{ id: "l1", name: "A", main: { start: 5, end: 9 }, zoom: null }],
-        lastUsedId: "l1",
-        addedAt: 10,
-        title: "Caprice 24"
-      },
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
       [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
-    });
-    const { player } = mountYouTubePlayer();
-
-    await act(async () => {
-      setPageUiVisible(player, true);
     });
 
     // Handles only render while the loop is enabled — the handoff flipped it on.
     expect(await screen.findByLabelText("Loop start")).toBeInTheDocument();
     // One-shot: consumed.
-    expect(storage.dump()[LAUNCH_KEY]).toBeNull();
+    expect(dump()[LAUNCH_KEY]).toBeNull();
+  });
+
+  it("does not auto-enable on a saved video when the panel was off", async () => {
+    await mountWatch("vid1", { [keyFor("vid1")]: SAVED_ENTRY });
+    await flushAsync();
+
+    // Saved loops exist, but the panel was never on — it stays off.
+    expectPanelOff();
+  });
+
+  it("keeps the panel active across navigation to a video with loops", async () => {
+    await mountWatch("vid1", { [keyFor("vid2")]: SAVED_ENTRY });
+    // Turn the panel on manually on vid1 (which has no saved loops).
+    act(() => {
+      enableLoop();
+    });
+    expectPanelOn();
+
+    // Navigate to vid2 (has loops): the active state carries over.
+    await navigateTo("vid2");
+    expectPanelOn();
+  });
+
+  it("leaves the panel off across navigation when it was off", async () => {
+    await mountWatch("vid1", { [keyFor("vid2")]: SAVED_ENTRY });
+
+    // Navigate to vid2 (has loops) without ever turning the panel on.
+    await navigateTo("vid2");
+    expectPanelOff();
+  });
+
+  it("restores the panel on from the persisted preference", async () => {
+    await mountWatch("fresh", { [LOOP_ON_KEY]: true });
+
+    // Persisted on, no launch, no saved loops — the preference alone turns it on.
+    expect(await screen.findByLabelText("Disable loop range")).toBeInTheDocument();
+  });
+
+  it("persists the on/off state when toggled", async () => {
+    const { dump } = await mountWatch("vid1");
+
+    act(() => {
+      enableLoop();
+    });
+    await flushAsync();
+    expect(dump()[LOOP_ON_KEY]).toBe(true);
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Disable loop range"));
+    });
+    await flushAsync();
+    expect(dump()[LOOP_ON_KEY]).toBe(false);
+  });
+
+  it("keeps the panel on across navigation regardless of saved loops", async () => {
+    await mountWatch("vid1");
+    act(() => {
+      enableLoop();
+    });
+    expectPanelOn();
+
+    // Navigate to a video with nothing saved: the persisted on state carries.
+    await navigateTo("bare");
+    expectPanelOn();
+  });
+
+  it("does not auto-apply a saved loop on navigation", async () => {
+    const { video } = await mountWatch("vid1", { [keyFor("vid2")]: SAVED_ENTRY });
+    act(() => {
+      enableLoop();
+    });
+
+    // Navigate to vid2 (has a 5–9 loop). It stays on, but the region is the
+    // default whole timeline — the saved loop is NOT auto-applied.
+    await navigateTo("vid2");
+    expectPanelOn();
+
+    // Playhead at 50s: if the 5–9 loop had loaded, enforce would snap to 5.
+    // With the default 0–120 loop it stays put.
+    video.currentTime = 50;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(50);
+  });
+
+  it("does not apply the previous video's loop to the playhead on navigation", async () => {
+    const { video } = await mountWatch("vid1");
+    // Active on vid1 with the default whole-timeline loop.
+    act(() => {
+      enableLoop();
+    });
+
+    // SPA-navigate. Until loadForVideo() resolves (async), an enforce tick must
+    // NOT snap the playhead — the previous segment is cleared on navigate.
+    window.history.replaceState(null, "", "/watch?v=vid2");
+    video.currentTime = 50;
+    act(() => {
+      document.dispatchEvent(new CustomEvent("yt-navigate-finish"));
+    });
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+
+    expect(video.currentTime).toBe(50);
   });
 
   it("] nudges the main loop window forward by NUDGE_SECONDS and seeks to the new start", () => {

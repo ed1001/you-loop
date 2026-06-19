@@ -1,10 +1,10 @@
 import type { StorageArea } from "./loopStore";
 
 export const ENABLED_KEY = "you-loop:enabled";
+export const LOOP_ON_KEY = "you-loop:loop-on";
 export const LAUNCH_KEY = "you-loop:launch";
 // A launch handoff older than this is stale — the tab never arrived (e.g. the
 // popup opened the tab but YouTube errored) and must not fire on a later visit.
-// fallow-ignore-next-line unused-export
 export const LAUNCH_TTL_MS = 30_000;
 
 // fallow-ignore-next-line unused-type
@@ -60,6 +60,30 @@ export function watchEnabled(
   };
   source.addListener(listener);
   return () => source.removeListener(listener);
+}
+
+// The loop panel's on/off, persisted so it sticks across reloads and tabs.
+// Absent or malformed means off — the panel stays out of the way until the user
+// opts in by toggling it on.
+export async function getLoopOn(area?: StorageArea): Promise<boolean> {
+  try {
+    const result = await resolveArea(area).get(LOOP_ON_KEY);
+    const value = result[LOOP_ON_KEY];
+    return typeof value === "boolean" ? value : false;
+  } catch {
+    return false;
+  }
+}
+
+export async function setLoopOn(
+  value: boolean,
+  area?: StorageArea
+): Promise<void> {
+  try {
+    await resolveArea(area).set({ [LOOP_ON_KEY]: value });
+  } catch {
+    // Best-effort: a failed write leaves the prior value intact.
+  }
 }
 
 export async function requestLaunch(

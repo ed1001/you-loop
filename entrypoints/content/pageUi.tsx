@@ -830,22 +830,65 @@ export function createPageUiElement(video: HTMLVideoElement) {
   return panel;
 }
 
+// Attempt the mount; returns true once the panel exists. Both deps (the
+// <video> and the `.ytp-progress-bar`) can lag behind `.html5-video-player`
+// on a cold load, so a false result means "not yet" — the caller rearms.
+function tryMountPageUi(): boolean {
+  if (document.querySelector(PAGE_UI_SELECTOR) != null) {
+    return true;
+  }
+
+  const video = findYouTubeVideo();
+  if (video == null) {
+    return false;
+  }
+
+  const timeline = findYouTubeTimeline(video);
+  if (timeline == null) {
+    return false;
+  }
+
+  timeline.append(createPageUiElement(video));
+  return true;
+}
+
+// One-shot retry: when the mount deps aren't ready yet, watch the DOM and try
+// again as each node lands. Without this the panel silently never appears on a
+// slow load and only a manual refresh brings it back. A single live observer
+// at a time; a `setPageUiVisible(false)` cancels it.
+let pendingMount: MutationObserver | null = null;
+
+function cancelPendingMount() {
+  pendingMount?.disconnect();
+  pendingMount = null;
+}
+
+function armPendingMount() {
+  cancelPendingMount();
+  const observer = new MutationObserver(() => {
+    if (tryMountPageUi()) {
+      cancelPendingMount();
+    }
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+  pendingMount = observer;
+}
+
 export function setPageUiVisible(_host: Element, visible: boolean) {
   const existing = document.querySelector(PAGE_UI_SELECTOR);
 
   if (visible && existing == null) {
-    const video = findYouTubeVideo();
-    if (video == null) {
-      return;
+    if (!tryMountPageUi()) {
+      armPendingMount();
     }
-
-    const timeline = findYouTubeTimeline(video);
-    if (timeline == null) {
-      return;
-    }
-
-    timeline.append(createPageUiElement(video));
     return;
+  }
+
+  if (!visible) {
+    cancelPendingMount();
   }
 
   if (!visible && existing != null) {

@@ -209,6 +209,58 @@ describe("page UI", () => {
     expect(screen.queryByLabelText("Loop start")).not.toBeInTheDocument();
   });
 
+  // Cold-load race: YouTube can paint `.html5-video-player` (and even the
+  // <video>) before the progress bar exists. The mount must not give up — it
+  // arms an observer and attaches as soon as the timeline appears, instead of
+  // leaving the panel missing until a manual refresh.
+  it("mounts once the progress bar appears late (cold-load race)", async () => {
+    const player = document.createElement("div");
+    player.className = "html5-video-player";
+    const video = document.createElement("video");
+    Object.defineProperty(video, "duration", { configurable: true, value: 120 });
+    player.append(video); // no `.ytp-progress-bar` yet
+    document.body.append(player);
+
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    expect(document.querySelector("[data-you-loop-page-ui]")).toBeNull();
+
+    const progressBar = document.createElement("div");
+    progressBar.className = "ytp-progress-bar";
+    await act(async () => {
+      player.append(progressBar);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    expect(document.querySelector("[data-you-loop-page-ui]")).not.toBeNull();
+  });
+
+  it("does not mount a panel after the late progress bar if disabled first", async () => {
+    const player = document.createElement("div");
+    player.className = "html5-video-player";
+    const video = document.createElement("video");
+    Object.defineProperty(video, "duration", { configurable: true, value: 120 });
+    player.append(video);
+    document.body.append(player);
+
+    act(() => {
+      setPageUiVisible(player, true);
+    });
+    act(() => {
+      setPageUiVisible(player, false);
+    });
+
+    const progressBar = document.createElement("div");
+    progressBar.className = "ytp-progress-bar";
+    await act(async () => {
+      player.append(progressBar);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    expect(document.querySelector("[data-you-loop-page-ui]")).toBeNull();
+  });
+
   it("scrubs the playback rate by dragging the speed control vertically", () => {
     const { player, video, slider } = mountSpeedControl();
 

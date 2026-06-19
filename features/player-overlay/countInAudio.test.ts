@@ -41,15 +41,15 @@ describe("createCountInPlayer", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("schedules one oscillator per non-rest beat", () => {
+  it("schedules one oscillator per beat", () => {
     const { ctx, oscillators } = fakeContext();
     const player = createCountInPlayer(() => ctx as unknown as AudioContext);
     player.unlock();
     const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
     const ok = player.play(plan, {});
     expect(ok).toBe(true);
-    // 4/4 single bar = 3 sounding beats (beat 4 is a rest)
-    expect(oscillators).toHaveLength(3);
+    // 4/4 single bar = 4 pulses (no rest)
+    expect(oscillators).toHaveLength(4);
   });
 
   it("fires onBeat per beat and onDone at totalSec", () => {

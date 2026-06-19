@@ -18,7 +18,6 @@ export type CountInPlayer = {
 
 const GAIN = 0.3;
 const ACCENT_GAIN = 0.36;
-const SUSTAIN_RELEASE = 0.018;
 
 function defaultFactory(): AudioContext {
   const Ctor =
@@ -46,7 +45,6 @@ export function createCountInPlayer(
   };
 
   const scheduleBeatAudio = (c: AudioContext, beat: ScheduledBeat, base: number) => {
-    if (beat.role === "rest") return;
     const osc = c.createOscillator();
     const g = c.createGain();
     osc.type = "sine";
@@ -55,14 +53,10 @@ export function createCountInPlayer(
     g.connect(c.destination);
     const t = base + beat.timeSec;
     const peak = beat.role === "accent" ? ACCENT_GAIN : GAIN;
+    // Every beat is a short pulse: quick attack then exponential decay.
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(peak, t + 0.006);
-    if (beat.role === "sustain") {
-      g.gain.setValueAtTime(peak, t + beat.durSec - SUSTAIN_RELEASE);
-      g.gain.linearRampToValueAtTime(0.0001, t + beat.durSec);
-    } else {
-      g.gain.exponentialRampToValueAtTime(0.0001, t + beat.durSec);
-    }
+    g.gain.exponentialRampToValueAtTime(0.0001, t + beat.durSec);
     osc.start(t);
     osc.stop(t + beat.durSec + 0.03);
   };

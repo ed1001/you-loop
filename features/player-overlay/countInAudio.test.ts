@@ -52,6 +52,17 @@ describe("createCountInPlayer", () => {
     expect(oscillators).toHaveLength(4);
   });
 
+  it("cancel stops scheduled oscillators so a restart does not overlap", () => {
+    const { ctx, oscillators } = fakeContext();
+    const player = createCountInPlayer(() => ctx as unknown as AudioContext);
+    player.unlock();
+    const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
+    player.play(plan, {});
+    player.cancel();
+    expect(oscillators).toHaveLength(4);
+    for (const osc of oscillators) expect(osc.stop).toHaveBeenCalled();
+  });
+
   it("fires onBeat per beat and onDone at totalSec", () => {
     const { ctx } = fakeContext();
     const player = createCountInPlayer(() => ctx as unknown as AudioContext);

@@ -659,7 +659,17 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     },
     // Restart (A) counts you in too when count-in is on. Declared below; only
     // invoked on a keypress, so it is initialized by call time.
-    startCountIn: () => countInController.start()
+    startCountIn: () => {
+      const started = countInController.start();
+      if (started) {
+        // The Restart key just seeked to the region start. That seek is ours,
+        // not a user scrub — latch it (same flag the wrap seek uses) so the
+        // `seeking` listener doesn't cancel the count we just began.
+        wrapSeekPending = true;
+        wrapSeekAt = performance.now();
+      }
+      return started;
+    }
   });
 
   const countInPlayer = createCountInPlayer();

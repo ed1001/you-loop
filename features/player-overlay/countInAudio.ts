@@ -33,6 +33,9 @@ export function createCountInPlayer(
 ): CountInPlayer {
   let ctx: AudioContext | null = null;
   let timers: number[] = [];
+  // Oscillators scheduled for the current count, so cancel() can silence beeps
+  // that have not sounded yet (a restart must not overlap the old count).
+  let nodes: OscillatorNode[] = [];
 
   const ensure = (): AudioContext | null => {
     try {
@@ -59,6 +62,7 @@ export function createCountInPlayer(
     g.gain.exponentialRampToValueAtTime(0.0001, t + beat.durSec);
     osc.start(t);
     osc.stop(t + beat.durSec + 0.03);
+    nodes.push(osc);
   };
 
   const clearTimers = () => {
@@ -66,12 +70,28 @@ export function createCountInPlayer(
     timers = [];
   };
 
+  const stopNodes = () => {
+    for (const osc of nodes) {
+      try {
+        osc.stop();
+      } catch {
+        // already stopped / not started — ignore
+      }
+    }
+    nodes = [];
+  };
+
+  const teardown = () => {
+    clearTimers();
+    stopNodes();
+  };
+
   return {
     unlock() {
       ensure();
     },
     play(plan, hooks) {
-      clearTimers();
+      teardown(); // silence any prior count before scheduling a fresh one
       const c = ensure();
       if (c == null || c.state !== "running") return false;
       const base = c.currentTime + 0.06;
@@ -89,10 +109,10 @@ export function createCountInPlayer(
       return true;
     },
     cancel() {
-      clearTimers();
+      teardown();
     },
     dispose() {
-      clearTimers();
+      teardown();
       if (ctx != null) {
         try {
           // close() can throw synchronously or reject; cover both so a

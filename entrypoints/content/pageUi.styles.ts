@@ -1676,12 +1676,30 @@ export const PAGE_UI_STYLES = `
     }
 
     .you-loop-countin { display: inline-flex; align-items: center; }
+    /* Match the zoom/loops/help pill buttons: 30px circle, resting tint, teal
+       when active. */
     .you-loop-countin-toggle {
-      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-      border: none; background: transparent; color: #ffffff; border-radius: 50%; cursor: pointer;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      height: 30px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 30px;
     }
-    .you-loop-countin-toggle svg { width: 20px; height: 20px; }
-    .you-loop-countin-toggle[data-on="true"] { color: #5eead4; background: rgba(94, 234, 212, 0.16); }
+    .you-loop-countin-toggle svg { height: 16px; width: 16px; }
+    .you-loop-countin-toggle:not(:disabled):hover {
+      background: rgba(20, 184, 166, 0.18); color: #14b8a6;
+    }
+    .you-loop-countin-toggle[data-on="true"] {
+      background: rgba(20, 184, 166, 0.18); color: #14b8a6;
+    }
     .you-loop-countin-toggle:disabled { opacity: 0.4; cursor: default; }
     .you-loop-countin-pop {
       position: absolute; transform: translate(-50%, -100%) translateY(-12px);

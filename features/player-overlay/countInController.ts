@@ -38,8 +38,17 @@ export function createCountInController(deps: {
     void deps.video.play();
   };
 
-  const start = (): boolean => {
-    if (counting || !deps.isEnabled()) return false;
+  // Tear down an in-flight count without resuming playback (the caller either
+  // re-pauses for a fresh count, or resumes itself).
+  const teardown = () => {
+    if (!counting) return;
+    counting = false;
+    deps.player.cancel();
+    deps.onCountEnd?.();
+  };
+
+  // Pause and play the count from the current position.
+  const begin = (): boolean => {
     const plan = deps.getPlan();
     const ok = deps.player.play(plan, {
       onBeat: deps.onBeat,
@@ -53,16 +62,23 @@ export function createCountInController(deps: {
   };
 
   return {
-    start,
+    // Restart-capable: a fresh count interrupts one already running (e.g.
+    // pressing Restart in quick succession), so the old beeps never overlap.
+    start(): boolean {
+      if (!deps.isEnabled()) return false;
+      teardown();
+      return begin();
+    },
+    // Never interrupts an in-flight count (rapid wraps can't stack a count).
     onWrap() {
-      start();
+      if (counting || !deps.isEnabled()) return;
+      begin();
     },
     cancel() {
       if (!counting) return;
-      counting = false;
-      deps.player.cancel();
-      deps.onCountEnd?.();
-      if (deps.video.paused) void deps.video.play();
+      const wasPaused = deps.video.paused;
+      teardown();
+      if (wasPaused) void deps.video.play();
     },
     isCounting: () => counting
   };

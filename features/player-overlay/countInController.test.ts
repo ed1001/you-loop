@@ -51,6 +51,15 @@ describe("countInController", () => {
     // resume-on-done is covered by the onWrap test (shared code path).
   });
 
+  it("start() restarts an in-flight count instead of overlapping", () => {
+    const { controller, player } = setup();
+    expect(controller.start()).toBe(true);
+    expect(controller.start()).toBe(true); // pressed again mid-count
+    expect(player.cancel).toHaveBeenCalledTimes(1); // tore down the first count
+    expect(player.play).toHaveBeenCalledTimes(2); // then started a fresh one
+    expect(controller.isCounting()).toBe(true);
+  });
+
   it("start() returns false when disabled", () => {
     const { controller, video } = setup({ enabled: false });
     expect(controller.start()).toBe(false);

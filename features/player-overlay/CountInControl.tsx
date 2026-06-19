@@ -1,12 +1,12 @@
 // features/player-overlay/CountInControl.tsx
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, MouseEvent, PointerEvent } from "react";
 import type { CountInSettings } from "../persistence/countInStore";
 import { bpmFromTaps, clampBpm, MIN_BPM, MAX_BPM } from "../playback/tapTempo";
 
 export type CountInControlProps = {
-  enabled: boolean;
+  enabled: boolean; // consumed by parent; reserved for future conditional mounting
   on: boolean;
   settings: CountInSettings;
   container: HTMLElement | null;
@@ -42,6 +42,11 @@ export function CountInControl({
   const dragRef = useRef<{ y: number; bpm: number } | null>(null);
   const [open, setOpen] = useState(on);
   const [anchor, setAnchor] = useState({ left: 0, top: 0 });
+
+  // Close the popover whenever on transitions to false externally.
+  useEffect(() => {
+    if (!on) setOpen(false);
+  }, [on]);
 
   const updateAnchor = () => {
     const btn = btnRef.current;
@@ -88,7 +93,8 @@ export function CountInControl({
     const next = clampBpm(d.bpm + Math.round((d.y - e.clientY) / 4));
     if (next !== settings.bpm) onSettingsChange({ ...settings, bpm: next });
   };
-  const onBpmPointerUp = () => {
+  const onBpmPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    swallow(e);
     dragRef.current = null;
   };
 

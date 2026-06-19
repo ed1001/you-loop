@@ -4,6 +4,8 @@ import { SpeedControl } from "./SpeedControl";
 import { SavedLoopsModal } from "./SavedLoopsModal";
 import { EtudeWordmark } from "./EtudeWordmark";
 import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
+import { CountInControl } from "./CountInControl";
+import type { CountInSettings } from "../persistence/countInStore";
 
 type Props = {
   enabled: boolean;
@@ -31,6 +33,10 @@ type Props = {
   onApplyLoop: (id: string) => void;
   onDeleteLoop: (id: string) => void;
   onOpenVideo: (videoId: string) => void;
+  countInOn: boolean;
+  countInSettings: CountInSettings;
+  onToggleCountIn: () => void;
+  onCountInSettingsChange: (next: CountInSettings) => void;
 };
 
 // YouTube binds mouse/pointer handlers on the progress bar; these controls are
@@ -77,7 +83,11 @@ export function LoopPanel({
   onSaveAsNew,
   onApplyLoop,
   onDeleteLoop,
-  onOpenVideo
+  onOpenVideo,
+  countInOn,
+  countInSettings,
+  onToggleCountIn,
+  onCountInSettingsChange
 }: Props) {
   return (
     <>
@@ -280,6 +290,16 @@ export function LoopPanel({
               </svg>
             </button>
   
+            <CountInControl
+              enabled={enabled}
+              on={countInOn}
+              settings={countInSettings}
+              container={loopsContainer}
+              disabled={!enabled}
+              onToggle={onToggleCountIn}
+              onSettingsChange={onCountInSettingsChange}
+            />
+
             <button
               type="button"
               className="you-loop-loops-toggle"

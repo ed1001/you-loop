@@ -10,6 +10,7 @@ import { DEFAULT_COUNT_IN_SETTINGS } from "../persistence/countInStore";
 let root: Root | null = null;
 let host: HTMLElement | null = null;
 
+// fallow-ignore-next-line code-duplication
 function render(ui: ReactElement) {
   host = document.createElement("div");
   document.body.append(host);

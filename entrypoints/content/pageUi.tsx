@@ -32,6 +32,17 @@ import {
   setLoopOn,
   takeLaunch
 } from "../../features/persistence/settingsStore";
+import {
+  getCountInEnabled,
+  setCountInEnabled,
+  loadCountInSettings,
+  saveCountInSettings,
+  DEFAULT_COUNT_IN_SETTINGS,
+  type CountInSettings
+} from "../../features/persistence/countInStore";
+import { buildCountOff } from "../../features/playback/countOff";
+import { createCountInPlayer } from "../../features/player-overlay/countInAudio";
+import { createCountInController } from "../../features/player-overlay/countInController";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
 // Player-width thresholds for the compact panel form, with a dead band so a
@@ -116,6 +127,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
+  // Count-in state: global on/off and per-video tempo/meter settings.
+  let countInOn = false;
+  let countInSettings: CountInSettings = DEFAULT_COUNT_IN_SETTINGS;
   // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
   // when the modal opens and after a save (so the list reflects new titles).
   let savedVideos: SavedVideo[] = [];
@@ -324,6 +338,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   // Seed or restore positions for the current video. Runs on mount and on
   // navigation. Gated on a known duration so percentage seeding is meaningful.
+  // fallow-ignore-next-line complexity
   const loadForVideo = async () => {
     const id = videoId;
     if (!hasKnownDuration(video)) return; // retried on loadedmetadata
@@ -356,6 +371,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     // The panel's on/off is a persisted global preference, so it sticks across
     // reloads, tabs, and navigation.
     const persistedOn = await getLoopOn();
+    if (videoId !== id) return; // navigated away mid-await
+
+    countInOn = await getCountInEnabled();
+    countInSettings = await loadCountInSettings(id);
     if (videoId !== id) return; // navigated away mid-await
 
     applyPanelActivation(launched, entry, persistedOn);
@@ -426,6 +445,21 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const closeLoops = () => {
     if (!loopsOpen) return;
     loopsOpen = false;
+    render();
+  };
+
+  const onToggleCountIn = () => {
+    countInOn = !countInOn;
+    countInPlayer.unlock(); // user gesture: satisfy autoplay policy
+    void setCountInEnabled(countInOn);
+    if (!countInOn) countInController.cancel();
+    render();
+  };
+
+  const onCountInSettingsChange = (next: CountInSettings) => {
+    countInSettings = next;
+    countInPlayer.unlock();
+    void saveCountInSettings(videoId ?? "", next);
     render();
   };
 
@@ -502,6 +536,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
           onOpenVideo={openVideo}
+          countInOn={countInOn}
+          countInSettings={countInSettings}
+          onToggleCountIn={onToggleCountIn}
+          onCountInSettingsChange={onCountInSettingsChange}
         />
         <HelpModal
           open={helpOpen}
@@ -553,6 +591,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (result.sought) {
       wrapSeekPending = true;
       wrapSeekAt = performance.now();
+    }
+    if (result.wrapped) {
+      countInController.onWrap();
     }
     if (result.oneShotCompleted !== state.oneShotCompleted) {
       state = playbackReducer(state, {
@@ -617,6 +658,22 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
   });
 
+  const countInPlayer = createCountInPlayer();
+  const countInController = createCountInController({
+    video,
+    player: countInPlayer,
+    isEnabled: () => countInOn && state.loopEnabled,
+    getPlan: () =>
+      buildCountOff({
+        meter: {
+          beatsPerBar: countInSettings.beatsPerBar,
+          noteValue: countInSettings.noteValue
+        },
+        bars: countInSettings.bars,
+        bpm: countInSettings.bpm
+      })
+  });
+
   // Seed/restore saved loops once metadata is ready, and re-run on SPA
   // navigation between videos (YouTube reuses the player + <video> element).
   const onLoadedMetadata = () => {
@@ -639,6 +696,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     zoomLoop = null;
     zoomed = false;
     zoomClosing = false;
+    countInController.cancel();
     state = playbackReducer(state, { type: "clearLoop" });
     render();
     void loadForVideo();
@@ -653,6 +711,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   video.addEventListener("ratechange", onRateChange);
   video.addEventListener("loadedmetadata", onLoadedMetadata);
   video.addEventListener("durationchange", onLoadedMetadata);
+  video.addEventListener("seeking", () => {
+    if (countInController.isCounting()) countInController.cancel();
+  });
   document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);

@@ -101,9 +101,11 @@ export function createCountInPlayer(
       clearTimers();
       if (ctx != null) {
         try {
-          void ctx.close();
+          // close() can throw synchronously or reject; cover both so a
+          // teardown never surfaces an unhandled rejection.
+          void Promise.resolve(ctx.close()).catch(() => {});
         } catch {
-          // ignore — close() can throw or reject in some environments
+          // ignore — close() threw synchronously in this environment
         }
         ctx = null;
       }

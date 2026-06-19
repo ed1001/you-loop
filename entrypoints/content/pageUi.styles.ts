@@ -929,7 +929,7 @@ export const PAGE_UI_STYLES = `
       color: rgba(255, 255, 255, 0.78);
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
       max-height: calc(100% - 48px);
-      max-width: 440px;
+      max-width: 660px;
       overflow-y: auto;
       padding: 26px 28px 22px;
       position: relative;
@@ -1040,9 +1040,11 @@ export const PAGE_UI_STYLES = `
     }
 
     .you-loop-help-list {
-      display: flex;
-      flex-direction: column;
-      gap: 11px;
+      /* Two columns when the card is wide enough; collapses to one on narrow
+         players. Keeps the card from growing tall as controls are added. */
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+      gap: 11px 26px;
       list-style: none;
       margin: 0;
       padding: 0;

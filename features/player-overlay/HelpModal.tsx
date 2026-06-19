@@ -82,6 +82,27 @@ const ZoomIcon = (
   </svg>
 );
 
+// Metronome glyph, mirrored from the count-in control in the panel.
+const CountInIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M9 3h6l3 16H6L9 3z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M12 19V7l5-2"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const SaveIcon = (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path
@@ -117,6 +138,11 @@ const CONTROLS: Control[] = [
     icon: ZoomIcon,
     term: "Zoom",
     desc: "Magnify the looped region to fine-tune a precise sub-loop — handy on long videos.",
+  },
+  {
+    icon: CountInIcon,
+    term: "Count-in",
+    desc: "A metronome counts you in before each loop repeats, so you come in on time. Tap or drag the tempo, pick the time signature and how many bars — the loop resumes on the downbeat.",
   },
   {
     icon: SaveIcon,

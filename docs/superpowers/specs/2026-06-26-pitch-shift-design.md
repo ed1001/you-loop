@@ -35,13 +35,19 @@ The pitch DSP lives behind a small **`PitchEngine` interface** so the algorithm 
 
 | Engine | Quality | Risk | Decision |
 |---|---|---|---|
-| **SoundTouch core in an AudioWorklet** | Clean WSOLA, no tremolo, native semitone control | Pure JS, MIT, off the main thread → no glitches under load | **Ship this (v1)** |
-| Signalsmith Stretch (WASM) | Higher ceiling on dense polyphonic material | WASM-in-worklet + a second CSP unknown to clear; a load failure means broken audio | Fast-follow A/B behind the same interface |
+| **SoundTouch core (`soundtouchjs`)** | Clean WSOLA, no tremolo, native semitone control | Mature — the algorithm Audacity uses; **LGPL-2.1** (see Licensing); pure JS, bundles into the content script with no extra steps | **Ship this (v1)** |
+| Signalsmith Stretch (WASM) | Higher ceiling on dense polyphonic material | WASM-in-worklet + a CSP unknown to clear; a load failure means broken audio | Fast-follow A/B behind the same interface |
 | Tuned granular (spike) | Amplitude pumping is inherent, never fully removed | Lightest | Rejected |
 
-**Rationale:** reliability *is* user experience. SoundTouch (pure JS, MIT, mature — the algorithm Audacity uses) sounds clean and always loads, beating Signalsmith's marginally-higher ceiling that carries a "might not load" risk. The interface keeps Signalsmith as a drop-in upgrade we can A/B later with zero UI churn.
+**Rationale:** reliability *is* user experience. SoundTouch's WSOLA sounds clean, and DSP quality is a property of the algorithm, not of the node type — so a `ScriptProcessorNode` running SoundTouch sounds identical to the same core in a worklet. The interface keeps both Signalsmith and the worklet as drop-in upgrades with zero UI churn.
 
-**Worklet vs. ScriptProcessor.** The preferred node is an `AudioWorkletNode` (off-main-thread, no dropouts). The spike proved YouTube's CSP blocks worklet modules loaded from `blob:`/`data:` URLs. **Open question, resolved as the first build step:** does a worklet module loaded from a `chrome.runtime.getURL()` web-accessible-resource URL load on a YouTube page? Expectation: yes — the module is extension-origin, not page-origin, and page CSP governs page-origin fetches. If it loads, we use the AudioWorklet. If it does not, we fall back to a `ScriptProcessorNode` running the same SoundTouch core on the main thread (proven to work in the spike). Either way the feature ships; this only decides the node type.
+**`soundtouchjs` is push, not pull.** Its shipped helpers (`PitchShifter`, `getWebAudioNode`) play back a *fixed `AudioBuffer`* (they pull processed frames from a buffer source and ignore live input) — unusable for a live stream. We use the **lower-level `SoundTouch` class** in a push loop: per audio callback, interleave the live input, `soundtouch.inputBuffer.putSamples(...)`, `soundtouch.process()`, then `soundtouch.outputBuffer.receiveSamples(...)` and de-interleave. `tempo` and `rate` are set to `1` and `pitchSemitones` (fractional, `semitones + cents/100`) carries the shift; SoundTouch internally trades rate against tempo so duration is preserved. During the first callbacks the output FIFO underflows (priming latency) → zero-fill the shortfall.
+
+**Node type: ScriptProcessor (v1) → AudioWorklet (v2).** v1 uses a `ScriptProcessorNode` on the main thread (deprecated but universally available, proven on YouTube in the spike, and — crucially — `soundtouchjs` imports straight into the content script and Vite bundles it with no special handling). The AudioWorklet (off-main-thread, glitch-free under CPU load) is a **v2 enhancement** behind the same `PitchEngine` interface: it needs the SoundTouch core bundled into a worklet module emitted as a web-accessible resource, and it needs the **CSP gate** resolved first — the spike proved YouTube blocks worklet modules from `blob:`/`data:` URLs; the open question is whether a `chrome.runtime.getURL()` (extension-origin) worklet module loads. v1 ships without touching any of that.
+
+## Licensing
+
+`soundtouchjs` is **LGPL-2.1**. For this extension (open source, distributed via the Chrome Web Store / AMO) LGPL-2.1 is satisfied by keeping the library identifiable and its source available, which the public repository already does. The library's copyright/license header must be preserved in the bundle, and it must remain replaceable (it is an ordinary npm dependency, not forked into our source). If a permissive license is later required, the `PitchEngine` interface allows swapping in Signalsmith Stretch (permissive) or a vendored MIT shifter without touching the UI, store, or graph. **This is the one outward-facing decision in this feature — confirm LGPL is acceptable before adding the dependency (plan Task 4).**
 
 ## Architecture
 
@@ -119,11 +125,9 @@ export interface PitchEngine {
 export async function createPitchEngine(ctx: AudioContext): Promise<PitchEngine>;
 ```
 
-- Primary: load the SoundTouch worklet module via `chrome.runtime.getURL(...)`, construct an `AudioWorkletNode`, push `setRatio` over its `port`/`AudioParam`.
-- Fallback: if `audioWorklet.addModule` rejects, build a `ScriptProcessorNode` running the same SoundTouch core on the main thread.
-- `createPitchEngine` rejects only if *both* paths fail; callers treat rejection as "pitch unavailable."
-
-The SoundTouch core (DSP classes) is bundled and fed a live `inputs[0]` → FIFO → filter → `outputs[0]` stream; pitch is set via SoundTouch's pitch parameter from the `ratio`.
+- **v1:** build a `ScriptProcessorNode(bufferSize=4096, 2, 2)` whose `onaudioprocess` runs the push loop on the low-level `SoundTouch` class (interleave input → `inputBuffer.putSamples` → `process()` → `outputBuffer.receiveSamples` → de-interleave, zero-filling FIFO underflow). `setRatio(r)` sets `soundtouch.pitch = r` (tempo/rate held at 1).
+- **v2 (enhancement):** the same `SoundTouch` core inside an `AudioWorkletNode`, loaded from a `chrome.runtime.getURL(...)` worklet module. Gated on the CSP gate (see Build Order). Drop-in behind this interface.
+- `createPitchEngine` rejects only if the engine cannot be built; callers treat rejection as "pitch unavailable."
 
 ### `features/pitch/pitchGraph.ts`
 Owns the audio side end-to-end. The only module that knows about `createMediaElementSource`.
@@ -143,19 +147,19 @@ Responsibilities: lazy `createMediaElementSource`, build `inputGain`, obtain a `
 ### `features/player-overlay/PitchControl.tsx`
 Mirrors `CountInControl.tsx`. A scrub pill plus a dismissable popover.
 
-- **Pill:** shows the current offset (e.g. `♯ +3`). Drag up/down to change semitones using the existing pointer-lock pattern (`requestPointerLock`, `movementY` accumulation, `clientY` fallback) shared with the BPM/Speed dials. Click resets to 0.
-- **Popover (`▾`):** fine ±50¢ slider, an explicit on/off switch, and a reset. Dismissable via Escape and outside-click, matching `CountInControl`. Rendered through `createPortal` into the loops container like count-in's popover.
-- Renders an **"unavailable"** state if `pitchGraph.isAvailable()` is false.
+- **Pill:** shows the current offset (e.g. `♯ +3`, `0`). Drag up/down to change semitones using the `SpeedControl` pointer-lock pattern (`requestPointerLock`, `movementX/Y` accumulation, `clientX/Y` fallback). The chip is the live readout while scrubbing (teal + scale, like the speed chip). A plain click (no drag) toggles the popover.
+- **Popover:** fine ±50¢ slider, an explicit on/off switch, and a reset-to-0 button. Dismissable via Escape and outside-click. Rendered through `createPortal` into the player container, exactly like `SpeedControl`'s popover.
+- Renders an **"unavailable"** state if `pitchGraph.isAvailable()` is false (worklet/engine could not be built).
 
-### Worklet asset + manifest
-The SoundTouch worklet processor (and the bundled SoundTouch core it needs) is emitted as a web-accessible resource and added to `web_accessible_resources` in `wxt.config.ts` (currently `fonts/*` only). Loaded at runtime via `chrome.runtime.getURL(...)`.
+### v2 worklet asset + manifest (enhancement only)
+When the worklet engine lands, the SoundTouch worklet processor (with the SoundTouch core bundled in) is emitted as a web-accessible resource and added to `web_accessible_resources` in `wxt.config.ts` (currently `fonts/*` only), loaded via `chrome.runtime.getURL(...)`. **v1 needs no manifest change** — `soundtouchjs` is imported directly into the content script and Vite bundles it.
 
 ### Wiring — `entrypoints/content/pageUi.tsx` and `features/player-overlay/LoopPanel.tsx`
-- Instantiate `createPitchGraph(video)` alongside the count-in player/controller (around `pageUi.tsx:675`).
-- On video mount: `loadPitchSettings(videoId)` and `getPitchEnabled()`, then `setSettings` / `setEnabled`.
-- On edit: persist via `savePitchSettings` / `setPitchEnabled` (debounced like count-in's saves).
-- On `yt-navigate-finish` / teardown: `pitchGraph.dispose()` and reload settings for the new video.
-- Render `<PitchControl />` in the pill row in `LoopPanel.tsx` next to `CountInControl` / `SpeedControl`.
+- Instantiate `createPitchGraph(video)` inside `mountPageUi`, next to the `setSpeed`/`resetSpeed` handlers; track `pitchSettings`, `pitchEnabled`, `pitchAvailable` as closure state alongside the existing mutable state.
+- Add handlers `setPitch(settings)`, `togglePitch()`, `resetPitch()` mirroring `setSpeed`/`resetSpeed`: update state → call `pitchGraph` → persist → `render()`.
+- On mount and in `onNavigate`: a `loadPitchForVideo()` async (same `videoId !== id` race guard as `loadForVideo`) reads `getPitchEnabled()` + `loadPitchSettings(videoId)` and applies them to the graph.
+- In the `stop()` teardown: `pitchGraph.dispose()`.
+- Render `<PitchControl />` in the cluster in `LoopPanel.tsx` next to `<SpeedControl />`. Because the cluster collapses when the loop is off, the pill is only visible/adjustable while the panel is expanded; the applied pitch itself is independent of loop on/off and persists per video.
 
 ## Data Flow
 
@@ -181,22 +185,23 @@ Follows the existing pattern: pure logic is unit-tested with vitest; audio/DOM g
 - **`pitchScrub.test.ts`** — drag→semitone snapping, clamping at ±12 / ±50¢, `pitchRatio` correctness (e.g. +12 → 2.0, −12 → 0.5, 0 → 1.0), label formatting. Mirrors `bpmScrub.test.ts`.
 - **`pitchStore.test.ts`** — load merges over defaults, clamping, best-effort write fallback, per-video keying (mocked `StorageArea`).
 - **`pitchGraph.test.ts`** — branch switching (engaged vs. bypass), auto-bypass at ratio 1, failure → direct + unavailable, lazy-tap (no `createMediaElementSource` until first engage). Web Audio mocked.
-- **Manual/spike verification** — the CSP gate (worklet from `chrome.runtime.getURL()` on YouTube) and a listening check that pitch shifts cleanly with tempo unchanged across a range of songs (no Rick Astley).
+- **Manual verification** — a listening check that pitch shifts cleanly with tempo unchanged across a range of songs (no Rick Astley), plus speed-independence and per-video-persistence checks.
 
 ## Build Order
 
-1. **CSP gate.** Verify a `chrome.runtime.getURL()` worklet module loads on YouTube. Decides AudioWorklet vs. ScriptProcessor. (Spike-level, before committing the engine path.)
-2. `pitchScrub.ts` + tests (pure math, TDD).
-3. `pitchStore.ts` + tests.
-4. `pitchEngine.ts` (SoundTouch core + worklet, with ScriptProcessor fallback) + worklet asset + manifest.
-5. `pitchGraph.ts` + tests (routing, lazy tap, failure fallback).
-6. `PitchControl.tsx` (scrub pill + popover).
-7. Wire into `pageUi.tsx` + render in `LoopPanel.tsx`.
-8. End-to-end listening check across several songs; confirm speed independence and per-video persistence.
+1. `pitchScrub.ts` + tests (pure math, TDD).
+2. `pitchStore.ts` + tests.
+3. `pitchEngine.ts` v1 (SoundTouch core push-loop in a `ScriptProcessorNode`) — add the `soundtouchjs` dependency (LGPL — confirm first).
+4. `pitchGraph.ts` + tests (routing, lazy tap, auto-bypass, failure fallback).
+5. `PitchControl.tsx` (scrub pill + popover) + styles.
+6. Wire into `pageUi.tsx` + render in `LoopPanel.tsx`.
+7. End-to-end listening check across several songs; confirm speed independence and per-video persistence.
+8. **(v2 enhancement, separate)** CSP gate, then move the engine into an `AudioWorkletNode` behind the same `PitchEngine` interface.
 
 ## Open Questions / Risks
 
-- **CSP gate result** (step 1) — primary unknown; mitigated by the ScriptProcessor fallback.
-- **SoundTouch live-streaming API** — the published worklet may be buffer-oriented; if so, wrap the SoundTouch core in our own `AudioWorkletProcessor` reading `inputs[0]`. Known, bounded work.
+- **LGPL-2.1 dependency** — the one outward-facing decision; confirm acceptable before Task 3 (see Licensing). Swappable via `PitchEngine` if not.
+- **ScriptProcessor under load** — main-thread; can glitch if the tab is CPU-starved. Acceptable for one stereo stream; the v2 worklet removes it.
+- **CSP gate result** (v2 only) — whether a `chrome.runtime.getURL()` worklet module loads on YouTube. Does not block v1.
 - **A/V latency** — pitch DSP adds audio latency; expected acceptable for practice looping. Revisit only if users notice.
 - **Quality past ±7 semitones** — WSOLA smears at extremes; acceptable for v1, and the `PitchEngine` interface leaves room for Signalsmith if it matters.

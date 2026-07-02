@@ -805,6 +805,31 @@ describe("page UI", () => {
     expect((dump()[countInKeyFor("vid1")] as any)?.bpm).toBe(140);
   });
 
+  it("rows show a tempo badge and a loop-map band", async () => {
+    const entry = {
+      ...SAVED_ENTRY,
+      loops: [
+        {
+          ...SAVED_ENTRY.loops[0],
+          countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+        }
+      ]
+    };
+    await mountWatch("vid1", { [keyFor("vid1")]: entry });
+    await flushAsync();
+    act(() => {
+      enableLoop();
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    expect(screen.getByText("♩140 · 4/4")).toBeInTheDocument();
+    const band = document.querySelector(".you-loop-lm-map-band") as HTMLElement;
+    // SAVED_ENTRY loop 5–9 on a 120s video.
+    expect(band.style.left).toBe("4.166666666666666%");
+    expect(band.style.width).toBe("3.3333333333333335%");
+  });
+
   it("applying a legacy loop leaves count-in settings untouched", async () => {
     const { dump } = await mountWatch("vid1", {
       [keyFor("vid1")]: SAVED_ENTRY,

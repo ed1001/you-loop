@@ -1853,6 +1853,7 @@ export const PAGE_UI_STYLES = `
       display: flex;
       gap: 6px;
       padding: 3px 6px 3px 4px;
+      position: relative;
       transition:
         border-color 0.15s ease,
         background 0.15s ease;
@@ -1902,11 +1903,22 @@ export const PAGE_UI_STYLES = `
       font-variant-numeric: tabular-nums;
     }
 
+    /* Tempo snapshot badge; only rendered for loops carrying a count-in. */
+    .you-loop-lm-tempo {
+      color: rgba(94, 234, 212, 0.8);
+      flex: none;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
     .you-loop-lm-actions {
       display: inline-flex;
       gap: 2px;
     }
 
+    /* Hidden until the row is hovered or a child has focus, so the list reads
+       clean until the user is actually interacting with a row. */
     .you-loop-lm-actions button {
       background: transparent;
       border: 0;
@@ -1915,7 +1927,14 @@ export const PAGE_UI_STYLES = `
       cursor: pointer;
       font-size: 13px;
       line-height: 1;
+      opacity: 0;
       padding: 5px 6px;
+      transition: opacity 0.12s ease;
+    }
+
+    .you-loop-lm-row:hover .you-loop-lm-actions button,
+    .you-loop-lm-row:focus-within .you-loop-lm-actions button {
+      opacity: 1;
     }
 
     /* Delete is destructive: hover shifts to red so it never reads as just
@@ -1923,6 +1942,28 @@ export const PAGE_UI_STYLES = `
     .you-loop-lm-actions button:hover {
       background: rgba(248, 113, 113, 0.14);
       color: #f87171;
+    }
+
+    /* Hairline loop-map strip along the row's bottom edge: a quick visual of
+       where this loop sits within the whole video. */
+    .you-loop-lm-map {
+      background: rgba(255, 255, 255, 0.12);
+      bottom: 0;
+      height: 2px;
+      left: 6px;
+      position: absolute;
+      right: 6px;
+    }
+
+    .you-loop-lm-map-band {
+      background: #14b8a6;
+      height: 100%;
+      position: absolute;
+      top: 0;
+    }
+
+    .you-loop-lm-row[data-selected="true"] .you-loop-lm-map-band {
+      background: #5eead4;
     }
 
     /* Reuse the help modal's exit keyframes for the close animation. */

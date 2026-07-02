@@ -26,7 +26,7 @@ type Props = {
   // The saved loop the current selection was seeded from, if any. Drives the
   // update-in-place block below.
   sourceLoop?: SavedLoop;
-  // Consumed starting Task 6; unused for now.
+  // Total video length in seconds, for positioning each row's loop-map band.
   duration: number;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
@@ -116,6 +116,7 @@ export function SavedLoopsModal({
   currentSegment,
   dirty,
   sourceLoop,
+  duration,
   onClose,
   onSaveAsNew,
   onUpdateLoop,
@@ -284,6 +285,11 @@ export function SavedLoopsModal({
                   }}
                 >
                   <span className="you-loop-lm-name-text">{loop.name}</span>
+                  {loop.countIn != null && (
+                    <span className="you-loop-lm-tempo">
+                      {`♩${loop.countIn.bpm} · ${loop.countIn.beatsPerBar}/${loop.countIn.noteValue}`}
+                    </span>
+                  )}
                   <span className="you-loop-lm-range">
                     {formatRange(loop.main)}
                   </span>
@@ -301,6 +307,16 @@ export function SavedLoopsModal({
                   >
                     ✕
                   </button>
+                </span>
+
+                <span className="you-loop-lm-map" aria-hidden="true">
+                  <span
+                    className="you-loop-lm-map-band"
+                    style={{
+                      left: `${(loop.main.start / duration) * 100}%`,
+                      width: `${((loop.main.end - loop.main.start) / duration) * 100}%`
+                    }}
+                  />
                 </span>
               </li>
             ))}

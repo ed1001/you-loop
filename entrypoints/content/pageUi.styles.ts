@@ -2,7 +2,6 @@
 // ensureDocumentStyles, because our elements mount into YouTube's light DOM
 // (inside .ytp-progress-bar), where WXT's ui-scoped style.css cannot reach
 // them. Kept as a string here so pageUi.tsx stays focused on behavior.
-import { VIDEO_LIST_STYLES } from "../../features/video-list/videoList.styles";
 
 export const PAGE_UI_STYLES = `
     .you-loop-page-ui {
@@ -1873,85 +1872,6 @@ export const PAGE_UI_STYLES = `
       background: rgba(248, 113, 113, 0.14);
       color: #f87171;
     }
-
-    /* ── View tabs: per-video loops vs the cross-video index ──────────── */
-    .you-loop-lm-tabs {
-      background: rgba(0, 0, 0, 0.34);
-      border-radius: 999px;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-      display: flex;
-      gap: 2px;
-      padding: 3px;
-    }
-
-    /* Active tab fades in its teal fill — same idiom as the panel's
-       LOOP/ONE-SHOT mode toggle, so the two segmented controls feel related. */
-    .you-loop-lm-tab {
-      background: transparent;
-      border: 0;
-      border-radius: 999px;
-      color: rgba(255, 255, 255, 0.6);
-      cursor: pointer;
-      flex: 1;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      padding: 7px 12px;
-      transition: background 0.18s ease, color 0.18s ease;
-    }
-
-    .you-loop-lm-tab:hover:not([data-active="true"]) {
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .you-loop-lm-tab[data-active="true"] {
-      background: #14b8a6;
-      color: #06302b;
-    }
-
-    /* Tab panes fade both ways: the outgoing pane fades out drifting up
-       (data-leaving, while the switch is pending), then the incoming pane
-       mounts and fades in rising from below — one continuous upward motion. */
-    .you-loop-lm-pane {
-      animation: you-loop-pane-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      min-width: 0;
-    }
-
-    /* Duration must match PANE_EXIT_MS in SavedLoopsModal. */
-    .you-loop-lm-pane[data-leaving="true"] {
-      animation: you-loop-pane-out 0.18s ease both;
-      pointer-events: none;
-    }
-
-    @keyframes you-loop-pane-in {
-      from {
-        opacity: 0;
-        transform: translateY(7px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes you-loop-pane-out {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      to {
-        opacity: 0;
-        transform: translateY(-6px);
-      }
-    }
-
-    /* ── Saved-videos index (shared with the popup) ───────────────────── */
-    ${VIDEO_LIST_STYLES}
 
     /* Reuse the help modal's exit keyframes for the close animation. */
     .you-loop-lm-backdrop[data-closing="true"] {

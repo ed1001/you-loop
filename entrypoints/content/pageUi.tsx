@@ -19,13 +19,11 @@ import { translateSegment } from "../../features/playback/translateSegment";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
-  listEntries,
   loadEntry,
   removeLoop,
   setLastUsed,
   updateLoop,
   type SavedLoop,
-  type SavedVideo,
   type VideoEntry
 } from "../../features/persistence/loopStore";
 import {
@@ -164,9 +162,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // count re-keys the beacon and replays the beat-0 pulse.
   let countInBeat: number | null = null;
   let countInSession = 0;
-  // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
-  // when the modal opens and after a save (so the list reflects new titles).
-  let savedVideos: SavedVideo[] = [];
 
   // Pitch shift: independent of the loop. The graph taps the element lazily on
   // the first non-zero offset; settings persist per video, and 0 is
@@ -489,22 +484,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     // Persist the title now so this video shows a name in the index without
     // waiting for a later revisit to backfill it.
     await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
-    await refreshLibrary();
     // Stay open so the new loop appears in the list as confirmation.
     render();
-  };
-
-  // Reload the cross-video index from storage.
-  const refreshLibrary = async () => {
-    savedVideos = await listEntries();
-    render();
-  };
-
-  // Jump to another saved video; its last-used loop auto-applies on load. A
-  // full navigation (rather than SPA trickery) is the robust path here.
-  const openVideo = (id: string) => {
-    if (id === videoId) return;
-    window.location.assign(`https://www.youtube.com/watch?v=${id}`);
   };
 
   const applyLoop = async (id: string) => {
@@ -553,16 +534,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     await removeLoop(videoId, id);
     savedLoops = savedLoops.filter((l) => l.id !== id);
     if (selectedLoopId === id) selectedLoopId = null;
-    // Removing the last loop deletes the video's entry, so refresh the index
-    // (this video drops off it once it has no loops left).
-    await refreshLibrary();
     render();
   };
 
   const toggleLoops = () => {
     loopsOpen = !loopsOpen;
-    // Refresh the index as the modal opens so the "Saved videos" tab is current.
-    if (loopsOpen) void refreshLibrary();
     render();
   };
 
@@ -675,14 +651,16 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           selectedLoopId={loopDirty ? null : selectedLoopId}
           currentSegment={state.loopSegment}
           loopDirty={loopDirty}
-          savedVideos={savedVideos}
-          currentVideoId={videoId}
+          sourceLoop={selectedLoop}
+          duration={duration}
+          currentZoom={zoomLoop}
+          currentCountIn={countInSettings}
           onToggleLoops={toggleLoops}
           onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
+          onUpdateLoop={() => void updateSelectedLoop()}
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
-          onOpenVideo={openVideo}
           countInOn={countInOn}
           countInSettings={countInSettings}
           onToggleCountIn={onToggleCountIn}

@@ -1321,8 +1321,22 @@ describe("pencil edit", () => {
     });
     expect(screen.getByLabelText("Loop name")).toHaveValue("A");
 
-    await act(async () => {
+    // Replace is a draft toggle: arming it must not touch storage yet.
+    act(() => {
       fireEvent.click(screen.getByLabelText("Replace A with current loop"));
+    });
+    expect(
+      screen.getByLabelText("Replace A with current loop")
+    ).toHaveAttribute("aria-pressed", "true");
+    expect((dump()[keyFor("vid1")] as any).loops[0].main).toEqual({
+      start: 5,
+      end: 100
+    });
+    expect(screen.getByLabelText("Cancel edit")).toBeInTheDocument();
+
+    // Save commits the armed replacement.
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to A"));
       for (let i = 0; i < 5; i++) await Promise.resolve();
     });
 
@@ -1352,8 +1366,11 @@ describe("pencil edit", () => {
     act(() => {
       fireEvent.click(screen.getByLabelText("Edit B"));
     });
-    await act(async () => {
+    act(() => {
       fireEvent.click(screen.getByLabelText("Replace B with current loop"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to B"));
       for (let i = 0; i < 5; i++) await Promise.resolve();
     });
 
@@ -1424,8 +1441,11 @@ describe("pencil edit", () => {
     fireEvent.change(screen.getByLabelText("Loop name"), {
       target: { value: "Coda" }
     });
-    await act(async () => {
+    act(() => {
       fireEvent.click(screen.getByLabelText("Replace A with current loop"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to A"));
       for (let i = 0; i < 5; i++) await Promise.resolve();
     });
 

@@ -1977,6 +1977,13 @@ export const PAGE_UI_STYLES = `
       background: rgba(94, 234, 212, 0.08);
     }
 
+    /* Armed = part of the draft: filled + solid border until Save commits it
+       (or Cancel/Esc discards it). */
+    .you-loop-lm-replace[data-armed="true"] {
+      background: rgba(94, 234, 212, 0.14);
+      border-color: #5eead4;
+    }
+
     /* Full-height position tint: a quick visual of where this loop sits
        within the whole video, filling the row behind its content (z-index 0,
        see .you-loop-lm-apply/.you-loop-lm-actions/.you-loop-lm-edit-row

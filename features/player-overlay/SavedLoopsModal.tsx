@@ -71,6 +71,9 @@ export function SavedLoopsModal({
   // cancelled.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  // Draft flag: "replace this loop's state with the current one" is armed by
+  // its toggle but only committed by Save, so Cancel can still discard it.
+  const [replaceArmed, setReplaceArmed] = useState(false);
   const listRef = useRef<HTMLUListElement | null>(null);
   const selectedRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
@@ -107,6 +110,7 @@ export function SavedLoopsModal({
     setNewName("");
     setEditingId(null);
     setEditName("");
+    setReplaceArmed(false);
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -133,6 +137,7 @@ export function SavedLoopsModal({
         event.preventDefault();
         if (editingId != null) {
           setEditingId(null);
+          setReplaceArmed(false);
         } else {
           onClose();
         }
@@ -166,14 +171,15 @@ export function SavedLoopsModal({
     return trimmed !== loop.name && trimmed !== "" ? trimmed : undefined;
   };
 
+  // Everything in the edit form is a draft until Save: the name field AND the
+  // armed replace toggle commit together, so Cancel genuinely discards both.
   const commitEdit = (loop: SavedLoop) => {
-    onEditLoop(loop.id, { name: resolveEditName(loop) });
+    onEditLoop(loop.id, {
+      name: resolveEditName(loop),
+      replaceState: replaceArmed || undefined
+    });
     setEditingId(null);
-  };
-
-  const commitReplace = (loop: SavedLoop) => {
-    onEditLoop(loop.id, { name: resolveEditName(loop), replaceState: true });
-    setEditingId(null);
+    setReplaceArmed(false);
   };
 
   return createPortal(
@@ -278,12 +284,16 @@ export function SavedLoopsModal({
                           type="button"
                           className="you-loop-lm-replace"
                           aria-label={`Replace ${loop.name} with current loop`}
+                          aria-pressed={replaceArmed}
+                          data-armed={replaceArmed}
                           onClick={(e) => {
                             swallow(e);
-                            commitReplace(loop);
+                            setReplaceArmed((armed) => !armed);
                           }}
                         >
-                          Replace with current loop
+                          {replaceArmed
+                            ? "✓ Replace with current loop"
+                            : "Replace with current loop"}
                         </button>
                         <span className="you-loop-lm-edit-actions">
                           <button
@@ -293,6 +303,7 @@ export function SavedLoopsModal({
                             onClick={(e) => {
                               swallow(e);
                               setEditingId(null);
+                              setReplaceArmed(false);
                             }}
                           >
                             Cancel
@@ -341,6 +352,7 @@ export function SavedLoopsModal({
                             swallow(e);
                             setEditingId(loop.id);
                             setEditName(loop.name);
+                            setReplaceArmed(false);
                           }}
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

@@ -26,12 +26,6 @@ export const RESET_REVEAL_DX = 10;
 /** Rightward drag distance at which releasing resets to 0. */
 export const RESET_ARM_DX = 72;
 
-/** Dead zone before a leftward drag starts revealing the fine target. */
-export const FINE_REVEAL_DX = 10;
-
-/** Leftward drag distance at which the scrub latches into fine (cents) gear. */
-export const FINE_ARM_DX = 48;
-
 export function clampSemitones(semitones: number): number {
   // NaN survives min/max (and ±Infinity would pin to an extreme); a corrupt
   // stored value must land on the neutral 0, not in the audio engine.
@@ -69,16 +63,6 @@ export function centsFromDrag(startCents: number, dyUp: number): number {
  */
 export function resetProgress(dx: number): number {
   const p = (dx - RESET_REVEAL_DX) / (RESET_ARM_DX - RESET_REVEAL_DX);
-  return Math.min(1, Math.max(0, p));
-}
-
-/**
- * Progress of the fine gesture for a leftward drag of `dxLeft` pixels
- * (positive = leftward): 0 inside the dead zone, 1 at/beyond the latch
- * threshold. ≥ 1 latches the drag into cents gear for the rest of the hold.
- */
-export function fineProgress(dxLeft: number): number {
-  const p = (dxLeft - FINE_REVEAL_DX) / (FINE_ARM_DX - FINE_REVEAL_DX);
   return Math.min(1, Math.max(0, p));
 }
 

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   CENTS_TICK_STEP,
-  FINE_ARM_DX,
-  FINE_REVEAL_DX,
   PX_PER_CENT,
   PX_PER_SEMITONE,
   RESET_ARM_DX,
@@ -14,7 +12,6 @@ import {
   centsTapeY,
   clampCents,
   clampSemitones,
-  fineProgress,
   formatPitch,
   formatPitchDecimal,
   isZeroPitch,
@@ -82,15 +79,6 @@ describe("resetProgress", () => {
   it("ramps between the thresholds", () => {
     const mid = (RESET_REVEAL_DX + RESET_ARM_DX) / 2;
     expect(resetProgress(mid)).toBeCloseTo(0.5, 5);
-  });
-});
-
-describe("fineProgress", () => {
-  it("is 0 in the dead zone, 1 at the latch threshold", () => {
-    expect(fineProgress(0)).toBe(0);
-    expect(fineProgress(FINE_REVEAL_DX)).toBe(0);
-    expect(fineProgress(FINE_ARM_DX)).toBe(1);
-    expect(fineProgress(FINE_ARM_DX + 40)).toBe(1);
   });
 });
 

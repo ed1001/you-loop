@@ -5,14 +5,13 @@ import type {
   MouseEvent,
   PointerEvent as ReactPointerEvent
 } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PitchSettings } from "../persistence/pitchStore";
 import {
   centsFromDrag,
   centsTapeOffset,
   centsTapeStops,
   centsTapeY,
-  fineProgress,
   formatCents,
   formatPitch,
   formatPitchDecimal,
@@ -81,25 +80,77 @@ export function PitchControl({
     // and Y origin so the value never jumps at the crossover.
     startSemitones: number;
     coarseBaseY: number;
-    // Fine (cents) gear: entered by dragging left past the arm threshold,
-    // exited by pulling back right out of the reveal zone.
+    coarseBaseX: number;
+    // Fine (cents) gear: held while Shift is held.
     fine: boolean;
     fineBaseY: number;
     fineBaseCents: number;
+    fineBaseX: number;
+    // The fine reset snaps cents to 0 the moment the rightward pull arms —
+    // once per excursion; re-arms after backing fully out of the reveal zone.
+    fineSnapped: boolean;
   }>(container);
 
   // 0–1 reveal of the snap-back target; ≥ 1 means release resets.
   const [armX, setArmX] = useState(0);
-  // 0–1 reveal of the fine-gear target; 1 latches cents gear.
-  const [fineX, setFineX] = useState(0);
   const [fine, setFine] = useState(false);
+  // True once the gear has flipped during this hold — gates the lens zoom
+  // animation so the tape doesn't zoom on the popover's initial open.
+  const [zoomed, setZoomed] = useState(false);
 
   const blocked = disabled || !available;
 
+  // The window Shift listeners below outlive any single render; they read the
+  // live settings through this ref instead of a stale closure.
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  /** Move the drag into or out of the cents gear, rebasing the incoming
+      gear's start value and X/Y origins so neither the value nor the reset
+      gesture inherits the other gear's travel. */
+  const setGear = (next: boolean) => {
+    const drag = dragRef.current;
+    if (drag == null || drag.fine === next) return;
+    const current = settingsRef.current;
+    if (next) {
+      drag.fine = true;
+      drag.fineBaseY = drag.accY;
+      drag.fineBaseCents = current.cents;
+      drag.fineBaseX = drag.accX;
+      drag.fineSnapped = false;
+    } else {
+      drag.fine = false;
+      drag.startSemitones = current.semitones;
+      drag.coarseBaseY = drag.accY;
+      drag.coarseBaseX = drag.accX;
+    }
+    setArmX(0);
+    setFine(next);
+    setZoomed(true);
+  };
+
+  // Shift can be pressed while the pointer is stationary — no pointermove
+  // fires, so the gear change must come from the keyboard directly.
+  useEffect(() => {
+    if (!open) return;
+    const onShift = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Shift") return;
+      setGear(event.type === "keydown");
+    };
+    window.addEventListener("keydown", onShift, true);
+    window.addEventListener("keyup", onShift, true);
+    return () => {
+      window.removeEventListener("keydown", onShift, true);
+      window.removeEventListener("keyup", onShift, true);
+    };
+    // setGear reaches state only through refs, so the mount-time closure stays valid.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const finishDrag = () => {
     setArmX(0);
-    setFineX(0);
     setFine(false);
+    setZoomed(false);
     endDrag();
   };
 
@@ -107,57 +158,52 @@ export function PitchControl({
     swallow(event);
     if (blocked || dragRef.current != null) return;
     setArmX(0);
-    setFineX(0);
-    setFine(false);
+    setZoomed(false);
+    // Shift already held at press: open straight onto the cents gear.
+    setFine(event.shiftKey);
     beginDrag(event, {
       pressSemitones: settings.semitones,
       pressCents: settings.cents,
       startSemitones: settings.semitones,
       coarseBaseY: 0,
-      fine: false,
+      coarseBaseX: 0,
+      fine: event.shiftKey,
       fineBaseY: 0,
-      fineBaseCents: settings.cents
+      fineBaseCents: settings.cents,
+      fineBaseX: 0,
+      fineSnapped: false
     });
   };
 
-  const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = foldMove(event);
-    if (drag == null) return;
+  type PitchDrag = NonNullable<typeof dragRef.current>;
 
-    if (drag.fine) {
-      if (fineProgress(-drag.accX) <= 0) {
-        // Pulled back out of the fine zone: return to the semitone gear,
-        // rebasing so neither value jumps at the crossover.
-        drag.fine = false;
-        drag.startSemitones = settings.semitones;
-        drag.coarseBaseY = drag.accY;
-        setFine(false);
-        setFineX(0);
-      } else {
-        // Cents gear: vertical travel from the latch point trims cents.
-        const next = centsFromDrag(
-          drag.fineBaseCents,
-          -(drag.accY - drag.fineBaseY)
-        );
-        if (next !== settings.cents) onChange({ ...settings, cents: next });
-        return;
+  const moveFine = (drag: PitchDrag) => {
+    // Fine reset: the rightward pull zeroes the cents the instant it arms —
+    // no release, the drag stays alive and the dial stays up.
+    const progress = resetProgress(drag.accX - drag.fineBaseX);
+    setArmX(progress);
+    if (progress >= 1) {
+      if (!drag.fineSnapped) {
+        drag.fineSnapped = true;
+        drag.fineBaseY = drag.accY;
+        drag.fineBaseCents = 0;
+        if (settings.cents !== 0) onChange({ ...settings, cents: 0 });
+        setPulse(true);
       }
-    }
-
-    const fineP = fineProgress(-drag.accX);
-    setFineX(fineP);
-    if (fineP >= 1) {
-      // Shift into the cents gear (hysteresis: enters at the arm threshold,
-      // exits back at the reveal edge, so the crossover cannot chatter).
-      drag.fine = true;
-      drag.fineBaseY = drag.accY;
-      drag.fineBaseCents = settings.cents;
-      setFine(true);
-      setArmX(0);
       return;
     }
+    if (progress <= 0) drag.fineSnapped = false;
+    // Cents gear: vertical travel from the gear change (or the last snap)
+    // trims cents.
+    const next = centsFromDrag(
+      drag.fineBaseCents,
+      -(drag.accY - drag.fineBaseY)
+    );
+    if (next !== settings.cents) onChange({ ...settings, cents: next });
+  };
 
-    const progress = resetProgress(drag.accX);
+  const moveCoarse = (drag: PitchDrag) => {
+    const progress = resetProgress(drag.accX - drag.coarseBaseX);
     setArmX(progress);
     // While the reset gesture is armed the tape freezes; vertical motion
     // resumes if the user backs out of it.
@@ -170,10 +216,21 @@ export function PitchControl({
     }
   };
 
+  const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = foldMove(event);
+    if (drag == null) return;
+    // Modifier state rides on every pointer event — this catches a Shift
+    // press/release the window listeners missed (e.g. focus was elsewhere).
+    setGear(event.shiftKey);
+    if (drag.fine) moveFine(drag);
+    else moveCoarse(drag);
+  };
+
   const onPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = foldRelease(event);
     if (drag == null) return;
-    const armed = !drag.fine && resetProgress(drag.accX) >= 1;
+    const armed =
+      !drag.fine && resetProgress(drag.accX - drag.coarseBaseX) >= 1;
     if (drag.moved) suppressNextClick();
     finishDrag();
     if (armed) {
@@ -242,13 +299,13 @@ export function PitchControl({
         ref={chipRef}
         type="button"
         role="slider"
-        aria-label="Pitch — drag up or down to transpose, drag left for cents, drag right and release to reset"
+        aria-label="Pitch — drag up or down to transpose, hold Shift while dragging for cents, drag right and release to reset"
         aria-valuemin={-12}
         aria-valuemax={12}
         aria-valuenow={settings.semitones}
         aria-valuetext={label}
         className="you-loop-pitch-value"
-        title="Drag ↕ pitch · ⇠ fine · fling ⇢ reset"
+        title="Drag ↕ pitch · hold ⇧ cents · fling ⇢ reset"
         data-modified={modified}
         data-scrubbing={scrubbing}
         data-pulse={pulse}
@@ -282,64 +339,71 @@ export function PitchControl({
             data-closing={closing}
             data-armed={armed}
             data-fine={fine}
+            data-zoomed={zoomed}
             style={
               {
                 left: `${anchor.left}px`,
                 top: `${anchor.top}px`,
-                "--you-loop-arm": armX,
-                "--you-loop-fine": fineX
+                "--you-loop-arm": armX
               } as CSSProperties
             }
             aria-hidden="true"
           >
             <div className="you-loop-speed-rail">
+              {/* The lens remounts on each gear change (key) so its zoom
+                  animation replays: cents ticks spread out of the semitone
+                  scale, and collapse back into it on the way out. */}
               {fine ? (
-                <div
-                  className="you-loop-speed-tape"
-                  style={{
-                    transform: `translateY(${centsTapeOffset(settings.cents)}px)`
-                  }}
-                >
-                  {centsTapeStops().map((stop) => (
-                    <div
-                      key={stop}
-                      className="you-loop-speed-tick"
-                      data-labeled={isCentsLabeled(stop)}
-                      data-home={stop === 0}
-                      data-current={stop === settings.cents}
-                      style={{ top: `${centsTapeY(stop)}px` }}
-                    >
-                      {isCentsLabeled(stop) && (
-                        <span className="you-loop-speed-tick-label">
-                          {formatCents(stop)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div key="fine" className="you-loop-pitch-lens" data-gear="fine">
+                  <div
+                    className="you-loop-speed-tape"
+                    style={{
+                      transform: `translateY(${centsTapeOffset(settings.cents)}px)`
+                    }}
+                  >
+                    {centsTapeStops().map((stop) => (
+                      <div
+                        key={stop}
+                        className="you-loop-speed-tick"
+                        data-labeled={isCentsLabeled(stop)}
+                        data-home={stop === 0}
+                        data-current={stop === settings.cents}
+                        style={{ top: `${centsTapeY(stop)}px` }}
+                      >
+                        {isCentsLabeled(stop) && (
+                          <span className="you-loop-speed-tick-label">
+                            {formatCents(stop)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div
-                  className="you-loop-speed-tape"
-                  style={{
-                    transform: `translateY(${semitoneTapeOffset(settings.semitones)}px)`
-                  }}
-                >
-                  {semitoneTapeStops().map((stop) => (
-                    <div
-                      key={stop}
-                      className="you-loop-speed-tick"
-                      data-labeled={isLabeled(stop)}
-                      data-home={stop === 0}
-                      data-current={stop === settings.semitones}
-                      style={{ top: `${semitoneTapeY(stop)}px` }}
-                    >
-                      {isLabeled(stop) && (
-                        <span className="you-loop-speed-tick-label">
-                          {formatSemitones(stop)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div key="coarse" className="you-loop-pitch-lens" data-gear="coarse">
+                  <div
+                    className="you-loop-speed-tape"
+                    style={{
+                      transform: `translateY(${semitoneTapeOffset(settings.semitones)}px)`
+                    }}
+                  >
+                    {semitoneTapeStops().map((stop) => (
+                      <div
+                        key={stop}
+                        className="you-loop-speed-tick"
+                        data-labeled={isLabeled(stop)}
+                        data-home={stop === 0}
+                        data-current={stop === settings.semitones}
+                        style={{ top: `${semitoneTapeY(stop)}px` }}
+                      >
+                        {isLabeled(stop) && (
+                          <span className="you-loop-speed-tick-label">
+                            {formatSemitones(stop)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="you-loop-speed-needle" />
@@ -359,31 +423,29 @@ export function PitchControl({
                 <path d="M18 1.5 L23 6 L18 10.5" />
               </svg>
               <span className="you-loop-speed-reset-col">
-                <span className="you-loop-speed-reset-ring">0</span>
+                <span className="you-loop-speed-reset-ring">
+                  {fine ? "0¢" : "0"}
+                </span>
                 <span className="you-loop-speed-reset-word">
-                  {armed ? "release" : "reset"}
+                  {fine
+                    ? armed
+                      ? "zeroed"
+                      : "zero"
+                    : armed
+                      ? "release"
+                      : "reset"}
                 </span>
               </span>
             </div>
-            {/* Mirror of the reset target on the left: pull toward it to shift
-                into cents gear. */}
+            {/* Left flank: a shift keycap advertising the cents gear. Idles
+                faint; fills amber while Shift holds the lens zoomed in. */}
             <div className="you-loop-pitch-fine-target">
               <span className="you-loop-pitch-fine-col">
-                <span className="you-loop-pitch-fine-ring">¢</span>
+                <span className="you-loop-pitch-fine-key">⇧</span>
                 <span className="you-loop-pitch-fine-word">
                   {fine ? "cents" : "fine"}
                 </span>
               </span>
-              <svg
-                className="you-loop-pitch-fine-chevrons"
-                viewBox="0 0 26 12"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M24 1.5 L19 6 L24 10.5" />
-                <path d="M16 1.5 L11 6 L16 10.5" />
-                <path d="M8 1.5 L3 6 L8 10.5" />
-              </svg>
             </div>
           </div>,
           container

@@ -158,7 +158,7 @@ const CONTROLS: Control[] = [
   {
     icon: PitchIcon,
     term: "Pitch",
-    desc: "Transpose the song without changing its speed. Hold the readout and drag up or down to shift in semitones (±12); pull left into the ¢ ring to fine-tune in cents, drag back right to return. Fling right and let go to snap back to 0 — at 0 the audio path is untouched. A decimal readout (+3.45) means a fine trim is applied.",
+    desc: "Transpose the song without changing its speed. Hold the readout and drag up or down to shift in semitones (±12); hold Shift to zoom the dial into cents and fine-tune, release Shift to zoom back out. Fling right and let go to snap back to 0 — inside cents, the fling zeroes just the cents without ending the scrub. At 0 the audio path is untouched. A decimal readout (+3.45) means a fine trim is applied.",
   },
   {
     icon: ZoomIcon,

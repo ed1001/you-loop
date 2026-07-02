@@ -82,8 +82,17 @@ export function useScrubChip<TExtra extends object>(
     if (chip == null || container == null) return;
     const chipRect = chip.getBoundingClientRect();
     const hostRect = container.getBoundingClientRect();
+    // The chip scales up while scrubbing (and pulses on a snap), inflating
+    // its measured rect mid-drag. The scale pivots on the chip's center, so
+    // anchor off the center and rebuild the top edge from the layout height
+    // (offsetHeight ignores transforms) — the press-time and move-time
+    // measurements then always agree, and the popover cannot hop.
     const left = chipRect.left + chipRect.width / 2 - hostRect.left;
-    const top = chipRect.top - hostRect.top;
+    const top =
+      chipRect.top +
+      chipRect.height / 2 -
+      chip.offsetHeight / 2 -
+      hostRect.top;
     setAnchor((prev) =>
       prev.left === left && prev.top === top ? prev : { left, top }
     );

@@ -929,10 +929,7 @@ export const PAGE_UI_STYLES = `
     /* ── Pitch scrub popover ───────────────────────────────────────────────
        Shares the speed scrubber's rail/tape/needle/reset-target styles (the
        .you-loop-speed-pop classes); below are only the pitch-specific parts.
-       --you-loop-fine (0-1) is the leftward fine-gear reveal. */
-    .you-loop-pitch-pop {
-      --you-loop-fine: 0;
-    }
+       Holding Shift zooms the lens from semitones into cents. */
 
     /* Both of the pitch pop's flanks are occupied (fine target left, reset
        target right), so the live readout floats above the rail instead of
@@ -974,29 +971,97 @@ export const PAGE_UI_STYLES = `
       color: #fbbf24;
     }
 
-    /* While in cents gear the reset target sits out; release and re-drag. */
-    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-reset-target {
-      opacity: 0.1;
+    /* In cents gear the reset target re-tints amber and becomes the cents
+       zero: it fires the moment the pull arms — no release — so the drag
+       (and the dial) survive it. */
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-reset-chevrons path {
+      stroke: #fbbf24;
     }
 
-    /* Fine-gear target: the reset target's mirror on the left edge. Idles
-       faint, drifts in and swells with the leftward pull, then glows amber
-       once the gear latches. */
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-reset-ring {
+      border-color: rgba(251, 191, 36, 0.55);
+      color: #fbbf24;
+      font-size: 12px;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"][data-armed="true"]
+      .you-loop-speed-reset-ring {
+      background: #f59e0b;
+      box-shadow: 0 4px 18px rgba(245, 158, 11, 0.6),
+        0 0 22px rgba(245, 158, 11, 0.5);
+      color: #451a03;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"][data-armed="true"]
+      .you-loop-speed-reset-word {
+      color: #fbbf24;
+    }
+
+    /* The optical lens around the tape: remounted on each gear change so its
+       zoom keyframes replay. Entering cents, the ticks spread apart out of
+       the semitone scale (a 10× magnification snapping into focus); leaving,
+       the magnified view collapses back into it. transform-origin sits at
+       the rail's midline, so the zoom pivots on the needle. Gated on
+       data-zoomed so the popover's initial open doesn't play it. */
+    .you-loop-pitch-lens {
+      inset: 0;
+      position: absolute;
+    }
+
+    .you-loop-pitch-pop[data-zoomed="true"]
+      .you-loop-pitch-lens[data-gear="fine"] {
+      animation: you-loop-pitch-lens-in 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .you-loop-pitch-pop[data-zoomed="true"]
+      .you-loop-pitch-lens[data-gear="coarse"] {
+      animation: you-loop-pitch-lens-out 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes you-loop-pitch-lens-in {
+      from {
+        filter: blur(3px);
+        opacity: 0.15;
+        transform: scaleY(0.22);
+      }
+      to {
+        filter: blur(0);
+        opacity: 1;
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes you-loop-pitch-lens-out {
+      from {
+        filter: blur(3px);
+        opacity: 0.15;
+        transform: scaleY(2.6);
+      }
+      to {
+        filter: blur(0);
+        opacity: 1;
+        transform: scaleY(1);
+      }
+    }
+
+    /* Shift-key hint on the left flank, mirroring the reset target's anatomy:
+       a keycap over a word. Idles faint; while Shift holds the cents gear it
+       fills amber and swells, and the word flips fine → cents. */
     .you-loop-pitch-fine-target {
       align-items: center;
       display: flex;
-      gap: 5px;
-      opacity: calc(0.3 + var(--you-loop-fine) * 0.7);
+      opacity: 0.4;
       position: absolute;
-      right: calc(100% + 6px + var(--you-loop-fine) * 10px);
+      right: calc(100% + 10px);
       top: 50%;
-      transform: translateY(-50%)
-        scale(calc(0.75 + var(--you-loop-fine) * 0.25));
+      transform: translateY(-50%) scale(0.85);
       transform-origin: right center;
+      transition: opacity 0.15s ease, transform 0.15s ease;
     }
 
     .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-target {
       opacity: 1;
+      transform: translateY(-50%) scale(1);
     }
 
     .you-loop-pitch-fine-col {
@@ -1006,70 +1071,34 @@ export const PAGE_UI_STYLES = `
       gap: 4px;
     }
 
-    .you-loop-pitch-fine-chevrons {
-      animation: you-loop-chevron-nudge-left 1.4s ease-in-out infinite;
-      flex: none;
-      height: 12px;
-      width: 26px;
-    }
-
-    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-chevrons {
-      animation: none;
-    }
-
-    @keyframes you-loop-chevron-nudge-left {
-      0%, 100% {
-        transform: translateX(0);
-      }
-      50% {
-        transform: translateX(-3px);
-      }
-    }
-
-    .you-loop-pitch-fine-chevrons path {
-      fill: none;
-      stroke: #fbbf24;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-width: 2.4;
-    }
-
-    .you-loop-pitch-fine-chevrons path:nth-child(1) {
-      opacity: clamp(0.35, calc(var(--you-loop-fine) * 3), 1);
-    }
-
-    .you-loop-pitch-fine-chevrons path:nth-child(2) {
-      opacity: clamp(0.35, calc(var(--you-loop-fine) * 3 - 1), 1);
-    }
-
-    .you-loop-pitch-fine-chevrons path:nth-child(3) {
-      opacity: clamp(0.35, calc(var(--you-loop-fine) * 3 - 2), 1);
-    }
-
-    .you-loop-pitch-fine-ring {
+    /* A keycap, not a ring: the affordance is a key on the keyboard. */
+    .you-loop-pitch-fine-key {
       align-items: center;
       background: rgba(28, 28, 32, 0.85);
-      border: 2px solid rgba(251, 191, 36, 0.55);
-      border-radius: 50%;
+      border: 1.5px solid rgba(251, 191, 36, 0.55);
+      border-bottom-width: 3px;
+      border-radius: 8px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
       color: #fbbf24;
       display: inline-flex;
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
-      height: 40px;
+      height: 32px;
       justify-content: center;
+      line-height: 1;
       transition: background 0.12s ease, color 0.12s ease,
-        transform 0.12s ease, box-shadow 0.12s ease;
-      width: 40px;
+        border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+      width: 38px;
     }
 
-    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-ring {
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-key {
       background: #f59e0b;
+      border-color: #fbbf24;
       box-shadow: 0 4px 18px rgba(245, 158, 11, 0.6),
         0 0 22px rgba(245, 158, 11, 0.5);
       color: #451a03;
-      transform: scale(1.12);
+      transform: translateY(1.5px);
     }
 
     .you-loop-pitch-fine-word {

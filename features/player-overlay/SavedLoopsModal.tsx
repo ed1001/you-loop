@@ -76,17 +76,28 @@ export function SavedLoopsModal({
   const [replaceArmed, setReplaceArmed] = useState(false);
   const listRef = useRef<HTMLUListElement | null>(null);
   const selectedRowRef = useRef<HTMLLIElement | null>(null);
+  const editingRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
   const [fadeBottom, setFadeBottom] = useState(false);
   const { mounted, closing } = useModalPresence(open, EXIT_MS);
 
-  // Bring the currently-selected loop into view each time the modal opens, so
-  // it's visible even when the list overflows.
+  // Bring the currently-selected loop into view when the modal opens AND when
+  // the selection moves — saving a new loop appends it at the end of an
+  // overflowing list and selects it, so this is what scrolls the fresh row
+  // into view. `nearest` makes it a no-op for rows already visible.
   useEffect(() => {
     if (!open || !mounted) return;
     selectedRowRef.current?.scrollIntoView({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mounted]);
+  }, [open, mounted, selectedId]);
+
+  // The pencil-edit form grows its row; a row at the clipped bottom edge of
+  // the list would otherwise expand out of sight. Runs after the form has
+  // rendered, so the row's grown height is what gets scrolled into view.
+  useEffect(() => {
+    if (editingId == null) return;
+    editingRowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [editingId]);
 
   // Fade whichever edge has clipped rows beyond it (content above when scrolled
   // down, content below when not at the end), as an obvious "more here" cue
@@ -246,7 +257,13 @@ export function SavedLoopsModal({
               return (
                 <li
                   key={loop.id}
-                  ref={loop.id === selectedId ? selectedRowRef : undefined}
+                  ref={
+                    editing
+                      ? editingRowRef
+                      : loop.id === selectedId
+                        ? selectedRowRef
+                        : undefined
+                  }
                   className="you-loop-lm-row"
                   data-selected={loop.id === selectedId}
                   data-editing={editing}

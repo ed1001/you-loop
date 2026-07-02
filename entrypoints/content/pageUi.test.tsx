@@ -1454,6 +1454,51 @@ describe("pencil edit", () => {
     expect(savedEntry.loops[0].main).toEqual({ start: 5, end: 100 });
   });
 
+  it("scrolls the edit form and a freshly saved loop into view", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: TWO_LOOP_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    const scrolled = vi.spyOn(window.HTMLElement.prototype, "scrollIntoView");
+
+    // Opening a pencil edit must bring the (grown) row into view.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit B"));
+    });
+    expect(scrolled).toHaveBeenCalledWith({ block: "nearest" });
+    expect(
+      (scrolled.mock.instances.at(-1) as HTMLElement | undefined)?.contains(
+        screen.getByLabelText("Loop name")
+      )
+    ).toBe(true);
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Cancel edit"));
+    });
+    scrolled.mockClear();
+
+    // Saving a new loop appends + selects it — the new row must scroll into view.
+    fireEvent.change(screen.getByPlaceholderText("Name this loop"), {
+      target: { value: "Outro" }
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+    expect((dump()[keyFor("vid1")] as any).loops).toHaveLength(3);
+    expect(scrolled).toHaveBeenCalled();
+    expect(
+      (scrolled.mock.instances.at(-1) as HTMLElement | undefined)?.textContent
+    ).toContain("Outro");
+
+    scrolled.mockRestore();
+  });
+
   it("✕ cancels the edit without touching storage; Escape backs out one level at a time", async () => {
     const { dump } = await mountWatch("vid1", { [keyFor("vid1")]: SAVED_ENTRY });
     await flushAsync();

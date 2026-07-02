@@ -114,3 +114,8 @@ Single-line rows keep the 220px list dense. Three additions:
   hover-reveal delete accessible via keyboard focus; loop-map geometry.
 - Removal fallout: tab-related tests deleted; popup `VideoList` tests
   untouched.
+
+> Post-review footnote: updating a legacy loop (no stored `countIn`) attaches
+> the current settings as a new snapshot even though the delta preview shows
+> region/zoom only — the snapshot equals what the user is currently hearing,
+> so the preview's omission is benign. Recorded 2026-07-02.

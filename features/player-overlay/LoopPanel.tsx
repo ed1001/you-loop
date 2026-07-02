@@ -1,11 +1,11 @@
 import type { MouseEvent, PointerEvent } from "react";
-import type { LoopSegment, PlayMode } from "../playback/types";
+import type { PlayMode } from "../playback/types";
 import { SpeedControl } from "./SpeedControl";
 import { PitchControl } from "./PitchControl";
 import type { PitchSettings } from "../persistence/pitchStore";
 import { SavedLoopsModal } from "./SavedLoopsModal";
 import { EtudeWordmark } from "./EtudeWordmark";
-import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
+import type { SavedLoop } from "../persistence/loopStore";
 import { CountInControl } from "./CountInControl";
 import type { CountInSettings } from "../persistence/countInStore";
 
@@ -29,16 +29,13 @@ type Props = {
   loopsOpen: boolean;
   savedLoops: SavedLoop[];
   selectedLoopId: string | null;
-  currentSegment: LoopSegment | null;
-  loopDirty: boolean;
-  savedVideos: SavedVideo[];
-  currentVideoId: string | null;
+  duration: number;
   onToggleLoops: () => void;
   onCloseLoops: () => void;
   onSaveAsNew: (name: string) => void;
+  onEditLoop: (id: string, patch: { name?: string; replaceState?: boolean }) => void;
   onApplyLoop: (id: string) => void;
   onDeleteLoop: (id: string) => void;
-  onOpenVideo: (videoId: string) => void;
   countInOn: boolean;
   countInSettings: CountInSettings;
   onToggleCountIn: () => void;
@@ -84,16 +81,13 @@ export function LoopPanel({
   loopsOpen,
   savedLoops,
   selectedLoopId,
-  currentSegment,
-  loopDirty,
-  savedVideos,
-  currentVideoId,
+  duration,
   onToggleLoops,
   onCloseLoops,
   onSaveAsNew,
+  onEditLoop,
   onApplyLoop,
   onDeleteLoop,
-  onOpenVideo,
   countInOn,
   countInSettings,
   onToggleCountIn,
@@ -352,15 +346,12 @@ export function LoopPanel({
         container={loopsContainer}
         loops={savedLoops}
         selectedId={selectedLoopId}
-        currentSegment={currentSegment}
-        dirty={loopDirty}
-        savedVideos={savedVideos}
-        currentVideoId={currentVideoId}
+        duration={duration}
         onClose={onCloseLoops}
         onSaveAsNew={onSaveAsNew}
+        onEditLoop={onEditLoop}
         onApply={onApplyLoop}
         onDelete={onDeleteLoop}
-        onOpenVideo={onOpenVideo}
       />
 
       <button

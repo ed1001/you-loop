@@ -1,10 +1,10 @@
 import { act } from "react";
 import { fireEvent, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { keyFor } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY, LOOP_ON_KEY } from "../../features/persistence/settingsStore";
-import { COUNT_IN_KEY } from "../../features/persistence/countInStore";
+import { COUNT_IN_KEY, countInKeyFor } from "../../features/persistence/countInStore";
 import { makeMemoryArea } from "../../features/persistence/memoryArea.testutil";
 
 function enableLoop() {
@@ -28,6 +28,14 @@ if (typeof window.PointerEvent === "undefined") {
   }
   // @ts-expect-error test shim
   window.PointerEvent = PointerEventShim;
+}
+
+// jsdom has no scrollIntoView; SavedLoopsModal calls it on the selected row
+// whenever the modal opens with a clean (non-dirty) selection — a path only
+// exercised once these tempo-dirty tests open the modal on an applied,
+// unmodified loop.
+if (typeof window.HTMLElement.prototype.scrollIntoView !== "function") {
+  window.HTMLElement.prototype.scrollIntoView = function () {};
 }
 
 function speedSlider() {
@@ -782,6 +790,163 @@ describe("page UI", () => {
     expectPanelOff();
   });
 
+  it("applying a loop with a count-in snapshot restores and persists it", async () => {
+    const entry = {
+      ...SAVED_ENTRY,
+      loops: [
+        {
+          ...SAVED_ENTRY.loops[0],
+          countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+        }
+      ]
+    };
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: entry,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    // Launch applied the loop: the per-video store now carries the snapshot.
+    expect((dump()[countInKeyFor("vid1")] as any)?.bpm).toBe(140);
+  });
+
+  it("rows show a tempo badge and a loop-map band", async () => {
+    const entry = {
+      ...SAVED_ENTRY,
+      loops: [
+        {
+          ...SAVED_ENTRY.loops[0],
+          countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+        }
+      ]
+    };
+    await mountWatch("vid1", { [keyFor("vid1")]: entry });
+    await flushAsync();
+    act(() => {
+      enableLoop();
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    const band = document.querySelector(".you-loop-lm-map-band") as HTMLElement;
+    // SAVED_ENTRY loop 5–9 on a 120s video.
+    expect(band.style.left).toBe("4.166666666666666%");
+    expect(band.style.width).toBe("3.3333333333333335%");
+  });
+
+  // Spec §2 headline behavior: changing count-in settings while a
+  // snapshot-carrying saved loop is selected must flip the selection dirty
+  // (row deselects). Drives the change through the count-in popover's
+  // time-signature buttons — the simplest public seam for
+  // onCountInSettingsChange — rather than the BPM drag/tap gestures, which
+  // are covered in CountInControl.test.tsx.
+  it("changing count-in settings dirties a tempo-snapshot selection", async () => {
+    const entry = {
+      ...SAVED_ENTRY,
+      loops: [
+        {
+          ...SAVED_ENTRY.loops[0],
+          countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+        }
+      ]
+    };
+    await mountWatch("vid1", {
+      [keyFor("vid1")]: entry,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    // Launch auto-applied the loop: the row reads selected, clean.
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+
+    // The pill button only opens the popover; on/off lives on the switch
+    // inside it, so this click cannot itself dirty anything.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Count-in off"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByText("3/4"));
+    });
+
+    // Tempo-dirty: the row deselects.
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).toBeNull();
+  });
+
+  // Negative counterpart: a legacy loop (no count-in snapshot) has nothing to
+  // diff tempo against, so the same settings change must NOT go dirty.
+  it("changing count-in settings leaves a legacy selection clean", async () => {
+    await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Count-in off"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByText("3/4"));
+    });
+
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+  });
+
+  it("applying a legacy loop leaves count-in settings untouched", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    expect(dump()[countInKeyFor("vid1")]).toBeUndefined();
+  });
+
+  it("saving a loop snapshots the current count-in settings", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [countInKeyFor("vid1")]: { bpm: 90, beatsPerBar: 3, noteValue: 4, bars: 2 }
+    });
+    await flushAsync();
+
+    act(() => {
+      enableLoop();
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    fireEvent.change(screen.getByPlaceholderText("Name this loop"), {
+      target: { value: "riff" }
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].countIn).toEqual({
+      bpm: 90,
+      beatsPerBar: 3,
+      noteValue: 4,
+      bars: 2
+    });
+  });
+
   it("] nudges the main loop window forward by NUDGE_SECONDS and seeks to the new start", () => {
     const { player, video } = mountWithLoopEnabled();
 
@@ -1054,5 +1219,366 @@ describe("watchPlayerWidth", () => {
 
     stop();
     window.ResizeObserver = original;
+  });
+});
+
+describe("pencil edit", () => {
+  // A preceding describe block ("compact mode toggle") mounts a player
+  // without tearing it down, so the DOM can arrive dirty here regardless of
+  // this block's own afterEach. Start clean rather than depend on run order.
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    fireEvent.click(document.body);
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
+  });
+
+  // A wide main region (unlike SAVED_ENTRY's narrow 5–9) so dragging the
+  // start handle out to 20s lands cleanly inside it instead of clamping
+  // against the end.
+  const UPDATE_ENTRY = {
+    loops: [
+      {
+        id: "l1",
+        name: "A",
+        main: { start: 5, end: 100 },
+        zoom: null,
+        countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+      }
+    ],
+    lastUsedId: "l1",
+    addedAt: 10,
+    title: "Caprice 24"
+  };
+
+  // Applies the launch-restored loop, then drags "Loop start" from 5s to 20s
+  // (1px == 1s: rect width matches the 120s stub duration) so the selection
+  // drifts off the saved loop.
+  function driftMainStart(player: HTMLElement) {
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    const startHandle = screen.getByLabelText("Loop start");
+    startHandle.setPointerCapture = () => {};
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+    });
+  }
+
+  // A second loop on the same video, for the "edit a row other than the
+  // applied source" cases below.
+  const TWO_LOOP_ENTRY = {
+    loops: [
+      {
+        id: "l1",
+        name: "A",
+        main: { start: 5, end: 100 },
+        zoom: null,
+        countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+      },
+      {
+        id: "l2",
+        name: "B",
+        main: { start: 10, end: 50 },
+        zoom: null,
+        countIn: null
+      }
+    ],
+    lastUsedId: "l1",
+    addedAt: 10,
+    title: "Caprice 24"
+  };
+
+  it("pencil opens the edit row seeded with the name; Replace persists the new main and selects it", async () => {
+    const { player, dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: UPDATE_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    driftMainStart(player);
+    // The drag-end click guard (suppressNextClick) eats the very next click
+    // regardless of target; let its one-shot timeout clear before opening
+    // the modal so that click isn't swallowed too.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit A"));
+    });
+    expect(screen.getByLabelText("Loop name")).toHaveValue("A");
+
+    // Replace is a draft toggle: arming it must not touch storage yet.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Replace A with current loop"));
+    });
+    expect(
+      screen.getByLabelText("Replace A with current loop")
+    ).toHaveAttribute("aria-pressed", "true");
+    expect((dump()[keyFor("vid1")] as any).loops[0].main).toEqual({
+      start: 5,
+      end: 100
+    });
+    expect(screen.getByLabelText("Cancel edit")).toBeInTheDocument();
+
+    // Save commits the armed replacement.
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to A"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].main).toEqual({ start: 20, end: 100 });
+
+    // Edit row closes, and the row re-selects now that it matches current state.
+    expect(screen.queryByLabelText("Cancel edit")).not.toBeInTheDocument();
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+  });
+
+  it("Replace on a loop other than the applied source updates only it, moving selection to it", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: TWO_LOOP_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    // A is the applied source (current selection is A's 5–100); replace B
+    // instead of A.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit B"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Replace B with current loop"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to B"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].main).toEqual({ start: 5, end: 100 }); // A untouched
+    expect(savedEntry.loops[1].main).toEqual({ start: 5, end: 100 }); // B now matches current selection
+
+    expect(
+      screen.getByLabelText("Apply B").closest("li")?.dataset.selected
+    ).toBe("true");
+    expect(
+      screen.getByLabelText("Apply A").closest("li")?.dataset.selected
+    ).toBe("false");
+  });
+
+  it("renaming a loop leaves its region untouched and does not move selection", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: TWO_LOOP_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    // Launch applied A: it holds the selection.
+    expect(
+      screen.getByLabelText("Apply A").closest("li")?.dataset.selected
+    ).toBe("true");
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit B"));
+    });
+    fireEvent.change(screen.getByLabelText("Loop name"), {
+      target: { value: "Bridge" }
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to B"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[1].name).toBe("Bridge");
+    expect(savedEntry.loops[1].main).toEqual({ start: 10, end: 50 }); // untouched
+
+    // Rename must not steal the selection from A.
+    expect(
+      screen.getByLabelText("Apply A").closest("li")?.dataset.selected
+    ).toBe("true");
+    expect(
+      screen.getByLabelText("Apply Bridge").closest("li")?.dataset.selected
+    ).toBe("false");
+  });
+
+  it("renaming and replacing together update both name and main", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: UPDATE_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit A"));
+    });
+    fireEvent.change(screen.getByLabelText("Loop name"), {
+      target: { value: "Coda" }
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Replace A with current loop"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Save changes to A"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].name).toBe("Coda");
+    expect(savedEntry.loops[0].main).toEqual({ start: 5, end: 100 });
+  });
+
+  it("scrolls the edit form and a freshly saved loop into view", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: TWO_LOOP_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    const scrolled = vi.spyOn(window.HTMLElement.prototype, "scrollIntoView");
+
+    // Opening a pencil edit must bring the (grown) row into view.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit B"));
+    });
+    expect(scrolled).toHaveBeenCalledWith({ block: "nearest" });
+    expect(
+      (scrolled.mock.instances.at(-1) as HTMLElement | undefined)?.contains(
+        screen.getByLabelText("Loop name")
+      )
+    ).toBe(true);
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Cancel edit"));
+    });
+    scrolled.mockClear();
+
+    // Saving a new loop appends + selects it — the new row must scroll into view.
+    fireEvent.change(screen.getByPlaceholderText("Name this loop"), {
+      target: { value: "Outro" }
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+    expect((dump()[keyFor("vid1")] as any).loops).toHaveLength(3);
+    expect(scrolled).toHaveBeenCalled();
+    expect(
+      (scrolled.mock.instances.at(-1) as HTMLElement | undefined)?.textContent
+    ).toContain("Outro");
+
+    scrolled.mockRestore();
+  });
+
+  it("✕ cancels the edit without touching storage; Escape backs out one level at a time", async () => {
+    const { dump } = await mountWatch("vid1", { [keyFor("vid1")]: SAVED_ENTRY });
+    await flushAsync();
+    act(() => {
+      enableLoop();
+    });
+    // Once the modal is open the dialog itself shares the "Saved loops"
+    // accessible name, so scope the toggle lookup to its role.
+    const toggle = screen.getByRole("button", { name: "Saved loops" });
+    act(() => {
+      fireEvent.click(toggle);
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit A"));
+    });
+    fireEvent.change(screen.getByLabelText("Loop name"), {
+      target: { value: "changed" }
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Cancel edit"));
+    });
+
+    expect(screen.queryByLabelText("Cancel edit")).not.toBeInTheDocument();
+    expect(dump()[keyFor("vid1")]).toEqual(SAVED_ENTRY);
+
+    // Escape: first cancels a re-opened edit, modal stays open.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Edit A"));
+    });
+    expect(screen.getByLabelText("Cancel edit")).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    });
+    expect(screen.queryByLabelText("Cancel edit")).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    act(() => {
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    });
+    // Second Escape: nothing being edited, so it closes the modal.
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("has no subtitle summarizing the current selection", async () => {
+    await mountWatch("vid1", { [keyFor("vid1")]: SAVED_ENTRY });
+    await flushAsync();
+    act(() => {
+      enableLoop();
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    expect(screen.queryByText(/Current selection/)).not.toBeInTheDocument();
+  });
+
+  it("save section stays enabled for a clean selection and can save a duplicate", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    const input = screen.getByPlaceholderText("Name this loop");
+    expect(input).not.toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "dup" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops).toHaveLength(2);
+    expect(savedEntry.loops[1].name).toBe("dup");
+    expect(savedEntry.loops[1].main).toEqual(savedEntry.loops[0].main);
   });
 });

@@ -19,12 +19,11 @@ import { translateSegment } from "../../features/playback/translateSegment";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
-  listEntries,
   loadEntry,
   removeLoop,
   setLastUsed,
+  updateLoop,
   type SavedLoop,
-  type SavedVideo,
   type VideoEntry
 } from "../../features/persistence/loopStore";
 import {
@@ -37,6 +36,7 @@ import {
   setCountInEnabled,
   loadCountInSettings,
   saveCountInSettings,
+  sanitizeCountInSettings,
   DEFAULT_COUNT_IN_SETTINGS,
   type CountInSettings
 } from "../../features/persistence/countInStore";
@@ -83,19 +83,54 @@ function segmentsEqual(a: LoopSegment | null, b: LoopSegment | null): boolean {
   return a.start === b.start && a.end === b.end;
 }
 
+// Two count-in settings are equal when every field matches.
+function countInEqual(a: CountInSettings, b: CountInSettings): boolean {
+  return (
+    a.bpm === b.bpm &&
+    a.beatsPerBar === b.beatsPerBar &&
+    a.noteValue === b.noteValue &&
+    a.bars === b.bars
+  );
+}
+
 // The save button is live only when the current selection differs from the
 // saved loop it came from: no source loop means a fresh, savable selection; an
-// exact match (both main and zoom) means there's nothing new to save.
+// exact match (main, zoom, and — for loops that carry a tempo snapshot —
+// count-in) means there's nothing new to save. Legacy loops (no snapshot)
+// never go tempo-dirty: there's nothing to compare against.
 function isLoopDirty(
   source: SavedLoop | undefined,
   segment: LoopSegment | null,
-  zoom: LoopSegment | null
+  zoom: LoopSegment | null,
+  countIn: CountInSettings
 ): boolean {
   if (segment == null) return false;
   if (source == null) return true;
-  return (
-    !segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)
-  );
+  if (!segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)) {
+    return true;
+  }
+  return source.countIn != null && !countInEqual(source.countIn, countIn);
+}
+
+// The store-level patch for a pencil-edit commit: the name field only when
+// provided, and the replace-with-current fields (main/zoom/count-in,
+// snapshotted from live state) only when replacing. `loopSegment` is only
+// read when `patch.replaceState` is set, at which point the caller has
+// already verified it is non-null.
+function buildEditStorePatch(
+  patch: { name?: string; replaceState?: boolean },
+  loopSegment: LoopSegment | null,
+  zoom: LoopSegment | null,
+  countIn: CountInSettings
+): Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">> {
+  const store: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">> = {};
+  if (patch.name != null) store.name = patch.name;
+  if (patch.replaceState) {
+    store.main = loopSegment!;
+    store.zoom = zoom;
+    store.countIn = countIn;
+  }
+  return store;
 }
 
 function getVideoDuration(video: HTMLVideoElement): number {
@@ -148,9 +183,6 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // count re-keys the beacon and replays the beat-0 pulse.
   let countInBeat: number | null = null;
   let countInSession = 0;
-  // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
-  // when the modal opens and after a save (so the list reflects new titles).
-  let savedVideos: SavedVideo[] = [];
 
   // Pitch shift: independent of the loop. The graph taps the element lazily on
   // the first non-zero offset; settings persist per video, and 0 is
@@ -356,6 +388,16 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     selectedLoopId = null;
   };
 
+  // Restore a saved loop's tempo snapshot into the live count-in settings and
+  // persist it as this video's count-in default. Legacy loops (no snapshot,
+  // countIn null/absent) leave the current settings untouched — there's
+  // nothing to restore.
+  const restoreLoopCountIn = (loop: SavedLoop) => {
+    if (loop.countIn == null) return;
+    countInSettings = sanitizeCountInSettings(loop.countIn);
+    if (videoId != null) void saveCountInSettings(videoId, countInSettings);
+  };
+
   // Restore the entry's last-used loop (clamping its zoom into the main loop).
   const applySavedEntry = (entry: VideoEntry) => {
     const loop =
@@ -370,6 +412,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       loop.zoom != null && state.loopSegment != null
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
+    restoreLoopCountIn(loop);
   };
 
   // Set the panel's on/off for the freshly loaded video. A popup launch loads
@@ -450,28 +493,20 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   const saveAsNew = async (name: string) => {
     if (videoId == null || state.loopSegment == null) return;
-    const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
+    const loop = await addLoop(
+      videoId,
+      name,
+      state.loopSegment,
+      zoomLoop,
+      countInSettings
+    );
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
     // Persist the title now so this video shows a name in the index without
     // waiting for a later revisit to backfill it.
     await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
-    await refreshLibrary();
     // Stay open so the new loop appears in the list as confirmation.
     render();
-  };
-
-  // Reload the cross-video index from storage.
-  const refreshLibrary = async () => {
-    savedVideos = await listEntries();
-    render();
-  };
-
-  // Jump to another saved video; its last-used loop auto-applies on load. A
-  // full navigation (rather than SPA trickery) is the robust path here.
-  const openVideo = (id: string) => {
-    if (id === videoId) return;
-    window.location.assign(`https://www.youtube.com/watch?v=${id}`);
   };
 
   const applyLoop = async (id: string) => {
@@ -486,8 +521,43 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       loop.zoom != null && state.loopSegment != null
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
+    restoreLoopCountIn(loop);
     if (videoId != null) await setLastUsed(videoId, id);
     // Modal stays open on apply; the row flashes to confirm.
+    render();
+  };
+
+  // Refresh `savedLoops` from storage when an edited loop has vanished from it
+  // (deleted elsewhere), clearing the selection if it pointed at that loop.
+  const refreshMissingLoop = async (id: string, forVideoId: string) => {
+    const entry = await loadEntry(forVideoId, undefined, getVideoTitle() ?? undefined);
+    savedLoops = entry?.loops ?? [];
+    if (selectedLoopId === id) selectedLoopId = null;
+  };
+
+  // Apply a pencil-edit commit to a saved loop: a rename, a replace-with-
+  // current (main/zoom/count-in overwritten from live state), or both. The id
+  // comes from whichever row's pencil was open, not from selection state, so
+  // this can edit a loop other than the one that's currently applied. A
+  // replace makes the edited loop the new selection (it now matches current
+  // state, so its row reads selected/clean); a rename alone must not steal
+  // the selection from whatever row already holds it.
+  const editSavedLoop = async (
+    id: string,
+    patch: { name?: string; replaceState?: boolean }
+  ): Promise<void> => {
+    if (videoId == null) return;
+    if (patch.replaceState && state.loopSegment == null) return;
+    const storePatch = buildEditStorePatch(patch, state.loopSegment, zoomLoop, countInSettings);
+    if (Object.keys(storePatch).length === 0) return;
+
+    const updated = await updateLoop(videoId, id, storePatch);
+    if (updated == null) {
+      await refreshMissingLoop(id, videoId);
+    } else {
+      savedLoops = savedLoops.map((l) => (l.id === updated.id ? updated : l));
+      if (patch.replaceState) selectedLoopId = id;
+    }
     render();
   };
 
@@ -496,16 +566,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     await removeLoop(videoId, id);
     savedLoops = savedLoops.filter((l) => l.id !== id);
     if (selectedLoopId === id) selectedLoopId = null;
-    // Removing the last loop deletes the video's entry, so refresh the index
-    // (this video drops off it once it has no loops left).
-    await refreshLibrary();
     render();
   };
 
   const toggleLoops = () => {
     loopsOpen = !loopsOpen;
-    // Refresh the index as the modal opens so the "Saved videos" tab is current.
-    if (loopsOpen) void refreshLibrary();
     render();
   };
 
@@ -541,7 +606,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const render = () => {
     const duration = getVideoDuration(video);
     const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
-    const loopDirty = isLoopDirty(selectedLoop, state.loopSegment, zoomLoop);
+    const loopDirty = isLoopDirty(
+      selectedLoop,
+      state.loopSegment,
+      zoomLoop,
+      countInSettings
+    );
     const zoomVisible = zoomStripVisible();
     // Beacon at the point playback will resume from — the zoom sub-region
     // start while magnified, else the main loop start. Rendered by the zoom
@@ -611,16 +681,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           // A drifted (dirty) selection no longer *is* the saved loop, so no
           // row reads as selected until it's re-applied or saved anew.
           selectedLoopId={loopDirty ? null : selectedLoopId}
-          currentSegment={state.loopSegment}
-          loopDirty={loopDirty}
-          savedVideos={savedVideos}
-          currentVideoId={videoId}
+          duration={duration}
           onToggleLoops={toggleLoops}
           onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
+          onEditLoop={(id, patch) => void editSavedLoop(id, patch)}
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
-          onOpenVideo={openVideo}
           countInOn={countInOn}
           countInSettings={countInSettings}
           onToggleCountIn={onToggleCountIn}

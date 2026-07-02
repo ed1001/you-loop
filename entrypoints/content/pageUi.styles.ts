@@ -2,7 +2,6 @@
 // ensureDocumentStyles, because our elements mount into YouTube's light DOM
 // (inside .ytp-progress-bar), where WXT's ui-scoped style.css cannot reach
 // them. Kept as a string here so pageUi.tsx stays focused on behavior.
-import { VIDEO_LIST_STYLES } from "../../features/video-list/videoList.styles";
 
 export const PAGE_UI_STYLES = `
     .you-loop-page-ui {
@@ -1687,13 +1686,6 @@ export const PAGE_UI_STYLES = `
       margin: 0;
     }
 
-    .you-loop-lm-sub {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-      margin: 0;
-    }
-
     .you-loop-lm-label {
       color: rgba(255, 255, 255, 0.42);
       font-size: 11px;
@@ -1710,17 +1702,8 @@ export const PAGE_UI_STYLES = `
       padding: 14px 14px 14px;
     }
 
-    /* Nothing new to save: dim the whole card so it reads as inactive. */
-    .you-loop-lm-save[data-disabled="true"] {
-      opacity: 0.5;
-    }
-
     .you-loop-lm-name {
       width: 100%;
-    }
-
-    .you-loop-lm-name:disabled {
-      cursor: default;
     }
 
     .you-loop-lm-savebtn {
@@ -1802,6 +1785,7 @@ export const PAGE_UI_STYLES = `
       display: flex;
       gap: 6px;
       padding: 3px 6px 3px 4px;
+      position: relative;
       transition:
         border-color 0.15s ease,
         background 0.15s ease;
@@ -1812,9 +1796,19 @@ export const PAGE_UI_STYLES = `
       border-color: rgba(255, 255, 255, 0.18);
     }
 
-    .you-loop-lm-row[data-selected="true"] {
+    .you-loop-lm-row[data-selected="true"],
+    .you-loop-lm-row[data-editing="true"] {
       background: rgba(94, 234, 212, 0.08);
       border-color: #5eead4;
+    }
+
+    /* Above the full-height map tint (z-index 0): the row's real content —
+       apply button, actions, the pencil-edit form — must paint over it. */
+    .you-loop-lm-apply,
+    .you-loop-lm-actions,
+    .you-loop-lm-edit-row {
+      position: relative;
+      z-index: 1;
     }
 
     .you-loop-lm-apply {
@@ -1856,6 +1850,8 @@ export const PAGE_UI_STYLES = `
       gap: 2px;
     }
 
+    /* Hidden until the row is hovered or a child has focus, so the list reads
+       clean until the user is actually interacting with a row. */
     .you-loop-lm-actions button {
       background: transparent;
       border: 0;
@@ -1864,94 +1860,153 @@ export const PAGE_UI_STYLES = `
       cursor: pointer;
       font-size: 13px;
       line-height: 1;
+      opacity: 0;
       padding: 5px 6px;
+      transition: opacity 0.12s ease;
+    }
+
+    .you-loop-lm-row:hover .you-loop-lm-actions button,
+    .you-loop-lm-row:focus-within .you-loop-lm-actions button {
+      opacity: 1;
     }
 
     /* Delete is destructive: hover shifts to red so it never reads as just
-       another neutral action. */
-    .you-loop-lm-actions button:hover {
+       another neutral action. Scoped to the delete button only — the pencil
+       edit button gets its own (teal) hover below. */
+    .you-loop-lm-delete:hover {
       background: rgba(248, 113, 113, 0.14);
       color: #f87171;
     }
 
-    /* ── View tabs: per-video loops vs the cross-video index ──────────── */
-    .you-loop-lm-tabs {
-      background: rgba(0, 0, 0, 0.34);
-      border-radius: 999px;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-      display: flex;
-      gap: 2px;
-      padding: 3px;
+    /* Edit is non-destructive: hover shifts to teal, matching the rest of
+       the panel's affirmative-action language. */
+    .you-loop-lm-edit:hover {
+      background: rgba(94, 234, 212, 0.14);
+      color: #5eead4;
     }
 
-    /* Active tab fades in its teal fill — same idiom as the panel's
-       LOOP/ONE-SHOT mode toggle, so the two segmented controls feel related. */
-    .you-loop-lm-tab {
-      background: transparent;
-      border: 0;
-      border-radius: 999px;
-      color: rgba(255, 255, 255, 0.6);
-      cursor: pointer;
+    /* An SVG with only a viewBox defaults to 300×150 — it must be sized
+       explicitly or the pencil renders unusably. */
+    .you-loop-lm-edit svg {
+      display: block;
+      height: 13px;
+      width: 13px;
+    }
+
+    /* Pencil-edit form: replaces a row's apply/actions content while it is
+       being edited. Two lines — the full-width name input, then Replace on
+       the left with Cancel/Save on the right — so a slight height growth
+       over a normal row is fine; the list is a flex column and reflows. */
+    .you-loop-lm-edit-row {
+      display: flex;
       flex: 1;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+      padding: 6px 4px;
+    }
+
+    .you-loop-lm-edit-line {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+    }
+
+    .you-loop-lm-edit-name {
+      min-width: 0;
+      width: 100%;
+    }
+
+    /* Always visible — unlike .you-loop-lm-actions, these are not
+       hover-gated: the edit form only appears on demand, so its own actions
+       must already be reachable. */
+    .you-loop-lm-edit-actions {
+      display: inline-flex;
+      flex: none;
+      gap: 6px;
+    }
+
+    .you-loop-lm-edit-actions button {
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      padding: 7px 12px;
-      transition: background 0.18s ease, color 0.18s ease;
+      line-height: 1;
+      padding: 6px 10px;
+      transition: background 0.12s ease, color 0.12s ease;
     }
 
-    .you-loop-lm-tab:hover:not([data-active="true"]) {
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .you-loop-lm-tab[data-active="true"] {
-      background: #14b8a6;
+    /* Save mirrors the modal's primary save button, scaled to the row. */
+    .you-loop-lm-edit-save {
+      background: #5eead4;
       color: #06302b;
+      font-weight: 700;
     }
 
-    /* Tab panes fade both ways: the outgoing pane fades out drifting up
-       (data-leaving, while the switch is pending), then the incoming pane
-       mounts and fades in rising from below — one continuous upward motion. */
-    .you-loop-lm-pane {
-      animation: you-loop-pane-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      min-width: 0;
+    .you-loop-lm-edit-save:hover {
+      background: #7af0de;
     }
 
-    /* Duration must match PANE_EXIT_MS in SavedLoopsModal. */
-    .you-loop-lm-pane[data-leaving="true"] {
-      animation: you-loop-pane-out 0.18s ease both;
+    /* Neutral quiet text button: cancelling an edit is never destructive. */
+    .you-loop-lm-edit-cancel {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .you-loop-lm-edit-cancel:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .you-loop-lm-replace {
+      background: transparent;
+      border: 1px solid rgba(94, 234, 212, 0.5);
+      border-radius: 6px;
+      color: #5eead4;
+      cursor: pointer;
+      flex: none;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 6px 10px;
+      transition: background 0.15s ease;
+    }
+
+    .you-loop-lm-replace:hover {
+      background: rgba(94, 234, 212, 0.08);
+    }
+
+    /* Armed = part of the draft: filled + solid border until Save commits it
+       (or Cancel/Esc discards it). */
+    .you-loop-lm-replace[data-armed="true"] {
+      background: rgba(94, 234, 212, 0.14);
+      border-color: #5eead4;
+    }
+
+    /* Full-height position tint: a quick visual of where this loop sits
+       within the whole video, filling the row behind its content (z-index 0,
+       see .you-loop-lm-apply/.you-loop-lm-actions/.you-loop-lm-edit-row
+       above) instead of a thin bottom hairline. */
+    .you-loop-lm-map {
+      border-radius: 7px;
+      inset: 0;
+      overflow: hidden;
       pointer-events: none;
+      position: absolute;
+      z-index: 0;
     }
 
-    @keyframes you-loop-pane-in {
-      from {
-        opacity: 0;
-        transform: translateY(7px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .you-loop-lm-map-band {
+      background: rgba(20, 184, 166, 0.14);
+      height: 100%;
+      position: absolute;
+      top: 0;
     }
 
-    @keyframes you-loop-pane-out {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      to {
-        opacity: 0;
-        transform: translateY(-6px);
-      }
+    .you-loop-lm-row[data-selected="true"] .you-loop-lm-map-band {
+      background: rgba(20, 184, 166, 0.22);
     }
-
-    /* ── Saved-videos index (shared with the popup) ───────────────────── */
-    ${VIDEO_LIST_STYLES}
 
     /* Reuse the help modal's exit keyframes for the close animation. */
     .you-loop-lm-backdrop[data-closing="true"] {

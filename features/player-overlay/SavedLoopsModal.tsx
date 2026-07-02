@@ -365,6 +365,7 @@ export function SavedLoopsModal({
                       <span className="you-loop-lm-actions">
                         <button
                           type="button"
+                          className="you-loop-lm-update"
                           aria-label={`Update ${loop.name} with current loop`}
                           title="Update"
                           onClick={(e) => {
@@ -376,6 +377,7 @@ export function SavedLoopsModal({
                         </button>
                         <button
                           type="button"
+                          className="you-loop-lm-delete"
                           aria-label={`Delete ${loop.name}`}
                           title="Delete"
                           onClick={(e) => {

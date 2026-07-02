@@ -1805,7 +1805,8 @@ export const PAGE_UI_STYLES = `
 
     /* Origin ring goes first: when a row is both the drift source and mid
        confirm, the selected/pending rule below (same specificity, later in
-       source order) wins and shows the active teal state instead. */
+       source order, and setting both border-color and border-style) wins
+       and shows the active solid-teal state instead of the dashed ring. */
     .you-loop-lm-row[data-origin="true"] {
       border-color: rgba(94, 234, 212, 0.45);
       border-style: dashed;
@@ -1815,6 +1816,7 @@ export const PAGE_UI_STYLES = `
     .you-loop-lm-row[data-pending="true"] {
       background: rgba(94, 234, 212, 0.08);
       border-color: #5eead4;
+      border-style: solid;
     }
 
     .you-loop-lm-apply {
@@ -1886,10 +1888,18 @@ export const PAGE_UI_STYLES = `
     }
 
     /* Delete is destructive: hover shifts to red so it never reads as just
-       another neutral action. */
-    .you-loop-lm-actions button:hover {
+       another neutral action. Scoped to the delete button only — the ↻
+       update button gets its own (teal) hover below. */
+    .you-loop-lm-delete:hover {
       background: rgba(248, 113, 113, 0.14);
       color: #f87171;
+    }
+
+    /* Update is non-destructive: hover shifts to teal, matching the rest of
+       the panel's affirmative-action language. */
+    .you-loop-lm-update:hover {
+      background: rgba(94, 234, 212, 0.14);
+      color: #5eead4;
     }
 
     /* Inline confirm strip: replaces a row's apply/actions content while its
@@ -1905,15 +1915,18 @@ export const PAGE_UI_STYLES = `
       padding: 6px 4px;
     }
 
+    /* Name + delta share a single row now (was name atop delta, which made
+       the strip two lines tall — taller than a normal row). */
     .you-loop-lm-confirm-info {
+      align-items: baseline;
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      gap: 8px;
       min-width: 0;
     }
 
     .you-loop-lm-confirm-name {
       color: #fff;
+      flex: none;
       font-size: 13px;
       font-weight: 600;
       overflow: hidden;
@@ -1921,10 +1934,14 @@ export const PAGE_UI_STYLES = `
       white-space: nowrap;
     }
 
+    /* Trails the name on the same line, truncating independently so a long
+       delta never wraps the row onto a second line (which would grow the
+       row taller than its neighbors). */
     .you-loop-lm-confirm-delta {
       color: rgba(255, 255, 255, 0.65);
       font-size: 11.5px;
       font-variant-numeric: tabular-nums;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;

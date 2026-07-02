@@ -15,7 +15,8 @@ export type CountInController = {
   start(): boolean;
   /** Call when a loop wrap (end → start) has occurred. */
   onWrap(): void;
-  /** Interrupt any running count and resume playback. */
+  /** Interrupt any running count. Leaves the video paused — playback never
+   *  starts mid-count; only the count completing (finish) resumes it. */
   cancel(): void;
   isCounting(): boolean;
 };
@@ -75,10 +76,7 @@ export function createCountInController(deps: {
       begin();
     },
     cancel() {
-      if (!counting) return;
-      const wasPaused = deps.video.paused;
       teardown();
-      if (wasPaused) void deps.video.play();
     },
     isCounting: () => counting
   };

@@ -85,12 +85,13 @@ describe("countInController", () => {
     expect(controller.isCounting()).toBe(false);
   });
 
-  it("cancel stops the player and resumes a paused video", () => {
+  it("cancel stops the player and leaves the video paused (no auto-play while counting)", () => {
     const { controller, video, player } = setup();
     controller.onWrap();
     controller.cancel();
     expect(player.cancel).toHaveBeenCalled();
-    expect(video.play).toHaveBeenCalledTimes(1);
+    expect(video.play).not.toHaveBeenCalled();
+    expect(video.paused).toBe(true);
     expect(controller.isCounting()).toBe(false);
   });
 });

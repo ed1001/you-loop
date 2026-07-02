@@ -525,6 +525,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     } else {
       const entry = await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
       savedLoops = entry?.loops ?? [];
+      selectedLoopId = null;
     }
     render();
   };

@@ -1714,6 +1714,58 @@ export const PAGE_UI_STYLES = `
       opacity: 0.5;
     }
 
+    .you-loop-lm-update {
+      background: transparent;
+      border: 1px solid rgba(94, 234, 212, 0.5);
+      border-radius: 8px;
+      cursor: pointer;
+      display: block;
+      font-family: inherit;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      text-align: left;
+      transition: background 0.15s ease;
+      width: 100%;
+    }
+
+    .you-loop-lm-update:hover {
+      background: rgba(94, 234, 212, 0.08);
+    }
+
+    .you-loop-lm-update-title {
+      color: #5eead4;
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .you-loop-lm-update-delta {
+      color: rgba(255, 255, 255, 0.55);
+      display: block;
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+      margin-top: 3px;
+    }
+
+    .you-loop-lm-or {
+      align-items: center;
+      color: rgba(255, 255, 255, 0.35);
+      display: flex;
+      font-size: 10px;
+      gap: 8px;
+      letter-spacing: 0.08em;
+      margin: 2px 0 10px;
+      text-transform: uppercase;
+    }
+
+    .you-loop-lm-or::before,
+    .you-loop-lm-or::after {
+      background: rgba(255, 255, 255, 0.1);
+      content: "";
+      flex: 1;
+      height: 1px;
+    }
+
     .you-loop-lm-name {
       width: 100%;
     }

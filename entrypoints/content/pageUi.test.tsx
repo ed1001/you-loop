@@ -1,11 +1,14 @@
 import { act } from "react";
 import { fireEvent, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { keyFor } from "../../features/persistence/loopStore";
+import type { SavedLoop } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY, LOOP_ON_KEY } from "../../features/persistence/settingsStore";
 import { COUNT_IN_KEY, countInKeyFor } from "../../features/persistence/countInStore";
+import type { CountInSettings } from "../../features/persistence/countInStore";
 import { makeMemoryArea } from "../../features/persistence/memoryArea.testutil";
+import { describeDelta } from "../../features/player-overlay/SavedLoopsModal";
 
 function enableLoop() {
   fireEvent.click(screen.getByLabelText("Enable loop range"));
@@ -1113,5 +1116,174 @@ describe("watchPlayerWidth", () => {
 
     stop();
     window.ResizeObserver = original;
+  });
+});
+
+describe("describeDelta", () => {
+  const countIn: CountInSettings = { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 };
+  const source: SavedLoop = {
+    id: "l1",
+    name: "A",
+    main: { start: 5, end: 9 },
+    zoom: null,
+    countIn
+  };
+
+  it("shows only the region when just the region drifted", () => {
+    const segment = { start: 20, end: 9 };
+    expect(describeDelta(source, segment, null, countIn)).toBe(
+      "0:05 – 0:09 → 0:20 – 0:09"
+    );
+  });
+
+  it("shows only bpm when just tempo drifted", () => {
+    const nextCountIn = { ...countIn, bpm: 145 };
+    expect(describeDelta(source, source.main, null, nextCountIn)).toBe(
+      "♩140 → 145"
+    );
+  });
+
+  it("shows meter and bars together when both change", () => {
+    const nextCountIn = { ...countIn, beatsPerBar: 6, noteValue: 8, bars: 2 };
+    expect(describeDelta(source, source.main, null, nextCountIn)).toBe(
+      "4/4 → 6/8 · 1 bar → 2 bars"
+    );
+  });
+
+  it("ignores tempo fields for a legacy source with no count-in snapshot", () => {
+    const legacySource: SavedLoop = { ...source, countIn: null };
+    const nextCountIn = { ...countIn, bpm: 200 };
+    expect(describeDelta(legacySource, source.main, null, nextCountIn)).toBe("");
+  });
+
+  it("returns an empty string when nothing changed", () => {
+    expect(describeDelta(source, source.main, null, countIn)).toBe("");
+  });
+});
+
+describe("update in place", () => {
+  // A preceding describe block ("compact mode toggle") mounts a player
+  // without tearing it down, so the DOM can arrive dirty here regardless of
+  // this block's own afterEach. Start clean rather than depend on run order.
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    fireEvent.click(document.body);
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
+  });
+
+  // A wide main region (unlike SAVED_ENTRY's narrow 5–9) so dragging the
+  // start handle out to 20s lands cleanly inside it instead of clamping
+  // against the end.
+  const UPDATE_ENTRY = {
+    loops: [
+      {
+        id: "l1",
+        name: "A",
+        main: { start: 5, end: 100 },
+        zoom: null,
+        countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+      }
+    ],
+    lastUsedId: "l1",
+    addedAt: 10,
+    title: "Caprice 24"
+  };
+
+  // Applies the launch-restored loop, then drags "Loop start" from 5s to 20s
+  // (1px == 1s: rect width matches the 120s stub duration) so the selection
+  // drifts off the saved loop.
+  function driftMainStart(player: HTMLElement) {
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    const startHandle = screen.getByLabelText("Loop start");
+    startHandle.setPointerCapture = () => {};
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+    });
+  }
+
+  it("offers update-in-place when the applied loop has drifted", async () => {
+    const { player } = await mountWatch("vid1", {
+      [keyFor("vid1")]: UPDATE_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    driftMainStart(player);
+    // The drag-end click guard (suppressNextClick) eats the very next click
+    // regardless of target; let its one-shot timeout clear before opening
+    // the modal so that click isn't swallowed too.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    const updateButton = screen.getByRole("button", { name: /Update “A”/ });
+    expect(updateButton.textContent).toContain("0:05 – 1:40 → 0:20 – 1:40");
+  });
+
+  it("update commits the current state into the loop", async () => {
+    const { player, dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: UPDATE_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    driftMainStart(player);
+    // The drag-end click guard (suppressNextClick) eats the very next click
+    // regardless of target; let its one-shot timeout clear before opening
+    // the modal so that click isn't swallowed too.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    const updateButton = screen.getByRole("button", { name: /Update “A”/ });
+
+    await act(async () => {
+      fireEvent.click(updateButton);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].main).toEqual({ start: 20, end: 100 });
+
+    // Selection reads clean again: no more update offer, and the row is
+    // re-selected now that the current state matches what's stored.
+    expect(screen.queryByRole("button", { name: /Update/ })).not.toBeInTheDocument();
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+  });
+
+  it("no update block without a source loop", async () => {
+    await mountWatch("vid1");
+    await flushAsync();
+
+    act(() => {
+      enableLoop();
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    // Dirty (fresh, unsaved selection) but with no saved loop it was seeded
+    // from, so there's nothing to offer updating.
+    expect(screen.queryByText(/Update/)).not.toBeInTheDocument();
   });
 });

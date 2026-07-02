@@ -23,17 +23,17 @@ type Props = {
   // False when the current selection already matches the selected saved loop,
   // so there's nothing new to save.
   dirty: boolean;
-  // The saved loop the current selection was seeded from, if any. Consumed
-  // starting Task 5 (update-in-place); unused for now.
+  // The saved loop the current selection was seeded from, if any. Drives the
+  // update-in-place block below.
   sourceLoop?: SavedLoop;
-  // Consumed starting Task 5/6; unused for now.
+  // Consumed starting Task 6; unused for now.
   duration: number;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
   onUpdateLoop: () => void;
   onApply: (id: string) => void;
   onDelete: (id: string) => void;
-  // Consumed starting Task 5/6; unused for now.
+  // Feed describeDelta's changed-field comparison for the update block.
   currentZoom: LoopSegment | null;
   currentCountIn: CountInSettings;
 };
@@ -61,6 +61,53 @@ function formatRange(segment: LoopSegment | null): string {
   return `${formatTime(segment.start)} – ${formatTime(segment.end)}`;
 }
 
+// Two loop segments are equal when both null or both endpoints match.
+function regionsEqual(a: LoopSegment | null, b: LoopSegment | null): boolean {
+  if (a == null || b == null) return a === b;
+  return a.start === b.start && a.end === b.end;
+}
+
+function pluralBars(bars: number): string {
+  return `${bars} bar${bars === 1 ? "" : "s"}`;
+}
+
+// Pure summary of what an update-in-place would change, most-visible fields
+// first (region, then zoom, then tempo). Only changed fields render — an
+// unchanged field would be noise next to the button that commits it. Legacy
+// sources (no count-in snapshot) never compare tempo: there is nothing to
+// diff against, matching isLoopDirty's own legacy handling in pageUi.tsx.
+export function describeDelta(
+  source: SavedLoop,
+  segment: LoopSegment | null,
+  zoom: LoopSegment | null,
+  countIn: CountInSettings
+): string {
+  const parts: string[] = [];
+
+  if (!regionsEqual(source.main, segment)) {
+    parts.push(`${formatRange(source.main)} → ${formatRange(segment)}`);
+  }
+  if (!regionsEqual(source.zoom, zoom)) {
+    parts.push(`zoom ${formatRange(source.zoom)} → ${formatRange(zoom)}`);
+  }
+  if (source.countIn != null) {
+    const from = source.countIn;
+    if (from.bpm !== countIn.bpm) {
+      parts.push(`♩${from.bpm} → ${countIn.bpm}`);
+    }
+    if (from.beatsPerBar !== countIn.beatsPerBar || from.noteValue !== countIn.noteValue) {
+      parts.push(
+        `${from.beatsPerBar}/${from.noteValue} → ${countIn.beatsPerBar}/${countIn.noteValue}`
+      );
+    }
+    if (from.bars !== countIn.bars) {
+      parts.push(`${pluralBars(from.bars)} → ${pluralBars(countIn.bars)}`);
+    }
+  }
+
+  return parts.join(" · ");
+}
+
 export function SavedLoopsModal({
   open,
   container,
@@ -68,10 +115,14 @@ export function SavedLoopsModal({
   selectedId,
   currentSegment,
   dirty,
+  sourceLoop,
   onClose,
   onSaveAsNew,
+  onUpdateLoop,
   onApply,
   onDelete,
+  currentZoom,
+  currentCountIn,
 }: Props) {
   const [newName, setNewName] = useState("");
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -258,6 +309,27 @@ export function SavedLoopsModal({
 
         <section className="you-loop-lm-save" data-disabled={!dirty}>
           <h3 className="you-loop-lm-label">Save current loop</h3>
+
+          {sourceLoop != null && dirty && (
+            <>
+              <button
+                type="button"
+                className="you-loop-lm-update"
+                onClick={(e) => {
+                  swallow(e);
+                  onUpdateLoop();
+                }}
+              >
+                <span className="you-loop-lm-update-title">
+                  {`↻ Update “${sourceLoop.name}”`}
+                </span>
+                <span className="you-loop-lm-update-delta">
+                  {describeDelta(sourceLoop, currentSegment, currentZoom, currentCountIn)}
+                </span>
+              </button>
+              <span className="you-loop-lm-or">or</span>
+            </>
+          )}
 
           <input
             className="you-loop-loops-input you-loop-lm-name"

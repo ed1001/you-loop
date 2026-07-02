@@ -807,7 +807,7 @@ export const PAGE_UI_STYLES = `
       font-weight: 600;
       height: 27px;
       letter-spacing: 0.01em;
-      min-width: 66px;
+      min-width: 54px;
       padding: 0 6px;
       place-items: center;
       text-align: center;

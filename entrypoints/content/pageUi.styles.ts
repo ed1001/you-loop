@@ -837,14 +837,6 @@ export const PAGE_UI_STYLES = `
       color: #5eead4;
     }
 
-    /* Bypassed (clicked off): muted even with an offset dialled in. */
-    .you-loop-pitch-value[data-off="true"][data-modified="true"] {
-      color: rgba(255, 255, 255, 0.5);
-      text-decoration: line-through;
-      text-decoration-color: rgba(255, 255, 255, 0.35);
-      text-decoration-thickness: 1.5px;
-    }
-
     .you-loop-pitch-value[data-scrubbing="true"] {
       color: #5eead4;
       transform: scale(1.12);

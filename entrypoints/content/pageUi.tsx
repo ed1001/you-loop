@@ -43,10 +43,8 @@ import {
 import { createPitchGraph } from "../../features/pitch/pitchGraph";
 import {
   DEFAULT_PITCH_SETTINGS,
-  getPitchEnabled,
   loadPitchSettings,
   savePitchSettings,
-  setPitchEnabled,
   type PitchSettings
 } from "../../features/persistence/pitchStore";
 import { buildCountOff } from "../../features/playback/countOff";
@@ -152,9 +150,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedVideos: SavedVideo[] = [];
 
   // Pitch shift: independent of the loop. The graph taps the element lazily on
-  // first engage; settings persist per video.
+  // the first non-zero offset; settings persist per video, and 0 is
+  // bit-transparent (direct branch), so there is no separate on/off.
   let pitchSettings: PitchSettings = DEFAULT_PITCH_SETTINGS;
-  let pitchEnabled = false;
   const pitchGraph = createPitchGraph(video);
   let pitchAvailable = pitchGraph.isAvailable();
 
@@ -314,27 +312,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // Push current pitch state into the graph and reflect availability.
   const applyPitch = () => {
     pitchGraph.setSettings(pitchSettings);
-    pitchGraph.setEnabled(pitchEnabled);
     pitchAvailable = pitchGraph.isAvailable();
   };
 
   const setPitch = (next: PitchSettings) => {
     pitchSettings = next;
-    // Dialling in an offset auto-engages, so dragging "just works" without
-    // first flipping the switch.
-    if (!pitchEnabled && (next.semitones !== 0 || next.cents !== 0)) {
-      pitchEnabled = true;
-      void setPitchEnabled(true);
-    }
     applyPitch();
     if (videoId != null) void savePitchSettings(videoId, pitchSettings);
-    render();
-  };
-
-  const togglePitch = () => {
-    pitchEnabled = !pitchEnabled;
-    void setPitchEnabled(pitchEnabled);
-    applyPitch();
     render();
   };
 
@@ -345,17 +329,14 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  // Load per-video pitch + global enabled flag, then apply. Same async race
-  // guard as loadForVideo (videoId can change mid-await on SPA navigation),
-  // plus a stop guard: the storage awaits can resolve after teardown, and
-  // rendering an unmounted root throws.
+  // Load the per-video pitch, then apply. Same async race guard as
+  // loadForVideo (videoId can change mid-await on SPA navigation), plus a
+  // stop guard: the storage await can resolve after teardown, and rendering
+  // an unmounted root throws.
   const loadPitchForVideo = async () => {
     const id = videoId;
-    const en = await getPitchEnabled();
-    if (stopped || videoId !== id) return;
     const s = id != null ? await loadPitchSettings(id) : DEFAULT_PITCH_SETTINGS;
     if (stopped || videoId !== id) return;
-    pitchEnabled = en;
     pitchSettings = s;
     applyPitch();
     render();
@@ -603,10 +584,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onSpeedChange={setSpeed}
           onResetSpeed={resetSpeed}
           pitchSettings={pitchSettings}
-          pitchEnabled={pitchEnabled}
           pitchAvailable={pitchAvailable}
           onPitchChange={setPitch}
-          onTogglePitch={togglePitch}
           onResetPitch={resetPitch}
           onShowHelp={() => {
             helpOpen = true;

@@ -1,7 +1,7 @@
 import type { StorageArea } from "./loopStore";
 import { clampCents, clampSemitones } from "../pitch/pitchScrub";
 
-export const PITCH_ENABLED_KEY = "you-loop:pitch";
+// Per-video key prefix in storage.local: `you-loop:pitch:v:<videoId>`.
 // fallow-ignore-next-line unused-export
 export const PITCH_KEY_PREFIX = "you-loop:pitch:v:";
 
@@ -18,26 +18,6 @@ export function pitchKeyFor(videoId: string): string {
 
 function resolveArea(area?: StorageArea): StorageArea {
   return area ?? (browser.storage.local as unknown as StorageArea);
-}
-
-export async function getPitchEnabled(area?: StorageArea): Promise<boolean> {
-  try {
-    const r = await resolveArea(area).get(PITCH_ENABLED_KEY);
-    return r[PITCH_ENABLED_KEY] === true;
-  } catch {
-    return false;
-  }
-}
-
-export async function setPitchEnabled(
-  value: boolean,
-  area?: StorageArea
-): Promise<void> {
-  try {
-    await resolveArea(area).set({ [PITCH_ENABLED_KEY]: value });
-  } catch {
-    // Best-effort: a failed write leaves the prior value intact.
-  }
 }
 
 export async function loadPitchSettings(

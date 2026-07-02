@@ -3,7 +3,6 @@ import { isZeroPitch, pitchRatio } from "./pitchScrub";
 import type { PitchSettings } from "../persistence/pitchStore";
 
 export interface PitchGraph {
-  setEnabled(on: boolean): void;
   setSettings(settings: PitchSettings): void;
   isAvailable(): boolean;
   dispose(): void;
@@ -26,7 +25,6 @@ export function createPitchGraph(
   video: HTMLVideoElement,
   deps: PitchGraphDeps = defaultDeps
 ): PitchGraph {
-  let enabled = false;
   let settings: PitchSettings = { semitones: 0, cents: 0 };
   let available = true;
   let tapping = false;
@@ -38,8 +36,10 @@ export function createPitchGraph(
   let engine: PitchEngine | null = null;
   let branch: "none" | "direct" | "pitch" = "none";
 
-  // True when the user wants audible processing right now.
-  const wantsPitch = () => enabled && !isZeroPitch(settings) && !failed;
+  // True when the user wants audible processing right now. A zero offset is
+  // silence-transparent by construction, so non-zero settings ARE the on
+  // switch — there is no separate enabled flag.
+  const wantsPitch = () => !isZeroPitch(settings) && !failed;
 
   const connectDirect = () => {
     if (ctx == null || inputGain == null || branch === "direct") return;
@@ -101,14 +101,6 @@ export function createPitchGraph(
   };
 
   return {
-    setEnabled(on: boolean) {
-      enabled = on;
-      if (wantsPitch() && !tapped) {
-        void ensureTapped();
-        return;
-      }
-      apply();
-    },
     setSettings(next: PitchSettings) {
       settings = next;
       if (wantsPitch() && !tapped) {

@@ -29,14 +29,12 @@ import { useScrubChip } from "./useScrubChip";
 
 type Props = {
   settings: PitchSettings;
-  enabled: boolean;
   available: boolean;
   disabled: boolean;
   /** Portal host for the scrubber popover (the player element); the panel's
       cluster clips overflow, so the popover cannot live inside the pill. */
   container: HTMLElement | null;
   onChange: (settings: PitchSettings) => void;
-  onToggleEnabled: () => void;
   onReset: () => void;
 };
 
@@ -55,12 +53,10 @@ const swallow = (event: MouseEvent | ReactPointerEvent) => {
 
 export function PitchControl({
   settings,
-  enabled,
   available,
   disabled,
   container,
   onChange,
-  onToggleEnabled,
   onReset
 }: Props) {
   const {
@@ -178,18 +174,13 @@ export function PitchControl({
     const drag = foldRelease(event);
     if (drag == null) return;
     const armed = !drag.fine && resetProgress(drag.accX) >= 1;
-    const moved = drag.moved;
+    if (drag.moved) suppressNextClick();
     finishDrag();
-    if (moved) suppressNextClick();
     if (armed) {
       if (!isZeroPitch(settings)) onReset();
       // Acknowledge the gesture landed even when already at 0.
       setPulse(true);
-      return;
     }
-    // A plain click (no travel) toggles the bypass: instant A/B against the
-    // untouched original without losing the dialled offset.
-    if (!moved) onToggleEnabled();
   };
 
   const onPointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -251,16 +242,15 @@ export function PitchControl({
         ref={chipRef}
         type="button"
         role="slider"
-        aria-label="Pitch — drag up or down to transpose, drag left for cents, drag right and release to reset, click to bypass"
+        aria-label="Pitch — drag up or down to transpose, drag left for cents, drag right and release to reset"
         aria-valuemin={-12}
         aria-valuemax={12}
         aria-valuenow={settings.semitones}
         aria-valuetext={label}
         className="you-loop-pitch-value"
-        title="Drag ↕ pitch · ⇠ fine · fling ⇢ reset · click bypass"
+        title="Drag ↕ pitch · ⇠ fine · fling ⇢ reset"
         data-modified={modified}
         data-scrubbing={scrubbing}
-        data-off={!enabled}
         data-pulse={pulse}
         disabled={blocked}
         onPointerDown={onPointerDown}

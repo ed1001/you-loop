@@ -10,12 +10,10 @@ import {
 
 const base = {
   settings: { semitones: 0, cents: 0 },
-  enabled: true,
   available: true,
   disabled: false,
   container: document.body,
   onChange: () => {},
-  onToggleEnabled: () => {},
   onReset: () => {}
 };
 
@@ -58,12 +56,14 @@ describe("PitchControl", () => {
     expect(document.querySelector(".you-loop-speed-rail")).not.toBeNull();
   });
 
-  it("a plain click toggles the bypass", () => {
-    const onToggleEnabled = vi.fn();
-    const chip = renderChip({ onToggleEnabled });
+  it("a plain click changes nothing", () => {
+    const onChange = vi.fn();
+    const onReset = vi.fn();
+    const chip = renderChip({ onChange, onReset });
     press(chip);
     releaseAt(chip, 0, 0);
-    expect(onToggleEnabled).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onReset).not.toHaveBeenCalled();
   });
 
   it("flinging right and releasing resets a non-zero offset", () => {

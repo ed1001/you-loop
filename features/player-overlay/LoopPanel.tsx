@@ -20,10 +20,8 @@ type Props = {
   onSpeedChange: (rate: number) => void;
   onResetSpeed: () => void;
   pitchSettings: PitchSettings;
-  pitchEnabled: boolean;
   pitchAvailable: boolean;
   onPitchChange: (settings: PitchSettings) => void;
-  onTogglePitch: () => void;
   onResetPitch: () => void;
   onShowHelp: () => void;
   canSaveLoops: boolean;
@@ -77,10 +75,8 @@ export function LoopPanel({
   onSpeedChange,
   onResetSpeed,
   pitchSettings,
-  pitchEnabled,
   pitchAvailable,
   onPitchChange,
-  onTogglePitch,
   onResetPitch,
   onShowHelp,
   canSaveLoops,
@@ -269,12 +265,10 @@ export function LoopPanel({
 
             <PitchControl
               settings={pitchSettings}
-              enabled={pitchEnabled}
               available={pitchAvailable}
               disabled={!enabled}
               container={loopsContainer}
               onChange={onPitchChange}
-              onToggleEnabled={onTogglePitch}
               onReset={onResetPitch}
             />
 

@@ -2,12 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { StorageArea } from "./loopStore";
 import {
   DEFAULT_PITCH_SETTINGS,
-  PITCH_ENABLED_KEY,
-  getPitchEnabled,
   loadPitchSettings,
   pitchKeyFor,
-  savePitchSettings,
-  setPitchEnabled
+  savePitchSettings
 } from "./pitchStore";
 
 function memArea(initial: Record<string, unknown> = {}) {
@@ -62,24 +59,5 @@ describe("savePitchSettings", () => {
     await expect(
       savePitchSettings("vid", { semitones: 1, cents: 0 }, throwingArea)
     ).resolves.toBeUndefined();
-  });
-});
-
-describe("pitch enabled flag", () => {
-  it("is true only when explicitly true", async () => {
-    const { area } = memArea();
-    expect(await getPitchEnabled(area)).toBe(false);
-    await setPitchEnabled(true, area);
-    expect(await getPitchEnabled(area)).toBe(true);
-  });
-
-  it("reads false from a throwing area", async () => {
-    expect(await getPitchEnabled(throwingArea)).toBe(false);
-  });
-
-  it("stores under the global key", async () => {
-    const { area, data } = memArea();
-    await setPitchEnabled(true, area);
-    expect(data[PITCH_ENABLED_KEY]).toBe(true);
   });
 });

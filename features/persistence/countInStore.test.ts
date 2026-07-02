@@ -7,7 +7,8 @@ import {
   getCountInEnabled,
   setCountInEnabled,
   loadCountInSettings,
-  saveCountInSettings
+  saveCountInSettings,
+  sanitizeCountInSettings
 } from "./countInStore";
 
 function makeArea(
@@ -101,6 +102,15 @@ describe("countInStore per-video settings", () => {
       beatsPerBar: 1,
       noteValue: 16,
       bars: 4
+    });
+  });
+
+  it("sanitizeCountInSettings guards arbitrary input", () => {
+    expect(sanitizeCountInSettings(null)).toEqual(DEFAULT_COUNT_IN_SETTINGS);
+    expect(sanitizeCountInSettings({ bpm: 0, beatsPerBar: 99 })).toEqual({
+      ...DEFAULT_COUNT_IN_SETTINGS,
+      bpm: 40,
+      beatsPerBar: 12
     });
   });
 });

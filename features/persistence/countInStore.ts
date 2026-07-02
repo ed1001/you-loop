@@ -62,6 +62,18 @@ function intInRange(
     : fallback;
 }
 
+export function sanitizeCountInSettings(raw: unknown): CountInSettings {
+  const d = DEFAULT_COUNT_IN_SETTINGS;
+  if (raw == null || typeof raw !== "object") return d;
+  const merged = { ...d, ...(raw as Partial<CountInSettings>) };
+  return {
+    bpm: intInRange(merged.bpm, MIN_BPM, MAX_BPM, d.bpm),
+    beatsPerBar: intInRange(merged.beatsPerBar, 1, 12, d.beatsPerBar),
+    noteValue: intInRange(merged.noteValue, 1, 16, d.noteValue),
+    bars: intInRange(merged.bars, 1, 4, d.bars)
+  };
+}
+
 export async function loadCountInSettings(
   videoId: string,
   area?: StorageArea
@@ -69,16 +81,7 @@ export async function loadCountInSettings(
   const key = countInKeyFor(videoId);
   try {
     const r = await resolveArea(area).get(key);
-    const raw = r[key];
-    if (raw == null || typeof raw !== "object") return DEFAULT_COUNT_IN_SETTINGS;
-    const merged = { ...DEFAULT_COUNT_IN_SETTINGS, ...(raw as Partial<CountInSettings>) };
-    const d = DEFAULT_COUNT_IN_SETTINGS;
-    return {
-      bpm: intInRange(merged.bpm, MIN_BPM, MAX_BPM, d.bpm),
-      beatsPerBar: intInRange(merged.beatsPerBar, 1, 12, d.beatsPerBar),
-      noteValue: intInRange(merged.noteValue, 1, 16, d.noteValue),
-      bars: intInRange(merged.bars, 1, 4, d.bars)
-    };
+    return sanitizeCountInSettings(r[key]);
   } catch {
     return DEFAULT_COUNT_IN_SETTINGS;
   }

@@ -5,6 +5,7 @@ import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 import { buildTimeMap, type Segment, type TimeMap } from "./chapterMapping";
 import { CountInBeacon, type CountInBeat } from "./CountInBeacon";
+import { formatTime } from "./formatTime";
 
 type Props = {
   duration: number;
@@ -26,6 +27,9 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
   const startRef = useRef<HTMLButtonElement>(null);
   const endRef = useRef<HTMLButtonElement>(null);
   const rangeRef = useRef<HTMLDivElement>(null);
+  // Time readouts shown above the handle being dragged.
+  const startChipRef = useRef<HTMLSpanElement>(null);
+  const endChipRef = useRef<HTMLSpanElement>(null);
 
   const safeDuration = Math.max(duration, 1);
 
@@ -99,6 +103,13 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
     }
     draggingRef.current = null;
     setDragLock(false);
+    delete startRef.current?.dataset.dragLive;
+    delete endRef.current?.dataset.dragLive;
+    // Swallow the click the browser synthesizes after the drag. Must be armed
+    // HERE (release), not at pointerdown: the guard self-destructs on the next
+    // macrotask, so arming at grab time leaves the real drag-end click — which
+    // can land on the video and toggle play/pause — unswallowed.
+    suppressNextClick();
     const next = liveRef.current;
     paint(next);
     // A window-mode drag (Shift held at pointerdown) that actually moved the
@@ -141,6 +152,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
       rangeRef.current.style.left = `${start}%`;
       rangeRef.current.style.width = `${end - start}%`;
     }
+    if (startChipRef.current) startChipRef.current.textContent = formatTime(seg.start);
+    if (endChipRef.current) endChipRef.current.textContent = formatTime(seg.end);
   };
 
   // Keep the range highlight synced with committed state. Refresh the chapter
@@ -210,7 +223,8 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture(event.pointerId);
-      suppressNextClick();
+      // Reveal this handle's time chip for the duration of the drag.
+      event.currentTarget.dataset.dragLive = "true";
       // Snapshot current chapter geometry so the drag maps against an accurate
       // layout for its whole duration.
       refreshChapterMap();
@@ -261,18 +275,24 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
         ref={startRef}
         aria-label="Loop start"
         className="you-loop-handle"
+        data-edge="start"
         type="button"
         style={{ left: handleLeft(startPercent) }}
         {...createDragHandlers("start")}
-      />
+      >
+        <span ref={startChipRef} className="you-loop-handle-chip" aria-hidden="true" />
+      </button>
       <button
         ref={endRef}
         aria-label="Loop end"
         className="you-loop-handle"
+        data-edge="end"
         type="button"
         style={{ left: handleLeft(endPercent) }}
         {...createDragHandlers("end")}
-      />
+      >
+        <span ref={endChipRef} className="you-loop-handle-chip" aria-hidden="true" />
+      </button>
       {countIn != null && (
         <CountInBeacon
           beat={countIn}

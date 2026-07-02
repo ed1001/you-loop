@@ -144,6 +144,25 @@ describe("ZoomTimeline Shift+cursor drag (window mode)", () => {
 });
 
 describe("ZoomTimeline plain cursor drag (resize mode)", () => {
+  it("shows a precise time chip on the dragged cursor and hides it on release", () => {
+    const { startCursor } = setup();
+
+    // window = [20,40], 1px == 1s. Drag the start cursor to clientX=6 → 26s.
+    act(() => {
+      fireEvent.pointerDown(startCursor, { pointerId: 1, clientX: 5 });
+      fireEvent.pointerMove(startCursor, { pointerId: 1, clientX: 6 });
+    });
+    expect(startCursor.dataset.dragLive).toBe("true");
+    expect(
+      startCursor.querySelector(".you-loop-handle-chip")?.textContent
+    ).toBe("0:26.0");
+
+    act(() => {
+      fireEvent.pointerUp(startCursor, { pointerId: 1, clientX: 6 });
+    });
+    expect(startCursor.dataset.dragLive).toBeUndefined();
+  });
+
   it("plain start cursor drag calls onLoopChange, never onWindowMove", () => {
     const { onWindowMove, onLoopChange, startCursor } = setup();
 

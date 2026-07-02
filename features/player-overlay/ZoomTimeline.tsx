@@ -11,6 +11,7 @@ import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 import { CountInBeacon, type CountInBeat } from "./CountInBeacon";
+import { formatTime, formatTimePrecise } from "./formatTime";
 
 // Hovering the zoom strip must not bubble into YouTube's scrubber (it would pop
 // the timeline preview). Stop move/hover events without preventDefault.
@@ -38,17 +39,6 @@ type Props = {
 };
 
 type Edge = "start" | "end";
-
-// mm:ss, or h:mm:ss past an hour.
-function formatTime(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  const mm = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
-  const ss = String(secs).padStart(2, "0");
-  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
-}
 
 // A magnified timeline that spans the zoom window across its whole width. The
 // loop cursors inside refine the loop with high precision; the playhead is
@@ -82,6 +72,9 @@ export function ZoomTimeline({
   // Loop-cursor drag state.
   const draggingEdgeRef = useRef<Edge | null>(null);
   const liveLoopRef = useRef<LoopSegment>(loop);
+  // Time readouts shown above the cursor being dragged.
+  const startChipRef = useRef<HTMLSpanElement>(null);
+  const endChipRef = useRef<HTMLSpanElement>(null);
 
   // Per-drag mode: "window" when Shift was held at pointerdown, "resize" otherwise.
   const dragModeRef = useRef<"resize" | "window">("resize");
@@ -120,6 +113,10 @@ export function ZoomTimeline({
       fillRef.current.style.left = `${startPct}%`;
       fillRef.current.style.width = `${endPct - startPct}%`;
     }
+    if (startChipRef.current)
+      startChipRef.current.textContent = formatTimePrecise(seg.start);
+    if (endChipRef.current)
+      endChipRef.current.textContent = formatTimePrecise(seg.end);
   };
 
   // Keep the loop cursors synced with committed props (window pan/resize, loop
@@ -241,7 +238,6 @@ export function ZoomTimeline({
 
   const onTrackPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     scrubbingRef.current = true;
-    suppressNextClick();
     setDragLock(true);
     // Pause while scrubbing (like the native bar) so frames step under the
     // finger instead of fighting live playback; resume on release.
@@ -273,6 +269,9 @@ export function ZoomTimeline({
     }
     scrubbingRef.current = false;
     setDragLock(false);
+    // Armed at release, not grab: the guard lives one macrotask, and the click
+    // that must die is the one synthesized right after this pointerup.
+    suppressNextClick();
 
     if (seekRafRef.current !== 0) {
       cancelAnimationFrame(seekRafRef.current);
@@ -322,6 +321,10 @@ export function ZoomTimeline({
     }
     draggingEdgeRef.current = null;
     setDragLock(false);
+    delete startRef.current?.dataset.dragLive;
+    delete endRef.current?.dataset.dragLive;
+    // Same release-time arming as finishScrub: the drag-end click must die.
+    suppressNextClick();
     const next = liveLoopRef.current;
     paintLoop(next);
     // A window-mode drag (Shift held at pointerdown) that actually moved the
@@ -374,8 +377,9 @@ export function ZoomTimeline({
       } catch {
         // keep the drag alive uncaptured
       }
-      suppressNextClick();
       draggingEdgeRef.current = edge;
+      // Reveal this cursor's time chip for the duration of the drag.
+      event.currentTarget.dataset.dragLive = "true";
       liveLoopRef.current = loop;
       if (event.shiftKey) {
         dragModeRef.current = "window";
@@ -470,7 +474,9 @@ export function ZoomTimeline({
           data-edge="start"
           style={{ left: `${pct(loop.start)}%` }}
           {...createCursorHandlers("start")}
-        />
+        >
+          <span ref={startChipRef} className="you-loop-handle-chip" aria-hidden="true" />
+        </button>
         <button
           ref={endRef}
           type="button"
@@ -479,7 +485,9 @@ export function ZoomTimeline({
           data-edge="end"
           style={{ left: `${pct(loop.end)}%` }}
           {...createCursorHandlers("end")}
-        />
+        >
+          <span ref={endChipRef} className="you-loop-handle-chip" aria-hidden="true" />
+        </button>
         <div
           ref={playheadRef}
           className="you-loop-zoom-playhead"

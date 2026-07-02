@@ -36,7 +36,8 @@ export const PAGE_UI_STYLES = `
        YouTube's idle timer fires while the pointer sits still. The :has()
        outranks the data-hidden rule, so the fade is suppressed. */
     .you-loop-page-ui:has(.you-loop-panel:hover),
-    .you-loop-page-ui:has(.you-loop-zoom:hover) {
+    .you-loop-page-ui:has(.you-loop-zoom:hover),
+    .you-loop-page-ui:has(.you-loop-handle:hover) {
       opacity: 1;
     }
 
@@ -45,7 +46,9 @@ export const PAGE_UI_STYLES = `
     .html5-video-player:has(.you-loop-panel:hover) .ytp-chrome-bottom,
     .html5-video-player:has(.you-loop-panel:hover) .ytp-gradient-bottom,
     .html5-video-player:has(.you-loop-zoom:hover) .ytp-chrome-bottom,
-    .html5-video-player:has(.you-loop-zoom:hover) .ytp-gradient-bottom {
+    .html5-video-player:has(.you-loop-zoom:hover) .ytp-gradient-bottom,
+    .html5-video-player:has(.you-loop-handle:hover) .ytp-chrome-bottom,
+    .html5-video-player:has(.you-loop-handle:hover) .ytp-gradient-bottom {
       opacity: 1 !important;
     }
 
@@ -69,13 +72,16 @@ export const PAGE_UI_STYLES = `
       transform: translateY(-50%);
     }
 
+    /* Loop cursors: bracket flags. A slim stem with short arms pointing INTO
+       the loop ([ for start, ] for end) so the two ends read at a glance. The
+       button itself is an invisible hitbox — the bracket paints in ::before —
+       because the clamped-left math in TimelineHandles depends on the 10px
+       button width. */
     .you-loop-handle {
-      background: #14b8a6;
-      border: 2px solid #ffffff;
-      border-radius: 6px;
-      box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+      background: transparent;
+      border: 0;
       cursor: ew-resize;
-      height: 24px;
+      height: 26px;
       margin: 0;
       padding: 0;
       pointer-events: auto;
@@ -83,12 +89,86 @@ export const PAGE_UI_STYLES = `
       top: 50%;
       touch-action: none;
       /* Only vertical centering here. Horizontal position is a clamped left
-         set per-handle (see TimelineHandles) so the 10px nub never hangs off the
-         track edge — a half-off thumb at the ends gets clipped by YouTube's
+         set per-handle (see TimelineHandles) so the 10px hitbox never hangs off
+         the track edge — a half-off thumb at the ends gets clipped by YouTube's
          overflow:hidden progress bar and becomes ungrabbable on Firefox. */
       transform: translateY(-50%);
       width: 10px;
       z-index: 2147483647;
+    }
+
+    .you-loop-handle::before,
+    .you-loop-zoom-cursor::before {
+      border: 2.5px solid #14b8a6;
+      bottom: 1px;
+      content: "";
+      /* drop-shadow follows the bracket's painted pixels (a box-shadow would
+         trace the open rectangle): white hairline for contrast on bright
+         frames, then depth. */
+      filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.85))
+        drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+      position: absolute;
+      top: 1px;
+      transition: border-color 0.15s ease, transform 0.15s ease;
+      width: 7px;
+      will-change: transform;
+    }
+
+    .you-loop-handle[data-edge="start"]::before,
+    .you-loop-zoom-cursor[data-edge="start"]::before {
+      border-radius: 4px 0 0 4px;
+      border-right: 0;
+      left: 1px;
+    }
+
+    .you-loop-handle[data-edge="end"]::before,
+    .you-loop-zoom-cursor[data-edge="end"]::before {
+      border-left: 0;
+      border-radius: 0 4px 4px 0;
+      right: 1px;
+    }
+
+    .you-loop-handle:hover::before,
+    .you-loop-zoom-cursor:hover::before {
+      border-color: #2dd4bf;
+      transform: scale(1.12);
+    }
+
+    .you-loop-handle:active::before,
+    .you-loop-handle[data-drag-live="true"]::before,
+    .you-loop-zoom-cursor:active::before {
+      border-color: #5eead4;
+      filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9))
+        drop-shadow(0 0 6px rgba(20, 184, 166, 0.8))
+        drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+    }
+
+    /* Time readout above the handle while it is dragged. Same dark-glass pill
+       language as the panel. */
+    .you-loop-handle-chip {
+      background: rgba(15, 15, 16, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      bottom: calc(100% + 8px);
+      color: #f2f1ed;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      left: 50%;
+      line-height: 1;
+      opacity: 0;
+      padding: 4px 7px;
+      pointer-events: none;
+      position: absolute;
+      transform: translateX(-50%) translateY(2px);
+      transition: opacity 0.12s ease, transform 0.12s ease;
+      white-space: nowrap;
+    }
+
+    .you-loop-handle[data-drag-live="true"] .you-loop-handle-chip,
+    .you-loop-zoom-cursor[data-drag-live="true"] .you-loop-handle-chip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
     /* Count-in beacon: a numeral over a vertical line, rising from the loop
@@ -1119,19 +1199,23 @@ export const PAGE_UI_STYLES = `
     }
 
     /* A filled teal knob, like YouTube's scrubber dot. */
+    /* Playhead: an ivory needle, deliberately NOT teal — teal is the loop's
+       structural color (brackets, band). A neutral needle stays legible when it
+       passes through a bracket instead of melting into it. */
     .you-loop-zoom-playhead {
-      background: #2dd4bf;
-      border-radius: 50%;
-      height: 20px;
+      background: #f2f1ed;
+      border-radius: 2px;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 6px rgba(0, 0, 0, 0.35);
+      height: 22px;
       left: 0;
       pointer-events: none;
       position: absolute;
       top: 50%;
       transform: translate(-50%, -50%);
       transition: opacity 0.15s ease;
-      width: 20px;
+      width: 3px;
       will-change: left;
-      /* Sit behind the loop cursors so the larger playhead does not obscure them. */
+      /* Sit behind the loop cursors so the needle never obscures a bracket. */
       z-index: 1;
     }
 
@@ -1151,15 +1235,13 @@ export const PAGE_UI_STYLES = `
       will-change: left, width;
     }
 
-    /* Loop refine cursors: taller teal handles straddling the track. */
+    /* Loop refine cursors: same bracket-flag language as the main handles
+       (bracket painted by the shared ::before rules above), same size too. */
     .you-loop-zoom-cursor {
-      background: #14b8a6;
-      border: 2px solid #ffffff;
-      border-radius: 4px;
-      box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.6),
-        0 2px 8px rgba(0, 0, 0, 0.45);
+      background: transparent;
+      border: 0;
       cursor: ew-resize;
-      height: 20px;
+      height: 26px;
       margin: 0;
       padding: 0;
       pointer-events: auto;
@@ -1167,7 +1249,7 @@ export const PAGE_UI_STYLES = `
       top: 50%;
       touch-action: none;
       transform: translate(-50%, -50%);
-      width: 8px;
+      width: 10px;
       will-change: left;
       z-index: 2;
     }

@@ -94,7 +94,6 @@ export function createScriptProcessorEngine(
 
 // The async boundary the v2 AudioWorklet engine will need. v1 resolves
 // immediately with the ScriptProcessor engine.
-// fallow-ignore-next-line unused-export
 export async function createPitchEngine(ctx: AudioContext): Promise<PitchEngine> {
   return createScriptProcessorEngine(ctx);
 }

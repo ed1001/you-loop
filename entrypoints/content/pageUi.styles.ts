@@ -91,6 +91,105 @@ export const PAGE_UI_STYLES = `
       z-index: 2147483647;
     }
 
+    /* Count-in beacon: a numeral over a vertical line, rising from the loop
+       start on the progress bar. Remounted per beat (keyed in React), so the
+       pulse keyframes replay on every tick. */
+    .you-loop-countin-beacon {
+      align-items: center;
+      bottom: calc(50% + 14px);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+      position: absolute;
+      transform: translateX(-50%);
+      z-index: 2147483647;
+    }
+
+    .you-loop-countin-beacon-line {
+      animation: you-loop-countin-flash 0.4s ease-out;
+      background: linear-gradient(to top, #14b8a6, rgba(20, 184, 166, 0.15));
+      border-radius: 1px;
+      box-shadow: 0 0 6px rgba(20, 184, 166, 0.7);
+      height: 18px;
+      transform-origin: bottom;
+      width: 2px;
+    }
+
+    /* The numeral sits in a small glass disc (same dark-pill language as the
+       panel) so it stays legible over bright or busy video frames. The pop
+       plays once when the beacon mounts (per count), not per beat — only the
+       line pulses with the metronome. */
+    .you-loop-countin-beacon-num {
+      align-items: center;
+      animation: you-loop-countin-pop 0.4s ease-out;
+      transition:
+        width 0.12s ease,
+        height 0.12s ease,
+        font-size 0.12s ease,
+        box-shadow 0.12s ease,
+        color 0.12s ease;
+      backdrop-filter: blur(6px) saturate(1.3);
+      background: rgba(24, 26, 29, 0.72);
+      border-radius: 999px;
+      box-shadow:
+        inset 0 0 0 1px rgba(20, 184, 166, 0.45),
+        0 2px 10px rgba(0, 0, 0, 0.45);
+      color: #ffffff;
+      display: flex;
+      font-family: "YouTube Sans", Roboto, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      height: 24px;
+      justify-content: center;
+      line-height: 1;
+      width: 24px;
+    }
+
+    /* Downbeat: taller, brighter strike. */
+    .you-loop-countin-beacon[data-accent] .you-loop-countin-beacon-line {
+      background: linear-gradient(to top, #5eead4, rgba(94, 234, 212, 0.2));
+      box-shadow: 0 0 10px rgba(94, 234, 212, 0.9);
+      height: 26px;
+    }
+
+    .you-loop-countin-beacon[data-accent] .you-loop-countin-beacon-num {
+      box-shadow:
+        inset 0 0 0 1px rgba(94, 234, 212, 0.8),
+        0 0 12px rgba(20, 184, 166, 0.5),
+        0 2px 10px rgba(0, 0, 0, 0.45);
+      color: #ccfbf1;
+      font-size: 14px;
+      height: 28px;
+      width: 28px;
+    }
+
+    @keyframes you-loop-countin-flash {
+      from {
+        filter: brightness(2.2);
+        transform: scaleY(0.3);
+      }
+      40% {
+        filter: brightness(1.6);
+        transform: scaleY(1.12);
+      }
+      to {
+        filter: brightness(1);
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes you-loop-countin-pop {
+      from {
+        opacity: 0.4;
+        transform: scale(1.5);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
     .you-loop-panel {
       align-items: center;
       background: rgba(38, 38, 42, 0.9);
@@ -460,7 +559,7 @@ export const PAGE_UI_STYLES = `
       -webkit-backdrop-filter: blur(12px) saturate(1.2);
       backdrop-filter: blur(12px) saturate(1.2);
       border: 1px solid rgba(0, 0, 0, 0.6);
-      border-radius: 12px;
+      border-radius: 0;
       box-shadow:
         0 0 0 1px rgba(20, 184, 166, 0.18),
         0 12px 36px rgba(0, 0, 0, 0.55),
@@ -929,7 +1028,7 @@ export const PAGE_UI_STYLES = `
       color: rgba(255, 255, 255, 0.78);
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
       max-height: calc(100% - 48px);
-      max-width: 440px;
+      max-width: 660px;
       overflow-y: auto;
       padding: 26px 28px 22px;
       position: relative;
@@ -1040,9 +1139,11 @@ export const PAGE_UI_STYLES = `
     }
 
     .you-loop-help-list {
-      display: flex;
-      flex-direction: column;
-      gap: 11px;
+      /* Two columns when the card is wide enough; collapses to one on narrow
+         players. Keeps the card from growing tall as controls are added. */
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+      gap: 11px 26px;
       list-style: none;
       margin: 0;
       padding: 0;
@@ -1671,5 +1772,185 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-page-ui[data-compact="true"] .you-loop-mode-compact {
       display: inline-flex;
+    }
+
+    .you-loop-countin { display: inline-flex; align-items: center; }
+    /* Match the zoom/loops/help pill buttons: 30px circle, resting tint, teal
+       when active. */
+    .you-loop-countin-toggle {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      height: 30px;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.18s ease, background 0.18s ease;
+      width: 30px;
+    }
+    .you-loop-countin-toggle svg { height: 16px; width: 16px; }
+    .you-loop-countin-toggle:not(:disabled):hover {
+      background: rgba(20, 184, 166, 0.18); color: #14b8a6;
+    }
+    .you-loop-countin-toggle[data-on="true"] {
+      background: rgba(20, 184, 166, 0.18); color: #14b8a6;
+    }
+    .you-loop-countin-toggle:disabled { opacity: 0.4; cursor: default; }
+    /* House card recipe (help card, saved-loops modal): charcoal glass, dark
+       border, whisper-teal ring, inset top highlight. */
+    .you-loop-countin-pop {
+      position: absolute; transform: translate(-50%, -100%) translateY(-12px);
+      width: 300px; padding: 14px; border-radius: 16px;
+      background: rgba(28, 28, 32, 0.92);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      backdrop-filter: blur(18px) saturate(1.2);
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      box-shadow:
+        0 0 0 1px rgba(20, 184, 166, 0.18),
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      z-index: 2147483647;
+      animation: you-loop-countin-pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: center bottom;
+    }
+    @keyframes you-loop-countin-pop-in {
+      from { opacity: 0; transform: translate(-50%, -100%) translateY(-8px); }
+      to { opacity: 1; transform: translate(-50%, -100%) translateY(-12px); }
+    }
+    /* Exit mirrors the entrance: settle back toward the pill and fade.
+       Duration must stay in sync with POP_EXIT_MS in CountInControl. */
+    .you-loop-countin-pop[data-closing="true"] {
+      animation: you-loop-countin-pop-out 0.14s ease forwards;
+      pointer-events: none;
+    }
+    @keyframes you-loop-countin-pop-out {
+      from { opacity: 1; transform: translate(-50%, -100%) translateY(-12px); }
+      to { opacity: 0; transform: translate(-50%, -100%) translateY(-8px); }
+    }
+    .you-loop-countin-head {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .you-loop-countin-headname {
+      color: #ffffff; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+    }
+    .you-loop-countin-switch {
+      position: relative; width: 38px; height: 22px; padding: 0; cursor: pointer;
+      /* border-box so the 16px thumb's translateX(16px) lands symmetric (2px
+         inset each side) regardless of the page's default sizing. */
+      box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1); transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .you-loop-countin-switch::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      border-radius: 50%; background: rgba(255, 255, 255, 0.7); transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .you-loop-countin-switch[data-on="true"] {
+      background: #14b8a6; border-color: #5eead4;
+    }
+    .you-loop-countin-switch[data-on="true"]::after {
+      transform: translateX(16px); background: #06302b;
+    }
+    .you-loop-countin-hint {
+      margin: 8px 0 12px; color: rgba(255, 255, 255, 0.5); font-size: 11px; line-height: 1.45;
+    }
+    .you-loop-countin-label {
+      display: block; margin-top: 12px; margin-bottom: 6px;
+      color: #14b8a6; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .you-loop-countin-tempo { display: flex; gap: 10px; margin: 6px 0 4px; }
+    /* Tap pad — a physical strike surface. */
+    .you-loop-countin-tap {
+      position: relative; flex: 1; height: 132px; border-radius: 0; overflow: hidden;
+      cursor: pointer; user-select: none; isolation: isolate;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      color: #5eead4; border: 1px solid rgba(94, 234, 212, 0.22);
+      background:
+        radial-gradient(120% 90% at 50% 18%, rgba(94, 234, 212, 0.12), transparent 60%),
+        #0a0f0e;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -22px 40px rgba(0, 0, 0, 0.45);
+      transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.07s ease;
+    }
+    .you-loop-countin-tap::before {
+      content: ""; position: absolute; inset: 0; z-index: 0; opacity: 0.5; pointer-events: none;
+      background-image: radial-gradient(rgba(94, 234, 212, 0.1) 1px, transparent 1.4px);
+      background-size: 13px 13px;
+      -webkit-mask-image: radial-gradient(80% 80% at 50% 45%, #000, transparent 78%);
+      mask-image: radial-gradient(80% 80% at 50% 45%, #000, transparent 78%);
+    }
+    .you-loop-countin-tap[data-flash="true"] {
+      transform: translateY(1px); border-color: rgba(94, 234, 212, 0.65);
+      box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.3), 0 0 26px rgba(94, 234, 212, 0.28),
+                  inset 0 -22px 40px rgba(0, 0, 0, 0.45);
+    }
+    .you-loop-countin-tap-read {
+      position: relative; z-index: 2; display: flex; align-items: baseline; gap: 5px; line-height: 1;
+      font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 18px rgba(94, 234, 212, 0.45);
+    }
+    .you-loop-countin-tap-unit { font-size: 10px; letter-spacing: 0.14em; color: #7dd3c8; opacity: 0.75; }
+    .you-loop-countin-tap-hint {
+      position: relative; z-index: 2; font-size: 10px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: #6fb6ab; opacity: 0.8;
+    }
+    .you-loop-countin-ripple {
+      position: absolute; z-index: 1; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+      border-radius: 50%; border: 1.5px solid rgba(94, 234, 212, 0.7); pointer-events: none;
+      animation: you-loop-countin-ripple 0.5s ease-out forwards;
+    }
+    @keyframes you-loop-countin-ripple {
+      from { transform: scale(0.4); opacity: 0.85; }
+      to { transform: scale(7); opacity: 0; }
+    }
+    /* BPM rail — tick tape under a fixed needle, drag to scrub (square edges). */
+    .you-loop-countin-rail {
+      position: relative; width: 58px; height: 132px; flex: none; overflow: hidden;
+      cursor: ns-resize; touch-action: none; border-radius: 0;
+      background: rgba(28, 28, 32, 0.92); border: 1px solid rgba(0, 0, 0, 0.6);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      backdrop-filter: blur(12px) saturate(1.2);
+      box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+    }
+    .you-loop-countin-tape {
+      position: absolute; inset: 0 0 auto 0;
+      transition: transform 0.09s cubic-bezier(0.2, 0, 0.2, 1); will-change: transform;
+    }
+    .you-loop-countin-tick {
+      position: absolute; left: 9px; width: 8px; height: 1.5px; transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .you-loop-countin-tick[data-labeled="true"] { width: 13px; background: rgba(255, 255, 255, 0.42); }
+    .you-loop-countin-tick-label {
+      position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 9.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+      color: rgba(255, 255, 255, 0.55);
+    }
+    .you-loop-countin-needle {
+      position: absolute; left: 0; right: 0; top: 50%; height: 0;
+      border-top: 2px solid #2dd4bf; box-shadow: 0 0 8px rgba(45, 212, 191, 0.55);
+      transform: translateY(-50%); pointer-events: none;
+    }
+    /* Square corners: the seg buttons speak the same machine language as the
+       tap pad and BPM rail above them. */
+    .you-loop-countin-seg { display: flex; gap: 5px; margin-top: 8px; }
+    .you-loop-countin-seg button {
+      flex: 1; padding: 6px 0; border-radius: 0; cursor: pointer; font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: #cfd2d2;
+      transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+    }
+    .you-loop-countin-seg button:hover {
+      border-color: rgba(94, 234, 212, 0.5); color: #5eead4;
+    }
+    .you-loop-countin-seg button[data-active="true"] {
+      border-color: #5eead4; color: #5eead4; background: rgba(94, 234, 212, 0.2);
     }
 `;

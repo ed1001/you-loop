@@ -32,6 +32,17 @@ import {
   setLoopOn,
   takeLaunch
 } from "../../features/persistence/settingsStore";
+import {
+  getCountInEnabled,
+  setCountInEnabled,
+  loadCountInSettings,
+  saveCountInSettings,
+  DEFAULT_COUNT_IN_SETTINGS,
+  type CountInSettings
+} from "../../features/persistence/countInStore";
+import { buildCountOff } from "../../features/playback/countOff";
+import { createCountInPlayer } from "../../features/player-overlay/countInAudio";
+import { createCountInController } from "../../features/player-overlay/countInController";
 import { PAGE_UI_STYLES } from "./pageUi.styles";
 
 // Player-width thresholds for the compact panel form, with a dead band so a
@@ -116,6 +127,14 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
+  // Count-in state: global on/off and per-video tempo/meter settings.
+  let countInOn = false;
+  let countInSettings: CountInSettings = DEFAULT_COUNT_IN_SETTINGS;
+  // Live count-off beat for the on-bar beacon: the current beat index while a
+  // count runs, null otherwise. `countInSession` bumps per count so a restarted
+  // count re-keys the beacon and replays the beat-0 pulse.
+  let countInBeat: number | null = null;
+  let countInSession = 0;
   // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
   // when the modal opens and after a save (so the list reflects new titles).
   let savedVideos: SavedVideo[] = [];
@@ -158,6 +177,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const disableLoop = () => {
     clearZoomCloseTimer();
     zoomClosing = false;
+    countInController.cancel();
     state = playbackReducer(state, { type: "setLoopEnabled", enabled: false });
     state = playbackReducer(state, { type: "resetPlaybackRate" });
     applyPlaybackState(video, state);
@@ -324,6 +344,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   // Seed or restore positions for the current video. Runs on mount and on
   // navigation. Gated on a known duration so percentage seeding is meaningful.
+  // fallow-ignore-next-line complexity
   const loadForVideo = async () => {
     const id = videoId;
     if (!hasKnownDuration(video)) return; // retried on loadedmetadata
@@ -356,6 +377,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     // The panel's on/off is a persisted global preference, so it sticks across
     // reloads, tabs, and navigation.
     const persistedOn = await getLoopOn();
+    if (videoId !== id) return; // navigated away mid-await
+
+    countInOn = await getCountInEnabled();
+    countInSettings = await loadCountInSettings(id);
     if (videoId !== id) return; // navigated away mid-await
 
     applyPanelActivation(launched, entry, persistedOn);
@@ -429,6 +454,21 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  const onToggleCountIn = () => {
+    countInOn = !countInOn;
+    countInPlayer.unlock(); // user gesture: satisfy autoplay policy
+    void setCountInEnabled(countInOn);
+    if (!countInOn) countInController.cancel();
+    render();
+  };
+
+  const onCountInSettingsChange = (next: CountInSettings) => {
+    countInSettings = next;
+    countInPlayer.unlock();
+    if (videoId != null) void saveCountInSettings(videoId, next);
+    render();
+  };
+
   // The zoom strip shows while zoomed (or animating closed) and a real loop
   // exists to refine. Hoisted out of render() so that stays a simple dispatch.
   const zoomStripVisible = () =>
@@ -442,6 +482,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
     const loopDirty = isLoopDirty(selectedLoop, state.loopSegment, zoomLoop);
     const zoomVisible = zoomStripVisible();
+    // Beacon at the point playback will resume from — the zoom sub-region
+    // start while magnified, else the main loop start. Rendered by the zoom
+    // strip while it is up, otherwise by the main-bar handles.
+    const countIn =
+      countInBeat != null && effectiveSegment() != null
+        ? {
+            timeSec: effectiveSegment()!.start,
+            beatIndex: countInBeat,
+            beatsPerBar: countInSettings.beatsPerBar,
+            session: countInSession
+          }
+        : null;
 
     root.render(
       <>
@@ -456,6 +508,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
               video.currentTime = loop.start;
             }}
             closing={zoomClosing}
+            countIn={countIn}
           />
         )}
         {state.loopEnabled && (
@@ -467,6 +520,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
               onMainLoopChange(seg);
               video.currentTime = seg.start;
             }}
+            countIn={zoomVisible ? null : countIn}
           />
         )}
         <LoopPanel
@@ -502,6 +556,10 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
           onOpenVideo={openVideo}
+          countInOn={countInOn}
+          countInSettings={countInSettings}
+          onToggleCountIn={onToggleCountIn}
+          onCountInSettingsChange={onCountInSettingsChange}
         />
         <HelpModal
           open={helpOpen}
@@ -553,6 +611,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (result.sought) {
       wrapSeekPending = true;
       wrapSeekAt = performance.now();
+    }
+    if (result.wrapped) {
+      countInController.onWrap();
     }
     if (result.oneShotCompleted !== state.oneShotCompleted) {
       state = playbackReducer(state, {
@@ -614,6 +675,46 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         completed: false
       });
       render();
+    },
+    // Restart (A) counts you in too when count-in is on. Declared below; only
+    // invoked on a keypress, so it is initialized by call time.
+    startCountIn: () => {
+      const started = countInController.start();
+      if (started) {
+        // The Restart key just seeked to the region start. That seek is ours,
+        // not a user scrub — latch it (same flag the wrap seek uses) so the
+        // `seeking` listener doesn't cancel the count we just began.
+        wrapSeekPending = true;
+        wrapSeekAt = performance.now();
+      }
+      return started;
+    }
+  });
+
+  const countInPlayer = createCountInPlayer();
+  const countInController = createCountInController({
+    video,
+    player: countInPlayer,
+    isEnabled: () => countInOn && state.loopEnabled,
+    getPlan: () =>
+      buildCountOff({
+        meter: {
+          beatsPerBar: countInSettings.beatsPerBar,
+          noteValue: countInSettings.noteValue
+        },
+        bars: countInSettings.bars,
+        bpm: countInSettings.bpm
+      }),
+    onCountStart: () => {
+      countInSession++;
+    },
+    onBeat: (index) => {
+      countInBeat = index;
+      render();
+    },
+    onCountEnd: () => {
+      countInBeat = null;
+      render();
     }
   });
 
@@ -639,9 +740,30 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     zoomLoop = null;
     zoomed = false;
     zoomClosing = false;
+    countInController.cancel();
     state = playbackReducer(state, { type: "clearLoop" });
     render();
     void loadForVideo();
+  };
+
+  // Cancel a running count when the USER seeks (scrubs) during the count.
+  // Guard on !wrapSeekPending: the controller's own wrap seek sets
+  // wrapSeekPending synchronously in enforce() before the queued `seeking`
+  // event fires, so we only cancel on genuine user scrubs.
+  const onSeeking = () => {
+    if (countInController.isCounting() && !wrapSeekPending) countInController.cancel();
+  };
+
+  // The video must not play while a count runs. Any play attempt mid-count
+  // (Space/K, the player button, a scrub side effect) is treated as a pause
+  // intent — the play/pause control behaves as though the video were already
+  // playing: it stops the count and stays paused. The controller's own
+  // downbeat resume clears `counting` before calling play(), so it passes.
+  const onPlay = () => {
+    if (countInController.isCounting()) {
+      video.pause();
+      countInController.cancel();
+    }
   };
 
   video.addEventListener("timeupdate", enforce);
@@ -653,6 +775,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   video.addEventListener("ratechange", onRateChange);
   video.addEventListener("loadedmetadata", onLoadedMetadata);
   video.addEventListener("durationchange", onLoadedMetadata);
+  video.addEventListener("seeking", onSeeking);
+  video.addEventListener("play", onPlay);
   document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);
@@ -665,6 +789,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     stop: () => {
       clearZoomCloseTimer();
       stopEnforce();
+      countInController.cancel();
+      countInPlayer.dispose();
       video.removeEventListener("timeupdate", enforce);
       video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("play", startEnforce);
@@ -674,6 +800,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       video.removeEventListener("ratechange", onRateChange);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("durationchange", onLoadedMetadata);
+      video.removeEventListener("seeking", onSeeking);
+      video.removeEventListener("play", onPlay);
       document.removeEventListener("yt-navigate-finish", onNavigate);
       document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
       document.removeEventListener("keyup", keyHandlers.onKeyUp, true);

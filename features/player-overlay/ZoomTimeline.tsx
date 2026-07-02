@@ -10,6 +10,7 @@ import { MIN_SEGMENT_DURATION_SECONDS } from "../playback/reducer";
 import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
+import { CountInBeacon, type CountInBeat } from "./CountInBeacon";
 
 // Hovering the zoom strip must not bubble into YouTube's scrubber (it would pop
 // the timeline preview). Stop move/hover events without preventDefault.
@@ -31,6 +32,9 @@ type Props = {
   onWindowMove?: (loop: LoopSegment) => void;
   // Plays the exit animation while the strip is unmounting.
   closing?: boolean;
+  // Live count-in beat, or null when no count is running. While the strip is
+  // up it owns the beacon (the count resumes from the zoom sub-region start).
+  countIn?: CountInBeat | null;
 };
 
 type Edge = "start" | "end";
@@ -55,7 +59,8 @@ export function ZoomTimeline({
   loop,
   onLoopChange,
   onWindowMove,
-  closing = false
+  closing = false,
+  countIn
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -483,6 +488,9 @@ export function ZoomTimeline({
           aria-valuemin={Math.round(win.start)}
           aria-valuemax={Math.round(win.end)}
         />
+        {countIn != null && (
+          <CountInBeacon beat={countIn} leftPercent={pct(countIn.timeSec)} />
+        )}
       </div>
       <span className="you-loop-zoom-time">{formatTime(win.end)}</span>
     </div>

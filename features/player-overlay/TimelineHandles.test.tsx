@@ -115,3 +115,40 @@ describe("TimelineHandles plain handle drag (resize mode)", () => {
     expect(onWindowMove).not.toHaveBeenCalled();
   });
 });
+
+describe("TimelineHandles count-in beacon", () => {
+  const renderWithCountIn = (countIn: Parameters<typeof TimelineHandles>[0]["countIn"]) =>
+    render(
+      <TimelineHandles
+        duration={120}
+        segment={{ start: 20, end: 40 }}
+        onSegmentChange={vi.fn()}
+        countIn={countIn}
+      />
+    );
+
+  it("renders nothing without a count in progress", () => {
+    renderWithCountIn(null);
+    expect(screen.queryByTestId("countin-beacon")).toBeNull();
+  });
+
+  it("shows the 1-based beat-in-bar numeral at the count position", () => {
+    renderWithCountIn({ timeSec: 20, beatIndex: 2, beatsPerBar: 4, session: 1 });
+    const beacon = screen.getByTestId("countin-beacon");
+    expect(beacon.textContent).toBe("3");
+    // 20s of 120s → 1/6 of the bar.
+    expect(parseFloat(beacon.style.left)).toBeCloseTo(100 / 6, 6);
+  });
+
+  it("marks the downbeat of every bar as the accent", () => {
+    renderWithCountIn({ timeSec: 20, beatIndex: 4, beatsPerBar: 4, session: 1 });
+    const beacon = screen.getByTestId("countin-beacon");
+    expect(beacon.textContent).toBe("1");
+    expect(beacon.dataset.accent).toBe("true");
+  });
+
+  it("does not mark off-beats as the accent", () => {
+    renderWithCountIn({ timeSec: 20, beatIndex: 5, beatsPerBar: 4, session: 1 });
+    expect(screen.getByTestId("countin-beacon").dataset.accent).toBeUndefined();
+  });
+});

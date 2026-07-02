@@ -13,6 +13,10 @@ export type LoopKeyDeps = {
   // Move the active region (zoom sub-region when zoomed, else the main loop) by
   // `delta` seconds, length preserved. The caller picks the clamp bounds.
   moveActiveWindow: (delta: number) => void;
+  // Optional: request a count-in for a manual Restart. Returns true if a count
+  // started (it will play on the downbeat, so the shortcut must NOT also play);
+  // false/absent means play immediately as usual.
+  startCountIn?: () => boolean;
 };
 
 export type LoopKeyHandlers = {
@@ -66,6 +70,28 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     return true;
   };
 
+  // Run the pressed shortcut's action. Restart and snap-back replay from the
+  // region start; push-to-hear plays from the playhead. Restart additionally
+  // hands off to count-in (which then owns the play) when one is requested.
+  const applyPress = (key: string, segment: LoopSegment) => {
+    switch (key) {
+      case RESTART_KEY:
+        deps.video.currentTime = segment.start;
+        // With count-in on, the count owns the play (it resumes on the
+        // downbeat). Only play here when no count started.
+        if (deps.startCountIn?.()) return;
+        void deps.video.play();
+        return;
+      case SNAP_BACK_KEY:
+        deps.video.currentTime = segment.start;
+        void deps.video.play();
+        return;
+      case PUSH_TO_HEAR_KEY:
+        void deps.video.play();
+        return;
+    }
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
     if (handleStepKey(event)) return;
 
@@ -86,17 +112,7 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     // "resuming a finished one-shot" and jumps back to the start (a spurious
     // repeat) instead of stopping.
     deps.resetOneShot();
-
-    switch (key) {
-      case RESTART_KEY:
-      case SNAP_BACK_KEY:
-        deps.video.currentTime = segment.start;
-        void deps.video.play();
-        break;
-      case PUSH_TO_HEAR_KEY:
-        void deps.video.play();
-        break;
-    }
+    applyPress(key, segment);
   };
 
   const onKeyUp = (event: KeyboardEvent) => {

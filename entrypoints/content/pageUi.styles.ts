@@ -1709,69 +1709,8 @@ export const PAGE_UI_STYLES = `
       padding: 14px 14px 14px;
     }
 
-    /* Nothing new to save: dim the whole card so it reads as inactive. */
-    .you-loop-lm-save[data-disabled="true"] {
-      opacity: 0.5;
-    }
-
-    .you-loop-lm-update {
-      background: transparent;
-      border: 1px solid rgba(94, 234, 212, 0.5);
-      border-radius: 8px;
-      cursor: pointer;
-      display: block;
-      font-family: inherit;
-      margin-bottom: 10px;
-      padding: 8px 12px;
-      text-align: left;
-      transition: background 0.15s ease;
-      width: 100%;
-    }
-
-    .you-loop-lm-update:hover {
-      background: rgba(94, 234, 212, 0.08);
-    }
-
-    .you-loop-lm-update-title {
-      color: #5eead4;
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .you-loop-lm-update-delta {
-      color: rgba(255, 255, 255, 0.55);
-      display: block;
-      font-size: 11.5px;
-      font-variant-numeric: tabular-nums;
-      margin-top: 3px;
-    }
-
-    .you-loop-lm-or {
-      align-items: center;
-      color: rgba(255, 255, 255, 0.35);
-      display: flex;
-      font-size: 10px;
-      gap: 8px;
-      letter-spacing: 0.08em;
-      margin: 2px 0 10px;
-      text-transform: uppercase;
-    }
-
-    .you-loop-lm-or::before,
-    .you-loop-lm-or::after {
-      background: rgba(255, 255, 255, 0.1);
-      content: "";
-      flex: 1;
-      height: 1px;
-    }
-
     .you-loop-lm-name {
       width: 100%;
-    }
-
-    .you-loop-lm-name:disabled {
-      cursor: default;
     }
 
     .you-loop-lm-savebtn {
@@ -1864,7 +1803,16 @@ export const PAGE_UI_STYLES = `
       border-color: rgba(255, 255, 255, 0.18);
     }
 
-    .you-loop-lm-row[data-selected="true"] {
+    /* Origin ring goes first: when a row is both the drift source and mid
+       confirm, the selected/pending rule below (same specificity, later in
+       source order) wins and shows the active teal state instead. */
+    .you-loop-lm-row[data-origin="true"] {
+      border-color: rgba(94, 234, 212, 0.45);
+      border-style: dashed;
+    }
+
+    .you-loop-lm-row[data-selected="true"],
+    .you-loop-lm-row[data-pending="true"] {
       background: rgba(94, 234, 212, 0.08);
       border-color: #5eead4;
     }
@@ -1942,6 +1890,79 @@ export const PAGE_UI_STYLES = `
     .you-loop-lm-actions button:hover {
       background: rgba(248, 113, 113, 0.14);
       color: #f87171;
+    }
+
+    /* Inline confirm strip: replaces a row's apply/actions content while its
+       ↻ is pending. Matches the apply button's padding so the row's height
+       doesn't shift. */
+    .you-loop-lm-confirm {
+      align-items: center;
+      display: flex;
+      flex: 1;
+      gap: 12px;
+      justify-content: space-between;
+      min-width: 0;
+      padding: 6px 4px;
+    }
+
+    .you-loop-lm-confirm-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .you-loop-lm-confirm-name {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .you-loop-lm-confirm-delta {
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Always visible — unlike .you-loop-lm-actions, these are not
+       hover-gated: the strip only appears on demand, so its own actions must
+       already be reachable. */
+    .you-loop-lm-confirm-actions {
+      display: inline-flex;
+      flex: none;
+      gap: 2px;
+    }
+
+    .you-loop-lm-confirm-actions button {
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      padding: 5px 6px;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .you-loop-lm-confirm-yes {
+      color: #5eead4;
+    }
+
+    .you-loop-lm-confirm-yes:hover {
+      background: rgba(94, 234, 212, 0.14);
+    }
+
+    /* Neutral hover: unlike delete, cancelling an update is never destructive. */
+    .you-loop-lm-confirm-cancel:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
     }
 
     /* Hairline loop-map strip along the row's bottom edge: a quick visual of

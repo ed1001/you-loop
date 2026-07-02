@@ -23,14 +23,14 @@ type Props = {
   // False when the current selection already matches the selected saved loop,
   // so there's nothing new to save.
   dirty: boolean;
-  // The saved loop the current selection was seeded from, if any. Drives the
-  // update-in-place block below.
+  // The saved loop the current selection was seeded from, if any. While the
+  // selection has drifted off it, its row gets the dashed origin ring below.
   sourceLoop?: SavedLoop;
   // Total video length in seconds, for positioning each row's loop-map band.
   duration: number;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
-  onUpdateLoop: () => void;
+  onUpdateLoop: (id: string) => void;
   onApply: (id: string) => void;
   onDelete: (id: string) => void;
   // Feed describeDelta's changed-field comparison for the update block.
@@ -126,6 +126,10 @@ export function SavedLoopsModal({
   currentCountIn,
 }: Props) {
   const [newName, setNewName] = useState("");
+  // The row (if any) currently showing the inline confirm strip in place of
+  // its normal apply/actions content. Retargets to whichever row's ↻ was
+  // clicked most recently; null once confirmed or cancelled.
+  const [pendingUpdateId, setPendingUpdateId] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   const selectedRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
@@ -160,14 +164,16 @@ export function SavedLoopsModal({
   useEffect(() => {
     if (!open) return;
     setNewName("");
+    setPendingUpdateId(null);
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Block YouTube's capture-phase shortcut handlers while interacting with the
   // modal: stop propagation from window (above document) without preventDefault
-  // so typing, selects, and button activation still work. Esc closes; Enter in
-  // a text field commits it.
+  // so typing, selects, and button activation still work. Esc backs out one
+  // level at a time: a pending row update cancels first, and only a second Esc
+  // (with nothing pending) closes the modal. Enter in a text field commits it.
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -182,7 +188,11 @@ export function SavedLoopsModal({
       if (event.type !== "keydown") return;
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        if (pendingUpdateId != null) {
+          setPendingUpdateId(null);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -193,11 +203,12 @@ export function SavedLoopsModal({
       window.removeEventListener("keyup", onKey, true);
       window.removeEventListener("keypress", onKey, true);
     };
-  }, [open, onClose]);
+  }, [open, onClose, pendingUpdateId]);
 
   if (!mounted || container == null) return null;
 
-  const canSave = newName.trim() !== "" && dirty;
+  // Saving an identical state is allowed by design; only an empty name blocks it.
+  const canSave = newName.trim() !== "";
 
   const handleSave = () => {
     if (!canSave) return;
@@ -267,94 +278,142 @@ export function SavedLoopsModal({
                 No saved loops yet. Save the current selection below.
               </li>
             )}
-            {loops.map((loop) => (
-              <li
-                key={loop.id}
-                ref={loop.id === selectedId ? selectedRowRef : undefined}
-                className="you-loop-lm-row"
-                data-selected={loop.id === selectedId}
-              >
-                <button
-                  type="button"
-                  className="you-loop-lm-apply"
-                  title={`Apply “${loop.name}”`}
-                  aria-label={`Apply ${loop.name}`}
-                  onClick={(e) => {
-                    swallow(e);
-                    onApply(loop.id);
-                  }}
+            {loops.map((loop) => {
+              const pending = loop.id === pendingUpdateId;
+              // The row the current (drifted) selection came from stays
+              // findable via a dashed ring once it's no longer the selected
+              // row itself.
+              const isOrigin =
+                dirty && sourceLoop != null && sourceLoop.id === loop.id;
+              return (
+                <li
+                  key={loop.id}
+                  ref={loop.id === selectedId ? selectedRowRef : undefined}
+                  className="you-loop-lm-row"
+                  data-selected={loop.id === selectedId}
+                  data-pending={pending}
+                  data-origin={isOrigin}
                 >
-                  <span className="you-loop-lm-name-text">{loop.name}</span>
-                  {loop.countIn != null && (
-                    <span className="you-loop-lm-tempo">
-                      {`♩${loop.countIn.bpm} · ${loop.countIn.beatsPerBar}/${loop.countIn.noteValue}`}
-                    </span>
+                  {pending ? (
+                    <div className="you-loop-lm-confirm">
+                      <span className="you-loop-lm-confirm-info">
+                        <span className="you-loop-lm-confirm-name">
+                          {loop.name}
+                        </span>
+                        <span className="you-loop-lm-confirm-delta">
+                          {describeDelta(
+                            loop,
+                            currentSegment,
+                            currentZoom,
+                            currentCountIn
+                          ) || "No changes"}
+                        </span>
+                      </span>
+                      <span className="you-loop-lm-confirm-actions">
+                        <button
+                          type="button"
+                          className="you-loop-lm-confirm-yes"
+                          aria-label={`Confirm update of ${loop.name}`}
+                          title="Confirm update"
+                          onClick={(e) => {
+                            swallow(e);
+                            onUpdateLoop(loop.id);
+                            setPendingUpdateId(null);
+                          }}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          className="you-loop-lm-confirm-cancel"
+                          aria-label="Cancel update"
+                          title="Cancel"
+                          onClick={(e) => {
+                            swallow(e);
+                            setPendingUpdateId(null);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="you-loop-lm-apply"
+                        title={`Apply “${loop.name}”`}
+                        aria-label={`Apply ${loop.name}`}
+                        onClick={(e) => {
+                          swallow(e);
+                          onApply(loop.id);
+                        }}
+                      >
+                        <span className="you-loop-lm-name-text">
+                          {loop.name}
+                        </span>
+                        {loop.countIn != null && (
+                          <span className="you-loop-lm-tempo">
+                            {`♩${loop.countIn.bpm} · ${loop.countIn.beatsPerBar}/${loop.countIn.noteValue}`}
+                          </span>
+                        )}
+                        <span className="you-loop-lm-range">
+                          {formatRange(loop.main)}
+                        </span>
+                      </button>
+
+                      <span className="you-loop-lm-actions">
+                        <button
+                          type="button"
+                          aria-label={`Update ${loop.name} with current loop`}
+                          title="Update"
+                          onClick={(e) => {
+                            swallow(e);
+                            setPendingUpdateId(loop.id);
+                          }}
+                        >
+                          ↻
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${loop.name}`}
+                          title="Delete"
+                          onClick={(e) => {
+                            swallow(e);
+                            onDelete(loop.id);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+
+                      <span className="you-loop-lm-map" aria-hidden="true">
+                        <span
+                          className="you-loop-lm-map-band"
+                          style={{
+                            left: `${(loop.main.start / duration) * 100}%`,
+                            width: `${((loop.main.end - loop.main.start) / duration) * 100}%`
+                          }}
+                        />
+                      </span>
+                    </>
                   )}
-                  <span className="you-loop-lm-range">
-                    {formatRange(loop.main)}
-                  </span>
-                </button>
-
-                <span className="you-loop-lm-actions">
-                  <button
-                    type="button"
-                    aria-label={`Delete ${loop.name}`}
-                    title="Delete"
-                    onClick={(e) => {
-                      swallow(e);
-                      onDelete(loop.id);
-                    }}
-                  >
-                    ✕
-                  </button>
-                </span>
-
-                <span className="you-loop-lm-map" aria-hidden="true">
-                  <span
-                    className="you-loop-lm-map-band"
-                    style={{
-                      left: `${(loop.main.start / duration) * 100}%`,
-                      width: `${((loop.main.end - loop.main.start) / duration) * 100}%`
-                    }}
-                  />
-                </span>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </section>
 
-        <section className="you-loop-lm-save" data-disabled={!dirty}>
+        <section className="you-loop-lm-save">
           <h3 className="you-loop-lm-label">Save current loop</h3>
-
-          {sourceLoop != null && dirty && (
-            <>
-              <button
-                type="button"
-                className="you-loop-lm-update"
-                onClick={(e) => {
-                  swallow(e);
-                  onUpdateLoop();
-                }}
-              >
-                <span className="you-loop-lm-update-title">
-                  {`↻ Update “${sourceLoop.name}”`}
-                </span>
-                <span className="you-loop-lm-update-delta">
-                  {describeDelta(sourceLoop, currentSegment, currentZoom, currentCountIn)}
-                </span>
-              </button>
-              <span className="you-loop-lm-or">or</span>
-            </>
-          )}
 
           <input
             className="you-loop-loops-input you-loop-lm-name"
             data-loops-field="new"
             type="text"
-            placeholder={dirty ? "Name this loop" : "Current loop already saved"}
+            placeholder="Name this loop"
             maxLength={NAME_MAX_LENGTH}
             value={newName}
-            disabled={!dirty}
             onPointerDown={stopOnly}
             onMouseDown={stopOnly}
             onChange={(e) => setNewName(e.target.value)}

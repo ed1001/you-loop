@@ -840,8 +840,8 @@ describe("page UI", () => {
 
   // Spec §2 headline behavior: changing count-in settings while a
   // snapshot-carrying saved loop is selected must flip the selection dirty
-  // (row deselects, update block appears with a tempo delta). Drives the
-  // change through the count-in popover's time-signature buttons — the
+  // (row deselects; its ↻ confirm strip then carries the tempo delta). Drives
+  // the change through the count-in popover's time-signature buttons — the
   // simplest public seam for onCountInSettingsChange — rather than the BPM
   // drag/tap gestures, which are covered in CountInControl.test.tsx.
   it("changing count-in settings dirties a tempo-snapshot selection", async () => {
@@ -868,7 +868,6 @@ describe("page UI", () => {
     expect(
       document.querySelector('.you-loop-lm-row[data-selected="true"]')
     ).not.toBeNull();
-    expect(screen.queryByText(/Update/)).not.toBeInTheDocument();
 
     // The pill button only opens the popover; on/off lives on the switch
     // inside it, so this click cannot itself dirty anything.
@@ -879,17 +878,23 @@ describe("page UI", () => {
       fireEvent.click(screen.getByText("3/4"));
     });
 
-    // Tempo-dirty: the row deselects and an update block appears with the
-    // meter delta.
+    // Tempo-dirty: the row deselects.
     expect(
       document.querySelector('.you-loop-lm-row[data-selected="true"]')
     ).toBeNull();
-    const updateButton = screen.getByRole("button", { name: /Update “A”/ });
-    expect(updateButton.textContent).toContain("4/4 → 3/4");
+
+    // ↻ is always present; opening its confirm strip surfaces the meter delta.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update A with current loop"));
+    });
+    expect(
+      document.querySelector(".you-loop-lm-confirm-delta")?.textContent
+    ).toContain("4/4 → 3/4");
   });
 
   // Negative counterpart: a legacy loop (no count-in snapshot) has nothing to
-  // diff tempo against, so the same settings change must NOT go dirty.
+  // diff tempo against, so the same settings change must NOT go dirty, and its
+  // confirm strip reports no changes.
   it("changing count-in settings leaves a legacy selection clean", async () => {
     await mountWatch("vid1", {
       [keyFor("vid1")]: SAVED_ENTRY,
@@ -914,7 +919,13 @@ describe("page UI", () => {
     expect(
       document.querySelector('.you-loop-lm-row[data-selected="true"]')
     ).not.toBeNull();
-    expect(screen.queryByText(/Update/)).not.toBeInTheDocument();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update A with current loop"));
+    });
+    expect(
+      document.querySelector(".you-loop-lm-confirm-delta")?.textContent
+    ).toBe("No changes");
   });
 
   it("applying a legacy loop leaves count-in settings untouched", async () => {
@@ -1273,7 +1284,7 @@ describe("describeDelta", () => {
   });
 });
 
-describe("update in place", () => {
+describe("row-scoped update", () => {
   // A preceding describe block ("compact mode toggle") mounts a player
   // without tearing it down, so the DOM can arrive dirty here regardless of
   // this block's own afterEach. Start clean rather than depend on run order.
@@ -1324,30 +1335,31 @@ describe("update in place", () => {
     });
   }
 
-  it("offers update-in-place when the applied loop has drifted", async () => {
-    const { player } = await mountWatch("vid1", {
-      [keyFor("vid1")]: UPDATE_ENTRY,
-      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
-    });
-    await flushAsync();
+  // A second loop on the same video, for the "update a row other than the
+  // applied source" case below.
+  const TWO_LOOP_ENTRY = {
+    loops: [
+      {
+        id: "l1",
+        name: "A",
+        main: { start: 5, end: 100 },
+        zoom: null,
+        countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+      },
+      {
+        id: "l2",
+        name: "B",
+        main: { start: 10, end: 50 },
+        zoom: null,
+        countIn: null
+      }
+    ],
+    lastUsedId: "l1",
+    addedAt: 10,
+    title: "Caprice 24"
+  };
 
-    driftMainStart(player);
-    // The drag-end click guard (suppressNextClick) eats the very next click
-    // regardless of target; let its one-shot timeout clear before opening
-    // the modal so that click isn't swallowed too.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-
-    act(() => {
-      fireEvent.click(screen.getByLabelText("Saved loops"));
-    });
-
-    const updateButton = screen.getByRole("button", { name: /Update “A”/ });
-    expect(updateButton.textContent).toContain("0:05 – 1:40 → 0:20 – 1:40");
-  });
-
-  it("update commits the current state into the loop", async () => {
+  it("row ↻ opens a confirm strip with that row's delta; ✓ persists and selects it", async () => {
     const { player, dump } = await mountWatch("vid1", {
       [keyFor("vid1")]: UPDATE_ENTRY,
       [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
@@ -1365,37 +1377,184 @@ describe("update in place", () => {
     act(() => {
       fireEvent.click(screen.getByLabelText("Saved loops"));
     });
-    const updateButton = screen.getByRole("button", { name: /Update “A”/ });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update A with current loop"));
+    });
+    expect(
+      document.querySelector(".you-loop-lm-confirm-delta")?.textContent
+    ).toContain("0:05 – 1:40 → 0:20 – 1:40");
 
     await act(async () => {
-      fireEvent.click(updateButton);
+      fireEvent.click(screen.getByLabelText("Confirm update of A"));
       for (let i = 0; i < 5; i++) await Promise.resolve();
     });
 
     const savedEntry = dump()[keyFor("vid1")] as any;
     expect(savedEntry.loops[0].main).toEqual({ start: 20, end: 100 });
 
-    // Selection reads clean again: no more update offer, and the row is
-    // re-selected now that the current state matches what's stored.
-    expect(screen.queryByRole("button", { name: /Update/ })).not.toBeInTheDocument();
+    // Strip closes, and the row re-selects now that it matches current state.
+    expect(screen.queryByLabelText("Cancel update")).not.toBeInTheDocument();
     expect(
       document.querySelector('.you-loop-lm-row[data-selected="true"]')
     ).not.toBeNull();
   });
 
-  it("no update block without a source loop", async () => {
-    await mountWatch("vid1");
+  it("updates a loop other than the applied source, moving selection to it", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: TWO_LOOP_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
     await flushAsync();
 
-    act(() => {
-      enableLoop();
-    });
     act(() => {
       fireEvent.click(screen.getByLabelText("Saved loops"));
     });
 
-    // Dirty (fresh, unsaved selection) but with no saved loop it was seeded
-    // from, so there's nothing to offer updating.
-    expect(screen.queryByText(/Update/)).not.toBeInTheDocument();
+    // A is the applied source (current selection is A's 5–100); update B
+    // instead of A.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update B with current loop"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Confirm update of B"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].main).toEqual({ start: 5, end: 100 }); // A untouched
+    expect(savedEntry.loops[1].main).toEqual({ start: 5, end: 100 }); // B now matches current selection
+
+    expect(
+      screen.getByLabelText("Apply B").closest("li")?.dataset.selected
+    ).toBe("true");
+    expect(
+      screen.getByLabelText("Apply A").closest("li")?.dataset.selected
+    ).toBe("false");
+  });
+
+  it("✕ cancels the confirm strip without touching storage", async () => {
+    const { player, dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: UPDATE_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    driftMainStart(player);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update A with current loop"));
+    });
+    expect(screen.getByLabelText("Confirm update of A")).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Cancel update"));
+    });
+
+    expect(
+      screen.queryByLabelText("Confirm update of A")
+    ).not.toBeInTheDocument();
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].main).toEqual({ start: 5, end: 100 });
+  });
+
+  it("Escape cancels a pending update first; a second Escape closes the modal", async () => {
+    await mountWatch("vid1", { [keyFor("vid1")]: SAVED_ENTRY });
+    await flushAsync();
+    act(() => {
+      enableLoop();
+    });
+    // Once the modal is open the dialog itself shares the "Saved loops"
+    // accessible name, so scope the toggle lookup to its role.
+    const toggle = screen.getByRole("button", { name: "Saved loops" });
+    act(() => {
+      fireEvent.click(toggle);
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update A with current loop"));
+    });
+    expect(screen.getByLabelText("Confirm update of A")).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    });
+    // First Escape: strip closes, modal stays open.
+    expect(
+      screen.queryByLabelText("Confirm update of A")
+    ).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    act(() => {
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    });
+    // Second Escape: nothing pending, so it closes the modal.
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("↻ on a clean, applied row shows \"No changes\"; ✓ commits without error", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: UPDATE_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Update A with current loop"));
+    });
+    expect(
+      document.querySelector(".you-loop-lm-confirm-delta")?.textContent
+    ).toBe("No changes");
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Confirm update of A"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].main).toEqual({ start: 5, end: 100 });
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+  });
+
+  it("save section stays enabled for a clean selection and can save a duplicate", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    const input = screen.getByPlaceholderText("Name this loop");
+    expect(input).not.toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "dup" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops).toHaveLength(2);
+    expect(savedEntry.loops[1].name).toBe("dup");
+    expect(savedEntry.loops[1].main).toEqual(savedEntry.loops[0].main);
   });
 });

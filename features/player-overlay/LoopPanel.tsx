@@ -38,7 +38,7 @@ type Props = {
   onToggleLoops: () => void;
   onCloseLoops: () => void;
   onSaveAsNew: (name: string) => void;
-  onUpdateLoop: () => void;
+  onUpdateLoop: (id: string) => void;
   onApplyLoop: (id: string) => void;
   onDeleteLoop: (id: string) => void;
   countInOn: boolean;

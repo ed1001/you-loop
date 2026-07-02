@@ -506,26 +506,28 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  // Overwrite the selected saved loop with the current selection (main, zoom,
-  // and count-in) — the "update in place" counterpart to saveAsNew. No-op
-  // without a live selection to write. If the loop vanished from storage
-  // underneath us (deleted elsewhere), fall back to reloading the entry so
-  // `savedLoops` reflects reality instead of going stale.
-  const updateSelectedLoop = async (): Promise<void> => {
-    if (videoId == null || selectedLoopId == null || state.loopSegment == null) {
-      return;
-    }
-    const updated = await updateLoop(videoId, selectedLoopId, {
+  // Overwrite any saved loop — not necessarily the currently applied one —
+  // with the current selection (main, zoom, and count-in). The id comes from
+  // the row whose ↻ was confirmed, not from selection state, so this can
+  // update a loop other than the one that's currently applied. On success the
+  // updated loop becomes the selection (it now matches current state, so its
+  // row reads selected/clean). If the loop vanished from storage underneath
+  // us (deleted elsewhere), fall back to reloading the entry so `savedLoops`
+  // reflects reality instead of going stale.
+  const updateSavedLoop = async (id: string): Promise<void> => {
+    if (videoId == null || state.loopSegment == null) return;
+    const updated = await updateLoop(videoId, id, {
       main: state.loopSegment,
       zoom: zoomLoop,
       countIn: countInSettings
     });
     if (updated != null) {
       savedLoops = savedLoops.map((l) => (l.id === updated.id ? updated : l));
+      selectedLoopId = id;
     } else {
       const entry = await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
       savedLoops = entry?.loops ?? [];
-      selectedLoopId = null;
+      if (selectedLoopId === id) selectedLoopId = null;
     }
     render();
   };
@@ -659,7 +661,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onToggleLoops={toggleLoops}
           onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
-          onUpdateLoop={() => void updateSelectedLoop()}
+          onUpdateLoop={(id) => void updateSavedLoop(id)}
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
           countInOn={countInOn}

@@ -33,6 +33,14 @@ if (typeof window.PointerEvent === "undefined") {
   window.PointerEvent = PointerEventShim;
 }
 
+// jsdom has no scrollIntoView; SavedLoopsModal calls it on the selected row
+// whenever the modal opens with a clean (non-dirty) selection — a path only
+// exercised once these tempo-dirty tests open the modal on an applied,
+// unmodified loop.
+if (typeof window.HTMLElement.prototype.scrollIntoView !== "function") {
+  window.HTMLElement.prototype.scrollIntoView = function () {};
+}
+
 function speedSlider() {
   return screen.getByRole("slider", { name: /playback speed/i });
 }
@@ -828,6 +836,85 @@ describe("page UI", () => {
     // SAVED_ENTRY loop 5–9 on a 120s video.
     expect(band.style.left).toBe("4.166666666666666%");
     expect(band.style.width).toBe("3.3333333333333335%");
+  });
+
+  // Spec §2 headline behavior: changing count-in settings while a
+  // snapshot-carrying saved loop is selected must flip the selection dirty
+  // (row deselects, update block appears with a tempo delta). Drives the
+  // change through the count-in popover's time-signature buttons — the
+  // simplest public seam for onCountInSettingsChange — rather than the BPM
+  // drag/tap gestures, which are covered in CountInControl.test.tsx.
+  it("changing count-in settings dirties a tempo-snapshot selection", async () => {
+    const entry = {
+      ...SAVED_ENTRY,
+      loops: [
+        {
+          ...SAVED_ENTRY.loops[0],
+          countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+        }
+      ]
+    };
+    await mountWatch("vid1", {
+      [keyFor("vid1")]: entry,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+
+    // Launch auto-applied the loop: the row reads selected, clean.
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+    expect(screen.queryByText(/Update/)).not.toBeInTheDocument();
+
+    // The pill button only opens the popover; on/off lives on the switch
+    // inside it, so this click cannot itself dirty anything.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Count-in off"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByText("3/4"));
+    });
+
+    // Tempo-dirty: the row deselects and an update block appears with the
+    // meter delta.
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).toBeNull();
+    const updateButton = screen.getByRole("button", { name: /Update “A”/ });
+    expect(updateButton.textContent).toContain("4/4 → 3/4");
+  });
+
+  // Negative counterpart: a legacy loop (no count-in snapshot) has nothing to
+  // diff tempo against, so the same settings change must NOT go dirty.
+  it("changing count-in settings leaves a legacy selection clean", async () => {
+    await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Count-in off"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByText("3/4"));
+    });
+
+    expect(
+      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+    ).not.toBeNull();
+    expect(screen.queryByText(/Update/)).not.toBeInTheDocument();
   });
 
   it("applying a legacy loop leaves count-in settings untouched", async () => {

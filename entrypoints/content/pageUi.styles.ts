@@ -1948,9 +1948,11 @@ export const PAGE_UI_STYLES = `
        where this loop sits within the whole video. */
     .you-loop-lm-map {
       background: rgba(255, 255, 255, 0.12);
+      border-radius: 1px;
       bottom: 0;
       height: 2px;
       left: 6px;
+      overflow: hidden;
       position: absolute;
       right: 6px;
     }

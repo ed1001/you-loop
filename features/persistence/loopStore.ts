@@ -1,4 +1,6 @@
 import type { LoopSegment } from "../playback/types";
+import type { CountInSettings } from "./countInStore";
+import { sanitizeCountInSettings } from "./countInStore";
 
 // Legacy single-blob key (storage.local). Read only by the migration.
 export const SAVED_STORE_KEY = "you-loop:saved";
@@ -16,6 +18,9 @@ export type SavedLoop = {
   name: string;
   main: LoopSegment;
   zoom: LoopSegment | null;
+  // Per-loop count-in snapshot. Absent/null on legacy loops (no migration:
+  // they simply fall back to the global count-in default at play time).
+  countIn?: CountInSettings | null;
 };
 
 export type VideoEntry = {
@@ -68,6 +73,20 @@ export function resolveStorage(storage?: Partial<LoopStorage>): LoopStorage {
 
 // --- per-video key access (sync primary, local fallback) ---
 
+// Stored count-ins can be corrupt (bad sync write, older device version).
+// Re-sanitizing on every read keeps that boundary in one place, so a corrupt
+// value never reaches playback regardless of which loop it lives on.
+function sanitizeEntry(entry: VideoEntry): VideoEntry {
+  return {
+    ...entry,
+    loops: entry.loops.map((loop) =>
+      loop.countIn == null
+        ? loop
+        : { ...loop, countIn: sanitizeCountInSettings(loop.countIn) }
+    )
+  };
+}
+
 async function readEntry(
   s: LoopStorage,
   videoId: string
@@ -75,13 +94,13 @@ async function readEntry(
   const key = keyFor(videoId);
   try {
     const r = await s.sync.get(key);
-    if (r[key] != null) return r[key] as VideoEntry;
+    if (r[key] != null) return sanitizeEntry(r[key] as VideoEntry);
   } catch {
     // fall through to local
   }
   try {
     const r = await s.local.get(key);
-    if (r[key] != null) return r[key] as VideoEntry;
+    if (r[key] != null) return sanitizeEntry(r[key] as VideoEntry);
   } catch {
     // give up
   }
@@ -172,12 +191,13 @@ export async function addLoop(
   name: string,
   main: LoopSegment,
   zoom: LoopSegment | null,
+  countIn?: CountInSettings | null,
   storage?: Partial<LoopStorage>,
   now: number = Date.now()
 ): Promise<SavedLoop> {
   const s = resolveStorage(storage);
   const existing = await readEntry(s, videoId);
-  const loop: SavedLoop = { id: crypto.randomUUID(), name, main, zoom };
+  const loop: SavedLoop = { id: crypto.randomUUID(), name, main, zoom, countIn };
   const entry: VideoEntry = existing
     ? { ...existing, loops: [...existing.loops, loop], lastUsedId: loop.id }
     : { loops: [loop], lastUsedId: loop.id, addedAt: now };
@@ -200,6 +220,26 @@ async function mutateEntry(
   apply(entry, { delete: () => (remove = true) });
   if (remove) await deleteEntry(s, videoId);
   else await writeEntry(s, videoId, entry);
+}
+
+// Overwrites main/zoom/countIn on an existing loop in place (name untouched).
+// Returns the updated loop, or null with no write when the video or loop id
+// no longer exists.
+export async function updateLoop(
+  videoId: string,
+  loopId: string,
+  patch: { main: LoopSegment; zoom: LoopSegment | null; countIn: CountInSettings | null },
+  storage?: Partial<LoopStorage>
+): Promise<SavedLoop | null> {
+  const s = resolveStorage(storage);
+  const entry = await readEntry(s, videoId);
+  if (!entry) return null;
+  const index = entry.loops.findIndex((l) => l.id === loopId);
+  if (index === -1) return null;
+  const updated: SavedLoop = { ...entry.loops[index], ...patch };
+  entry.loops = entry.loops.map((l, i) => (i === index ? updated : l));
+  await writeEntry(s, videoId, entry);
+  return updated;
 }
 
 export async function removeLoop(

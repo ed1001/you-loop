@@ -1,5 +1,5 @@
 import type { MouseEvent, PointerEvent } from "react";
-import type { LoopSegment, PlayMode } from "../playback/types";
+import type { PlayMode } from "../playback/types";
 import { SpeedControl } from "./SpeedControl";
 import { PitchControl } from "./PitchControl";
 import type { PitchSettings } from "../persistence/pitchStore";
@@ -29,16 +29,11 @@ type Props = {
   loopsOpen: boolean;
   savedLoops: SavedLoop[];
   selectedLoopId: string | null;
-  currentSegment: LoopSegment | null;
-  loopDirty: boolean;
-  sourceLoop?: SavedLoop;
   duration: number;
-  currentZoom: LoopSegment | null;
-  currentCountIn: CountInSettings;
   onToggleLoops: () => void;
   onCloseLoops: () => void;
   onSaveAsNew: (name: string) => void;
-  onUpdateLoop: (id: string) => void;
+  onEditLoop: (id: string, patch: { name?: string; replaceState?: boolean }) => void;
   onApplyLoop: (id: string) => void;
   onDeleteLoop: (id: string) => void;
   countInOn: boolean;
@@ -86,16 +81,11 @@ export function LoopPanel({
   loopsOpen,
   savedLoops,
   selectedLoopId,
-  currentSegment,
-  loopDirty,
-  sourceLoop,
   duration,
-  currentZoom,
-  currentCountIn,
   onToggleLoops,
   onCloseLoops,
   onSaveAsNew,
-  onUpdateLoop,
+  onEditLoop,
   onApplyLoop,
   onDeleteLoop,
   countInOn,
@@ -356,15 +346,10 @@ export function LoopPanel({
         container={loopsContainer}
         loops={savedLoops}
         selectedId={selectedLoopId}
-        currentSegment={currentSegment}
-        dirty={loopDirty}
-        sourceLoop={sourceLoop}
         duration={duration}
-        currentZoom={currentZoom}
-        currentCountIn={currentCountIn}
         onClose={onCloseLoops}
         onSaveAsNew={onSaveAsNew}
-        onUpdateLoop={onUpdateLoop}
+        onEditLoop={onEditLoop}
         onApply={onApplyLoop}
         onDelete={onDeleteLoop}
       />

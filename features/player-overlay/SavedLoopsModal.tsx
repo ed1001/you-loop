@@ -3,7 +3,6 @@ import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
 import type { SavedLoop } from "../persistence/loopStore";
-import type { CountInSettings } from "../persistence/countInStore";
 import { useModalPresence } from "./useModalPresence";
 
 // Must match the you-loop-help-sink duration so the card finishes its exit
@@ -12,6 +11,8 @@ const EXIT_MS = 200;
 // Loop names are short labels; keep them from overrunning the row.
 const NAME_MAX_LENGTH = 40;
 
+type EditPatch = { name?: string; replaceState?: boolean };
+
 type Props = {
   open: boolean;
   // Portaled into the .html5-video-player root so the card sits above the
@@ -19,23 +20,13 @@ type Props = {
   container: HTMLElement | null;
   loops: SavedLoop[];
   selectedId: string | null;
-  currentSegment: LoopSegment | null;
-  // False when the current selection already matches the selected saved loop,
-  // so there's nothing new to save.
-  dirty: boolean;
-  // The saved loop the current selection was seeded from, if any. While the
-  // selection has drifted off it, its row gets the dashed origin ring below.
-  sourceLoop?: SavedLoop;
   // Total video length in seconds, for positioning each row's loop-map band.
   duration: number;
   onClose: () => void;
   onSaveAsNew: (name: string) => void;
-  onUpdateLoop: (id: string) => void;
+  onEditLoop: (id: string, patch: EditPatch) => void;
   onApply: (id: string) => void;
   onDelete: (id: string) => void;
-  // Feed describeDelta's changed-field comparison for the update block.
-  currentZoom: LoopSegment | null;
-  currentCountIn: CountInSettings;
 };
 
 const swallow = (event: MouseEvent | PointerEvent) => {
@@ -61,75 +52,25 @@ function formatRange(segment: LoopSegment | null): string {
   return `${formatTime(segment.start)} – ${formatTime(segment.end)}`;
 }
 
-// Two loop segments are equal when both null or both endpoints match.
-function regionsEqual(a: LoopSegment | null, b: LoopSegment | null): boolean {
-  if (a == null || b == null) return a === b;
-  return a.start === b.start && a.end === b.end;
-}
-
-function pluralBars(bars: number): string {
-  return `${bars} bar${bars === 1 ? "" : "s"}`;
-}
-
-// Pure summary of what an update-in-place would change, most-visible fields
-// first (region, then zoom, then tempo). Only changed fields render — an
-// unchanged field would be noise next to the button that commits it. Legacy
-// sources (no count-in snapshot) never compare tempo: there is nothing to
-// diff against, matching isLoopDirty's own legacy handling in pageUi.tsx.
-export function describeDelta(
-  source: SavedLoop,
-  segment: LoopSegment | null,
-  zoom: LoopSegment | null,
-  countIn: CountInSettings
-): string {
-  const parts: string[] = [];
-
-  if (!regionsEqual(source.main, segment)) {
-    parts.push(`${formatRange(source.main)} → ${formatRange(segment)}`);
-  }
-  if (!regionsEqual(source.zoom, zoom)) {
-    parts.push(`zoom ${formatRange(source.zoom)} → ${formatRange(zoom)}`);
-  }
-  if (source.countIn != null) {
-    const from = source.countIn;
-    if (from.bpm !== countIn.bpm) {
-      parts.push(`♩${from.bpm} → ${countIn.bpm}`);
-    }
-    if (from.beatsPerBar !== countIn.beatsPerBar || from.noteValue !== countIn.noteValue) {
-      parts.push(
-        `${from.beatsPerBar}/${from.noteValue} → ${countIn.beatsPerBar}/${countIn.noteValue}`
-      );
-    }
-    if (from.bars !== countIn.bars) {
-      parts.push(`${pluralBars(from.bars)} → ${pluralBars(countIn.bars)}`);
-    }
-  }
-
-  return parts.join(" · ");
-}
-
 export function SavedLoopsModal({
   open,
   container,
   loops,
   selectedId,
-  currentSegment,
-  dirty,
-  sourceLoop,
   duration,
   onClose,
   onSaveAsNew,
-  onUpdateLoop,
+  onEditLoop,
   onApply,
   onDelete,
-  currentZoom,
-  currentCountIn,
 }: Props) {
   const [newName, setNewName] = useState("");
-  // The row (if any) currently showing the inline confirm strip in place of
-  // its normal apply/actions content. Retargets to whichever row's ↻ was
-  // clicked most recently; null once confirmed or cancelled.
-  const [pendingUpdateId, setPendingUpdateId] = useState<string | null>(null);
+  // The row (if any) currently in pencil-edit mode, replacing its normal
+  // apply/actions content with the name field + replace button. Retargets to
+  // whichever row's pencil was clicked most recently; null once committed or
+  // cancelled.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const listRef = useRef<HTMLUListElement | null>(null);
   const selectedRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
@@ -164,7 +105,8 @@ export function SavedLoopsModal({
   useEffect(() => {
     if (!open) return;
     setNewName("");
-    setPendingUpdateId(null);
+    setEditingId(null);
+    setEditName("");
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -172,8 +114,9 @@ export function SavedLoopsModal({
   // Block YouTube's capture-phase shortcut handlers while interacting with the
   // modal: stop propagation from window (above document) without preventDefault
   // so typing, selects, and button activation still work. Esc backs out one
-  // level at a time: a pending row update cancels first, and only a second Esc
-  // (with nothing pending) closes the modal. Enter in a text field commits it.
+  // level at a time: an open pencil edit cancels first, and only a second Esc
+  // (with nothing being edited) closes the modal. Enter in a text field commits
+  // it.
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -188,8 +131,8 @@ export function SavedLoopsModal({
       if (event.type !== "keydown") return;
       if (event.key === "Escape") {
         event.preventDefault();
-        if (pendingUpdateId != null) {
-          setPendingUpdateId(null);
+        if (editingId != null) {
+          setEditingId(null);
         } else {
           onClose();
         }
@@ -203,7 +146,7 @@ export function SavedLoopsModal({
       window.removeEventListener("keyup", onKey, true);
       window.removeEventListener("keypress", onKey, true);
     };
-  }, [open, onClose, pendingUpdateId]);
+  }, [open, onClose, editingId]);
 
   if (!mounted || container == null) return null;
 
@@ -214,6 +157,23 @@ export function SavedLoopsModal({
     if (!canSave) return;
     onSaveAsNew(newName.trim());
     setNewName("");
+  };
+
+  // A blank or unchanged name is a no-op on the name field — only a real,
+  // non-empty rename is forwarded.
+  const resolveEditName = (loop: SavedLoop): string | undefined => {
+    const trimmed = editName.trim();
+    return trimmed !== loop.name && trimmed !== "" ? trimmed : undefined;
+  };
+
+  const commitEdit = (loop: SavedLoop) => {
+    onEditLoop(loop.id, { name: resolveEditName(loop) });
+    setEditingId(null);
+  };
+
+  const commitReplace = (loop: SavedLoop) => {
+    onEditLoop(loop.id, { name: resolveEditName(loop), replaceState: true });
+    setEditingId(null);
   };
 
   return createPortal(
@@ -259,9 +219,6 @@ export function SavedLoopsModal({
 
         <header className="you-loop-lm-head">
           <h2 className="you-loop-lm-title">Saved loops</h2>
-          <p className="you-loop-lm-sub">
-            {`Current selection · ${formatRange(currentSegment)}`}
-          </p>
         </header>
 
         <section className="you-loop-lm-list-wrap">
@@ -279,63 +236,82 @@ export function SavedLoopsModal({
               </li>
             )}
             {loops.map((loop) => {
-              const pending = loop.id === pendingUpdateId;
-              // The row the current (drifted) selection came from stays
-              // findable via a dashed ring once it's no longer the selected
-              // row itself.
-              const isOrigin =
-                dirty && sourceLoop != null && sourceLoop.id === loop.id;
+              const editing = loop.id === editingId;
               return (
                 <li
                   key={loop.id}
                   ref={loop.id === selectedId ? selectedRowRef : undefined}
                   className="you-loop-lm-row"
                   data-selected={loop.id === selectedId}
-                  data-pending={pending}
-                  data-origin={isOrigin}
+                  data-editing={editing}
                 >
-                  {pending ? (
-                    <div className="you-loop-lm-confirm">
-                      <span className="you-loop-lm-confirm-info">
-                        <span className="you-loop-lm-confirm-name">
-                          {loop.name}
-                        </span>
-                        <span className="you-loop-lm-confirm-delta">
-                          {describeDelta(
-                            loop,
-                            currentSegment,
-                            currentZoom,
-                            currentCountIn
-                          ) || "No changes"}
-                        </span>
-                      </span>
-                      <span className="you-loop-lm-confirm-actions">
-                        <button
-                          type="button"
-                          className="you-loop-lm-confirm-yes"
-                          aria-label={`Confirm update of ${loop.name}`}
-                          title="Confirm update"
-                          onClick={(e) => {
-                            swallow(e);
-                            onUpdateLoop(loop.id);
-                            setPendingUpdateId(null);
+                  <span className="you-loop-lm-map" aria-hidden="true">
+                    <span
+                      className="you-loop-lm-map-band"
+                      style={{
+                        left: `${(loop.main.start / duration) * 100}%`,
+                        width: `${((loop.main.end - loop.main.start) / duration) * 100}%`
+                      }}
+                    />
+                  </span>
+
+                  {editing ? (
+                    <div className="you-loop-lm-edit-row">
+                      <div className="you-loop-lm-edit-line">
+                        <input
+                          type="text"
+                          className="you-loop-loops-input you-loop-lm-edit-name"
+                          maxLength={NAME_MAX_LENGTH}
+                          value={editName}
+                          aria-label="Loop name"
+                          onPointerDown={stopOnly}
+                          onMouseDown={stopOnly}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitEdit(loop);
+                            }
                           }}
-                        >
-                          ✓
-                        </button>
-                        <button
-                          type="button"
-                          className="you-loop-lm-confirm-cancel"
-                          aria-label="Cancel update"
-                          title="Cancel"
-                          onClick={(e) => {
-                            swallow(e);
-                            setPendingUpdateId(null);
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </span>
+                        />
+                        <span className="you-loop-lm-edit-actions">
+                          <button
+                            type="button"
+                            className="you-loop-lm-edit-save"
+                            aria-label={`Save changes to ${loop.name}`}
+                            title="Save"
+                            onClick={(e) => {
+                              swallow(e);
+                              commitEdit(loop);
+                            }}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            type="button"
+                            className="you-loop-lm-edit-cancel"
+                            aria-label="Cancel edit"
+                            title="Cancel"
+                            onClick={(e) => {
+                              swallow(e);
+                              setEditingId(null);
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="you-loop-lm-replace"
+                        aria-label={`Replace ${loop.name} with current loop`}
+                        onClick={(e) => {
+                          swallow(e);
+                          commitReplace(loop);
+                        }}
+                      >
+                        ⟳ Replace with current loop
+                      </button>
                     </div>
                   ) : (
                     <>
@@ -365,15 +341,24 @@ export function SavedLoopsModal({
                       <span className="you-loop-lm-actions">
                         <button
                           type="button"
-                          className="you-loop-lm-update"
-                          aria-label={`Update ${loop.name} with current loop`}
-                          title="Update"
+                          className="you-loop-lm-edit"
+                          aria-label={`Edit ${loop.name}`}
+                          title="Edit"
                           onClick={(e) => {
                             swallow(e);
-                            setPendingUpdateId(loop.id);
+                            setEditingId(loop.id);
+                            setEditName(loop.name);
                           }}
                         >
-                          ↻
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path
+                              d="M4 20l4-1 11-11-3-3L5 16l-1 4z"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </button>
                         <button
                           type="button"
@@ -387,16 +372,6 @@ export function SavedLoopsModal({
                         >
                           ✕
                         </button>
-                      </span>
-
-                      <span className="you-loop-lm-map" aria-hidden="true">
-                        <span
-                          className="you-loop-lm-map-band"
-                          style={{
-                            left: `${(loop.main.start / duration) * 100}%`,
-                            width: `${((loop.main.end - loop.main.start) / duration) * 100}%`
-                          }}
-                        />
                       </span>
                     </>
                   )}

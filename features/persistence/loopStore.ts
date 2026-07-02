@@ -222,13 +222,25 @@ async function mutateEntry(
   else await writeEntry(s, videoId, entry);
 }
 
-// Overwrites main/zoom/countIn on an existing loop in place (name untouched).
-// Returns the updated loop, or null with no write when the video or loop id
-// no longer exists.
+// Strips `undefined`-valued keys from a patch so a spread of it can never
+// clobber an existing field (`{ ...loop, ...patch }` would otherwise let an
+// explicit `undefined` erase, e.g., a name).
+function definedOnly<T extends object>(patch: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const key of Object.keys(patch) as (keyof T)[]) {
+    if (patch[key] !== undefined) result[key] = patch[key];
+  }
+  return result;
+}
+
+// Overwrites only the provided fields on an existing loop in place; omitted
+// keys are left untouched (a rename leaves main/zoom/countIn alone, and vice
+// versa). Returns the updated loop, or null with no write when the video or
+// loop id no longer exists.
 export async function updateLoop(
   videoId: string,
   loopId: string,
-  patch: { main: LoopSegment; zoom: LoopSegment | null; countIn: CountInSettings | null },
+  patch: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">>,
   storage?: Partial<LoopStorage>
 ): Promise<SavedLoop | null> {
   const s = resolveStorage(storage);
@@ -236,7 +248,7 @@ export async function updateLoop(
   if (!entry) return null;
   const index = entry.loops.findIndex((l) => l.id === loopId);
   if (index === -1) return null;
-  const updated: SavedLoop = { ...entry.loops[index], ...patch };
+  const updated: SavedLoop = { ...entry.loops[index], ...definedOnly(patch) };
   entry.loops = entry.loops.map((l, i) => (i === index ? updated : l));
   await writeEntry(s, videoId, entry);
   return updated;

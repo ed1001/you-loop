@@ -112,6 +112,27 @@ function isLoopDirty(
   return source.countIn != null && !countInEqual(source.countIn, countIn);
 }
 
+// The store-level patch for a pencil-edit commit: the name field only when
+// provided, and the replace-with-current fields (main/zoom/count-in,
+// snapshotted from live state) only when replacing. `loopSegment` is only
+// read when `patch.replaceState` is set, at which point the caller has
+// already verified it is non-null.
+function buildEditStorePatch(
+  patch: { name?: string; replaceState?: boolean },
+  loopSegment: LoopSegment | null,
+  zoom: LoopSegment | null,
+  countIn: CountInSettings
+): Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">> {
+  const store: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">> = {};
+  if (patch.name != null) store.name = patch.name;
+  if (patch.replaceState) {
+    store.main = loopSegment!;
+    store.zoom = zoom;
+    store.countIn = countIn;
+  }
+  return store;
+}
+
 function getVideoDuration(video: HTMLVideoElement): number {
   return Number.isFinite(video.duration) && video.duration > 0
     ? video.duration
@@ -506,28 +527,36 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
-  // Overwrite any saved loop — not necessarily the currently applied one —
-  // with the current selection (main, zoom, and count-in). The id comes from
-  // the row whose ↻ was confirmed, not from selection state, so this can
-  // update a loop other than the one that's currently applied. On success the
-  // updated loop becomes the selection (it now matches current state, so its
-  // row reads selected/clean). If the loop vanished from storage underneath
-  // us (deleted elsewhere), fall back to reloading the entry so `savedLoops`
-  // reflects reality instead of going stale.
-  const updateSavedLoop = async (id: string): Promise<void> => {
-    if (videoId == null || state.loopSegment == null) return;
-    const updated = await updateLoop(videoId, id, {
-      main: state.loopSegment,
-      zoom: zoomLoop,
-      countIn: countInSettings
-    });
-    if (updated != null) {
-      savedLoops = savedLoops.map((l) => (l.id === updated.id ? updated : l));
-      selectedLoopId = id;
+  // Refresh `savedLoops` from storage when an edited loop has vanished from it
+  // (deleted elsewhere), clearing the selection if it pointed at that loop.
+  const refreshMissingLoop = async (id: string, forVideoId: string) => {
+    const entry = await loadEntry(forVideoId, undefined, getVideoTitle() ?? undefined);
+    savedLoops = entry?.loops ?? [];
+    if (selectedLoopId === id) selectedLoopId = null;
+  };
+
+  // Apply a pencil-edit commit to a saved loop: a rename, a replace-with-
+  // current (main/zoom/count-in overwritten from live state), or both. The id
+  // comes from whichever row's pencil was open, not from selection state, so
+  // this can edit a loop other than the one that's currently applied. A
+  // replace makes the edited loop the new selection (it now matches current
+  // state, so its row reads selected/clean); a rename alone must not steal
+  // the selection from whatever row already holds it.
+  const editSavedLoop = async (
+    id: string,
+    patch: { name?: string; replaceState?: boolean }
+  ): Promise<void> => {
+    if (videoId == null) return;
+    if (patch.replaceState && state.loopSegment == null) return;
+    const storePatch = buildEditStorePatch(patch, state.loopSegment, zoomLoop, countInSettings);
+    if (Object.keys(storePatch).length === 0) return;
+
+    const updated = await updateLoop(videoId, id, storePatch);
+    if (updated == null) {
+      await refreshMissingLoop(id, videoId);
     } else {
-      const entry = await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
-      savedLoops = entry?.loops ?? [];
-      if (selectedLoopId === id) selectedLoopId = null;
+      savedLoops = savedLoops.map((l) => (l.id === updated.id ? updated : l));
+      if (patch.replaceState) selectedLoopId = id;
     }
     render();
   };
@@ -652,16 +681,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           // A drifted (dirty) selection no longer *is* the saved loop, so no
           // row reads as selected until it's re-applied or saved anew.
           selectedLoopId={loopDirty ? null : selectedLoopId}
-          currentSegment={state.loopSegment}
-          loopDirty={loopDirty}
-          sourceLoop={selectedLoop}
           duration={duration}
-          currentZoom={zoomLoop}
-          currentCountIn={countInSettings}
           onToggleLoops={toggleLoops}
           onCloseLoops={closeLoops}
           onSaveAsNew={saveAsNew}
-          onUpdateLoop={(id) => void updateSavedLoop(id)}
+          onEditLoop={(id, patch) => void editSavedLoop(id, patch)}
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
           countInOn={countInOn}

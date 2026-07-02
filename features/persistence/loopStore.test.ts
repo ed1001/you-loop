@@ -165,7 +165,7 @@ describe("loopStore", () => {
     expect(entry!.loops[0].countIn).toEqual(DEFAULT_COUNT_IN_SETTINGS);
   });
 
-  it("updateLoop overwrites main/zoom/countIn in place", async () => {
+  it("updateLoop replace-only patch overwrites main/zoom/countIn, leaving name untouched", async () => {
     const area = makeArea();
     const loop = await addLoop("v1", "riff", seg(1, 2), null, null, sync(area));
     const updated = await updateLoop(
@@ -182,6 +182,30 @@ describe("loopStore", () => {
     const entry = await loadEntry("v1", sync(area));
     expect(entry!.loops[0].countIn?.bpm).toBe(90);
     expect(entry!.loops[0].name).toBe("riff"); // name untouched
+  });
+
+  it("updateLoop rename-only patch leaves main/zoom/countIn untouched", async () => {
+    const area = makeArea();
+    const snap = { bpm: 100, beatsPerBar: 4, noteValue: 4, bars: 1 };
+    const loop = await addLoop("v1", "riff", seg(1, 2), seg(1.2, 1.8), snap, sync(area));
+    const updated = await updateLoop("v1", loop.id, { name: "solo" }, sync(area));
+    expect(updated?.name).toBe("solo");
+    const entry = await loadEntry("v1", sync(area));
+    expect(entry!.loops[0].main).toEqual(seg(1, 2));
+    expect(entry!.loops[0].zoom).toEqual(seg(1.2, 1.8));
+    expect(entry!.loops[0].countIn).toEqual(snap);
+  });
+
+  it("updateLoop cannot erase a name via an undefined-spread", async () => {
+    const area = makeArea();
+    const loop = await addLoop("v1", "riff", seg(1, 2), null, null, sync(area));
+    const updated = await updateLoop(
+      "v1",
+      loop.id,
+      { name: undefined, main: seg(3, 5), zoom: null, countIn: null },
+      sync(area)
+    );
+    expect(updated?.name).toBe("riff");
   });
 
   it("updateLoop on a vanished id is a null no-op", async () => {

@@ -1686,13 +1686,6 @@ export const PAGE_UI_STYLES = `
       margin: 0;
     }
 
-    .you-loop-lm-sub {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-      margin: 0;
-    }
-
     .you-loop-lm-label {
       color: rgba(255, 255, 255, 0.42);
       font-size: 11px;
@@ -1803,20 +1796,19 @@ export const PAGE_UI_STYLES = `
       border-color: rgba(255, 255, 255, 0.18);
     }
 
-    /* Origin ring goes first: when a row is both the drift source and mid
-       confirm, the selected/pending rule below (same specificity, later in
-       source order, and setting both border-color and border-style) wins
-       and shows the active solid-teal state instead of the dashed ring. */
-    .you-loop-lm-row[data-origin="true"] {
-      border-color: rgba(94, 234, 212, 0.45);
-      border-style: dashed;
-    }
-
     .you-loop-lm-row[data-selected="true"],
-    .you-loop-lm-row[data-pending="true"] {
+    .you-loop-lm-row[data-editing="true"] {
       background: rgba(94, 234, 212, 0.08);
       border-color: #5eead4;
-      border-style: solid;
+    }
+
+    /* Above the full-height map tint (z-index 0): the row's real content —
+       apply button, actions, the pencil-edit form — must paint over it. */
+    .you-loop-lm-apply,
+    .you-loop-lm-actions,
+    .you-loop-lm-edit-row {
+      position: relative;
+      z-index: 1;
     }
 
     .you-loop-lm-apply {
@@ -1888,75 +1880,54 @@ export const PAGE_UI_STYLES = `
     }
 
     /* Delete is destructive: hover shifts to red so it never reads as just
-       another neutral action. Scoped to the delete button only — the ↻
-       update button gets its own (teal) hover below. */
+       another neutral action. Scoped to the delete button only — the pencil
+       edit button gets its own (teal) hover below. */
     .you-loop-lm-delete:hover {
       background: rgba(248, 113, 113, 0.14);
       color: #f87171;
     }
 
-    /* Update is non-destructive: hover shifts to teal, matching the rest of
+    /* Edit is non-destructive: hover shifts to teal, matching the rest of
        the panel's affirmative-action language. */
-    .you-loop-lm-update:hover {
+    .you-loop-lm-edit:hover {
       background: rgba(94, 234, 212, 0.14);
       color: #5eead4;
     }
 
-    /* Inline confirm strip: replaces a row's apply/actions content while its
-       ↻ is pending. Matches the apply button's padding so the row's height
-       doesn't shift. */
-    .you-loop-lm-confirm {
-      align-items: center;
+    /* Pencil-edit form: replaces a row's apply/actions content while it is
+       being edited. Two lines — name + always-visible save/cancel, then the
+       full-width replace button — so a slight height growth over a normal
+       row is fine; the list is a flex column and reflows around it. */
+    .you-loop-lm-edit-row {
       display: flex;
       flex: 1;
-      gap: 12px;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: 8px;
       min-width: 0;
       padding: 6px 4px;
     }
 
-    /* Name + delta share a single row now (was name atop delta, which made
-       the strip two lines tall — taller than a normal row). */
-    .you-loop-lm-confirm-info {
-      align-items: baseline;
+    .you-loop-lm-edit-line {
+      align-items: center;
       display: flex;
       gap: 8px;
-      min-width: 0;
     }
 
-    .you-loop-lm-confirm-name {
-      color: #fff;
-      flex: none;
-      font-size: 13px;
-      font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    /* Trails the name on the same line, truncating independently so a long
-       delta never wraps the row onto a second line (which would grow the
-       row taller than its neighbors). */
-    .you-loop-lm-confirm-delta {
-      color: rgba(255, 255, 255, 0.65);
-      font-size: 11.5px;
-      font-variant-numeric: tabular-nums;
+    .you-loop-lm-edit-name {
+      flex: 1;
       min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     /* Always visible — unlike .you-loop-lm-actions, these are not
-       hover-gated: the strip only appears on demand, so its own actions must
-       already be reachable. */
-    .you-loop-lm-confirm-actions {
+       hover-gated: the edit form only appears on demand, so its own actions
+       must already be reachable. */
+    .you-loop-lm-edit-actions {
       display: inline-flex;
       flex: none;
       gap: 2px;
     }
 
-    .you-loop-lm-confirm-actions button {
+    .you-loop-lm-edit-actions button {
       background: transparent;
       border: 0;
       border-radius: 4px;
@@ -1968,42 +1939,59 @@ export const PAGE_UI_STYLES = `
       transition: background 0.12s ease, color 0.12s ease;
     }
 
-    .you-loop-lm-confirm-yes {
+    .you-loop-lm-edit-save {
       color: #5eead4;
     }
 
-    .you-loop-lm-confirm-yes:hover {
+    .you-loop-lm-edit-save:hover {
       background: rgba(94, 234, 212, 0.14);
     }
 
-    /* Neutral hover: unlike delete, cancelling an update is never destructive. */
-    .you-loop-lm-confirm-cancel:hover {
+    /* Neutral hover: unlike delete, cancelling an edit is never destructive. */
+    .you-loop-lm-edit-cancel:hover {
       background: rgba(255, 255, 255, 0.1);
       color: rgba(255, 255, 255, 0.8);
     }
 
-    /* Hairline loop-map strip along the row's bottom edge: a quick visual of
-       where this loop sits within the whole video. */
+    .you-loop-lm-replace {
+      background: transparent;
+      border: 1px solid rgba(94, 234, 212, 0.5);
+      border-radius: 6px;
+      color: #5eead4;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 6px 10px;
+      transition: background 0.15s ease;
+      width: 100%;
+    }
+
+    .you-loop-lm-replace:hover {
+      background: rgba(94, 234, 212, 0.08);
+    }
+
+    /* Full-height position tint: a quick visual of where this loop sits
+       within the whole video, filling the row behind its content (z-index 0,
+       see .you-loop-lm-apply/.you-loop-lm-actions/.you-loop-lm-edit-row
+       above) instead of a thin bottom hairline. */
     .you-loop-lm-map {
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 1px;
-      bottom: 0;
-      height: 2px;
-      left: 6px;
+      border-radius: 7px;
+      inset: 0;
       overflow: hidden;
+      pointer-events: none;
       position: absolute;
-      right: 6px;
+      z-index: 0;
     }
 
     .you-loop-lm-map-band {
-      background: #14b8a6;
+      background: rgba(20, 184, 166, 0.14);
       height: 100%;
       position: absolute;
       top: 0;
     }
 
     .you-loop-lm-row[data-selected="true"] .you-loop-lm-map-band {
-      background: #5eead4;
+      background: rgba(20, 184, 166, 0.22);
     }
 
     /* Reuse the help modal's exit keyframes for the close animation. */

@@ -23,6 +23,7 @@ import {
   loadEntry,
   removeLoop,
   setLastUsed,
+  updateLoop,
   type SavedLoop,
   type SavedVideo,
   type VideoEntry
@@ -37,6 +38,7 @@ import {
   setCountInEnabled,
   loadCountInSettings,
   saveCountInSettings,
+  sanitizeCountInSettings,
   DEFAULT_COUNT_IN_SETTINGS,
   type CountInSettings
 } from "../../features/persistence/countInStore";
@@ -83,19 +85,33 @@ function segmentsEqual(a: LoopSegment | null, b: LoopSegment | null): boolean {
   return a.start === b.start && a.end === b.end;
 }
 
+// Two count-in settings are equal when every field matches.
+function countInEqual(a: CountInSettings, b: CountInSettings): boolean {
+  return (
+    a.bpm === b.bpm &&
+    a.beatsPerBar === b.beatsPerBar &&
+    a.noteValue === b.noteValue &&
+    a.bars === b.bars
+  );
+}
+
 // The save button is live only when the current selection differs from the
 // saved loop it came from: no source loop means a fresh, savable selection; an
-// exact match (both main and zoom) means there's nothing new to save.
+// exact match (main, zoom, and — for loops that carry a tempo snapshot —
+// count-in) means there's nothing new to save. Legacy loops (no snapshot)
+// never go tempo-dirty: there's nothing to compare against.
 function isLoopDirty(
   source: SavedLoop | undefined,
   segment: LoopSegment | null,
-  zoom: LoopSegment | null
+  zoom: LoopSegment | null,
+  countIn: CountInSettings
 ): boolean {
   if (segment == null) return false;
   if (source == null) return true;
-  return (
-    !segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)
-  );
+  if (!segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)) {
+    return true;
+  }
+  return source.countIn != null && !countInEqual(source.countIn, countIn);
 }
 
 function getVideoDuration(video: HTMLVideoElement): number {
@@ -356,6 +372,16 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     selectedLoopId = null;
   };
 
+  // Restore a saved loop's tempo snapshot into the live count-in settings and
+  // persist it as this video's count-in default. Legacy loops (no snapshot,
+  // countIn null/absent) leave the current settings untouched — there's
+  // nothing to restore.
+  const restoreLoopCountIn = (loop: SavedLoop) => {
+    if (loop.countIn == null) return;
+    countInSettings = sanitizeCountInSettings(loop.countIn);
+    if (videoId != null) void saveCountInSettings(videoId, countInSettings);
+  };
+
   // Restore the entry's last-used loop (clamping its zoom into the main loop).
   const applySavedEntry = (entry: VideoEntry) => {
     const loop =
@@ -370,6 +396,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       loop.zoom != null && state.loopSegment != null
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
+    restoreLoopCountIn(loop);
   };
 
   // Set the panel's on/off for the freshly loaded video. A popup launch loads
@@ -450,7 +477,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   const saveAsNew = async (name: string) => {
     if (videoId == null || state.loopSegment == null) return;
-    const loop = await addLoop(videoId, name, state.loopSegment, zoomLoop);
+    const loop = await addLoop(
+      videoId,
+      name,
+      state.loopSegment,
+      zoomLoop,
+      countInSettings
+    );
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
     // Persist the title now so this video shows a name in the index without
@@ -486,8 +519,32 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       loop.zoom != null && state.loopSegment != null
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
+    restoreLoopCountIn(loop);
     if (videoId != null) await setLastUsed(videoId, id);
     // Modal stays open on apply; the row flashes to confirm.
+    render();
+  };
+
+  // Overwrite the selected saved loop with the current selection (main, zoom,
+  // and count-in) — the "update in place" counterpart to saveAsNew. No-op
+  // without a live selection to write. If the loop vanished from storage
+  // underneath us (deleted elsewhere), fall back to reloading the entry so
+  // `savedLoops` reflects reality instead of going stale.
+  const updateSelectedLoop = async (): Promise<void> => {
+    if (videoId == null || selectedLoopId == null || state.loopSegment == null) {
+      return;
+    }
+    const updated = await updateLoop(videoId, selectedLoopId, {
+      main: state.loopSegment,
+      zoom: zoomLoop,
+      countIn: countInSettings
+    });
+    if (updated != null) {
+      savedLoops = savedLoops.map((l) => (l.id === updated.id ? updated : l));
+    } else {
+      const entry = await loadEntry(videoId, undefined, getVideoTitle() ?? undefined);
+      savedLoops = entry?.loops ?? [];
+    }
     render();
   };
 
@@ -541,7 +598,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const render = () => {
     const duration = getVideoDuration(video);
     const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
-    const loopDirty = isLoopDirty(selectedLoop, state.loopSegment, zoomLoop);
+    const loopDirty = isLoopDirty(
+      selectedLoop,
+      state.loopSegment,
+      zoomLoop,
+      countInSettings
+    );
     const zoomVisible = zoomStripVisible();
     // Beacon at the point playback will resume from — the zoom sub-region
     // start while magnified, else the main loop start. Rendered by the zoom

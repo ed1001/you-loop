@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPageUiVisible, nextCompactState, watchPlayerWidth } from "./pageUi";
 import { keyFor } from "../../features/persistence/loopStore";
 import { LAUNCH_KEY, LOOP_ON_KEY } from "../../features/persistence/settingsStore";
-import { COUNT_IN_KEY } from "../../features/persistence/countInStore";
+import { COUNT_IN_KEY, countInKeyFor } from "../../features/persistence/countInStore";
 import { makeMemoryArea } from "../../features/persistence/memoryArea.testutil";
 
 function enableLoop() {
@@ -780,6 +780,65 @@ describe("page UI", () => {
     // Must not crash the overlay: with no loop to apply, the launch falls back
     // to the persisted preference (off here) and the pill still renders.
     expectPanelOff();
+  });
+
+  it("applying a loop with a count-in snapshot restores and persists it", async () => {
+    const entry = {
+      ...SAVED_ENTRY,
+      loops: [
+        {
+          ...SAVED_ENTRY.loops[0],
+          countIn: { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 }
+        }
+      ]
+    };
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: entry,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    // Launch applied the loop: the per-video store now carries the snapshot.
+    expect((dump()[countInKeyFor("vid1")] as any)?.bpm).toBe(140);
+  });
+
+  it("applying a legacy loop leaves count-in settings untouched", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [keyFor("vid1")]: SAVED_ENTRY,
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    expect(dump()[countInKeyFor("vid1")]).toBeUndefined();
+  });
+
+  it("saving a loop snapshots the current count-in settings", async () => {
+    const { dump } = await mountWatch("vid1", {
+      [countInKeyFor("vid1")]: { bpm: 90, beatsPerBar: 3, noteValue: 4, bars: 2 }
+    });
+    await flushAsync();
+
+    act(() => {
+      enableLoop();
+    });
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    fireEvent.change(screen.getByPlaceholderText("Name this loop"), {
+      target: { value: "riff" }
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    const savedEntry = dump()[keyFor("vid1")] as any;
+    expect(savedEntry.loops[0].countIn).toEqual({
+      bpm: 90,
+      beatsPerBar: 3,
+      noteValue: 4,
+      bars: 2
+    });
   });
 
   it("] nudges the main loop window forward by NUDGE_SECONDS and seeks to the new start", () => {

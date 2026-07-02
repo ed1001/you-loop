@@ -62,6 +62,27 @@ const SpeedIcon = (
   </svg>
 );
 
+// Accidentals glyph: sharp beside flat, matching the transpose control.
+const PitchIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M8.2 3.5v13M12.2 3v13M6 8.3l8.4-1.8M6 13.3l8.4-1.8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+    <path
+      d="M17.6 8v9.5M17.6 17.5c0-2.4 3.4-3.6 3.4-1.2 0 1.3-1.8 2.6-3.4 3.7z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const ZoomIcon = (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <circle
@@ -133,6 +154,11 @@ const CONTROLS: Control[] = [
     icon: SpeedIcon,
     term: "Speed",
     desc: "Hold the readout and drag up or down to scrub the speed in 0.05× steps (0.25×–3×). Drag it hard right and let go to snap back to 1×; turning Étude off also resets it.",
+  },
+  {
+    icon: PitchIcon,
+    term: "Pitch",
+    desc: "Transpose the song without changing its speed. Hold the readout and drag up or down to shift in semitones (±12); pull left into the ¢ ring to fine-tune in cents, drag back right to return. Fling right and let go to snap back to 0 — at 0 the audio path is untouched. A decimal readout (+3.45) means a fine trim is applied.",
   },
   {
     icon: ZoomIcon,

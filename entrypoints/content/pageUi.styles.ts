@@ -776,6 +776,237 @@ export const PAGE_UI_STYLES = `
       color: #5eead4;
     }
 
+    .you-loop-pitch {
+      align-items: center;
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: flex;
+      padding: 2px;
+      transition: opacity 0.18s ease;
+    }
+
+    .you-loop-pitch[data-disabled="true"] {
+      opacity: 0.4;
+    }
+
+    /* Same chip anatomy as the speed pill: grid-centered readout, teal when
+       an offset is dialled in, lifted while scrubbing. Wide enough for the
+       longest readout ("-12.45 st") so the value never reflows the panel. */
+    .you-loop-pitch-value {
+      background: transparent;
+      border: 0;
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.78);
+      cursor: ns-resize;
+      display: grid;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      height: 27px;
+      letter-spacing: 0.01em;
+      min-width: 54px;
+      padding: 0 6px;
+      place-items: center;
+      text-align: center;
+      touch-action: none;
+      transition: color 0.15s ease, transform 0.15s ease;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .you-loop-pitch-value:not(:disabled):hover {
+      color: #ffffff;
+    }
+
+    .you-loop-pitch-value:disabled {
+      cursor: default;
+    }
+
+    /* The unit rides smaller beside the number, like the speed pill's x. */
+    .you-loop-pitch-st {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-left: 1.5px;
+      opacity: 0.7;
+    }
+
+    .you-loop-pitch-value[data-modified="true"] {
+      color: #5eead4;
+    }
+
+    .you-loop-pitch-value[data-scrubbing="true"] {
+      color: #5eead4;
+      transform: scale(1.12);
+    }
+
+    .you-loop-pitch-value[data-pulse="true"] {
+      animation: you-loop-speed-pulse 0.32s ease;
+    }
+
+    /* ── Pitch scrub popover ───────────────────────────────────────────────
+       Shares the speed scrubber's rail/tape/needle/reset-target styles (the
+       .you-loop-speed-pop classes); below are only the pitch-specific parts.
+       --you-loop-fine (0-1) is the leftward fine-gear reveal. */
+    .you-loop-pitch-pop {
+      --you-loop-fine: 0;
+    }
+
+    /* Both of the pitch pop's flanks are occupied (fine target left, reset
+       target right), so the live readout floats above the rail instead of
+       beside it. */
+    .you-loop-pitch-pop .you-loop-speed-needle-value {
+      bottom: calc(100% + 8px);
+      left: 50%;
+      right: auto;
+      top: auto;
+      transform: translateX(-50%);
+    }
+
+    /* Cents gear: the rail re-tints from teal to amber — a different scale is
+       under the needle now. */
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-rail {
+      box-shadow:
+        0 0 0 1px rgba(245, 158, 11, 0.28),
+        0 12px 36px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-needle {
+      border-top-color: #fbbf24;
+      box-shadow: 0 0 8px rgba(251, 191, 36, 0.55);
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-tick[data-home="true"] {
+      background: #f59e0b;
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.7);
+    }
+
+    .you-loop-pitch-pop[data-fine="true"]
+      .you-loop-speed-tick[data-home="true"]
+      .you-loop-speed-tick-label {
+      color: #fbbf24;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-needle-value {
+      color: #fbbf24;
+    }
+
+    /* While in cents gear the reset target sits out; release and re-drag. */
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-speed-reset-target {
+      opacity: 0.1;
+    }
+
+    /* Fine-gear target: the reset target's mirror on the left edge. Idles
+       faint, drifts in and swells with the leftward pull, then glows amber
+       once the gear latches. */
+    .you-loop-pitch-fine-target {
+      align-items: center;
+      display: flex;
+      gap: 5px;
+      opacity: calc(0.3 + var(--you-loop-fine) * 0.7);
+      position: absolute;
+      right: calc(100% + 6px + var(--you-loop-fine) * 10px);
+      top: 50%;
+      transform: translateY(-50%)
+        scale(calc(0.75 + var(--you-loop-fine) * 0.25));
+      transform-origin: right center;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-target {
+      opacity: 1;
+    }
+
+    .you-loop-pitch-fine-col {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .you-loop-pitch-fine-chevrons {
+      animation: you-loop-chevron-nudge-left 1.4s ease-in-out infinite;
+      flex: none;
+      height: 12px;
+      width: 26px;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-chevrons {
+      animation: none;
+    }
+
+    @keyframes you-loop-chevron-nudge-left {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      50% {
+        transform: translateX(-3px);
+      }
+    }
+
+    .you-loop-pitch-fine-chevrons path {
+      fill: none;
+      stroke: #fbbf24;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.4;
+    }
+
+    .you-loop-pitch-fine-chevrons path:nth-child(1) {
+      opacity: clamp(0.35, calc(var(--you-loop-fine) * 3), 1);
+    }
+
+    .you-loop-pitch-fine-chevrons path:nth-child(2) {
+      opacity: clamp(0.35, calc(var(--you-loop-fine) * 3 - 1), 1);
+    }
+
+    .you-loop-pitch-fine-chevrons path:nth-child(3) {
+      opacity: clamp(0.35, calc(var(--you-loop-fine) * 3 - 2), 1);
+    }
+
+    .you-loop-pitch-fine-ring {
+      align-items: center;
+      background: rgba(28, 28, 32, 0.85);
+      border: 2px solid rgba(251, 191, 36, 0.55);
+      border-radius: 50%;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      color: #fbbf24;
+      display: inline-flex;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      height: 40px;
+      justify-content: center;
+      transition: background 0.12s ease, color 0.12s ease,
+        transform 0.12s ease, box-shadow 0.12s ease;
+      width: 40px;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-ring {
+      background: #f59e0b;
+      box-shadow: 0 4px 18px rgba(245, 158, 11, 0.6),
+        0 0 22px rgba(245, 158, 11, 0.5);
+      color: #451a03;
+      transform: scale(1.12);
+    }
+
+    .you-loop-pitch-fine-word {
+      color: rgba(255, 255, 255, 0.55);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      text-transform: uppercase;
+    }
+
+    .you-loop-pitch-pop[data-fine="true"] .you-loop-pitch-fine-word {
+      color: #fbbf24;
+    }
+
     /* Full-width timeline floating above the native scrubber, mapping just the
        loop range across its whole width. */
     .you-loop-zoom {

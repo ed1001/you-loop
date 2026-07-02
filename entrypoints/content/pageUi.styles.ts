@@ -776,6 +776,146 @@ export const PAGE_UI_STYLES = `
       color: #5eead4;
     }
 
+    .you-loop-pitch {
+      align-items: center;
+      background: rgba(0, 0, 0, 0.34);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: flex;
+      padding: 2px;
+      transition: opacity 0.18s ease;
+    }
+
+    .you-loop-pitch[data-disabled="true"] {
+      opacity: 0.4;
+    }
+
+    .you-loop-pitch-value {
+      align-items: baseline;
+      background: transparent;
+      border: 0;
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.78);
+      cursor: ns-resize;
+      display: flex;
+      gap: 1px;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      height: 27px;
+      justify-content: center;
+      letter-spacing: 0.01em;
+      min-width: 46px;
+      padding: 0 8px;
+      touch-action: none;
+      transition: color 0.15s ease, transform 0.15s ease;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .you-loop-pitch-value:not(:disabled):hover {
+      color: #ffffff;
+    }
+
+    .you-loop-pitch-value:disabled {
+      cursor: default;
+    }
+
+    .you-loop-pitch-unit {
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .you-loop-pitch-value[data-modified="true"] {
+      color: #5eead4;
+    }
+
+    /* Bypassed (switched off): muted even if an offset is dialled in. */
+    .you-loop-pitch-value[data-off="true"][data-modified="true"] {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .you-loop-pitch-value[data-scrubbing="true"] {
+      color: #5eead4;
+      transform: scale(1.12);
+    }
+
+    .you-loop-pitch-pop {
+      position: absolute;
+      transform: translate(-50%, calc(-100% - 10px));
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 168px;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(20, 20, 20, 0.96);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      animation: you-loop-speed-pop-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      color: #fff;
+    }
+
+    .you-loop-pitch-pop[data-closing="true"] {
+      animation: you-loop-speed-pop-out 0.14s ease both;
+    }
+
+    .you-loop-pitch-pop-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .you-loop-pitch-switch,
+    .you-loop-pitch-reset {
+      flex: 1;
+      height: 26px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.1);
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .you-loop-pitch-switch:hover,
+    .you-loop-pitch-reset:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .you-loop-pitch-switch[data-on="true"] {
+      background: #5eead4;
+      color: #06302b;
+    }
+
+    .you-loop-pitch-fine {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .you-loop-pitch-fine-label {
+      min-width: 26px;
+    }
+
+    .you-loop-pitch-fine input[type="range"] {
+      flex: 1;
+      accent-color: #5eead4;
+    }
+
+    .you-loop-pitch-fine-value {
+      min-width: 34px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
     /* Full-width timeline floating above the native scrubber, mapping just the
        loop range across its whole width. */
     .you-loop-zoom {

@@ -4,8 +4,8 @@
 
 const MIN_SEMITONES = -12;
 const MAX_SEMITONES = 12;
-const MIN_CENTS = -50;
-const MAX_CENTS = 50;
+export const MIN_CENTS = -50;
+export const MAX_CENTS = 50;
 
 /** Vertical pixels of drag per one-semitone step. */
 export const PX_PER_SEMITONE = 12;

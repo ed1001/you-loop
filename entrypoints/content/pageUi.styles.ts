@@ -460,7 +460,7 @@ export const PAGE_UI_STYLES = `
       -webkit-backdrop-filter: blur(12px) saturate(1.2);
       backdrop-filter: blur(12px) saturate(1.2);
       border: 1px solid rgba(0, 0, 0, 0.6);
-      border-radius: 12px;
+      border-radius: 0;
       box-shadow:
         0 0 0 1px rgba(20, 184, 166, 0.18),
         0 12px 36px rgba(0, 0, 0, 0.55),
@@ -1703,7 +1703,7 @@ export const PAGE_UI_STYLES = `
     .you-loop-countin-toggle:disabled { opacity: 0.4; cursor: default; }
     .you-loop-countin-pop {
       position: absolute; transform: translate(-50%, -100%) translateY(-12px);
-      width: 230px; padding: 14px; border-radius: 14px;
+      width: 300px; padding: 14px; border-radius: 14px;
       background: rgba(16, 18, 18, 0.98); border: 1px solid rgba(94, 234, 212, 0.3);
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); z-index: 2147483647;
     }
@@ -1736,18 +1736,78 @@ export const PAGE_UI_STYLES = `
       color: #14b8a6; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
       text-transform: uppercase;
     }
+    .you-loop-countin-tempo { display: flex; gap: 10px; margin: 6px 0 4px; }
+    /* Tap pad — a physical strike surface. */
     .you-loop-countin-tap {
-      width: 100%; height: 64px; border-radius: 10px; cursor: pointer;
-      border: 1px dashed rgba(94, 234, 212, 0.45); background: rgba(94, 234, 212, 0.07);
-      color: #5eead4; font-size: 13px;
+      position: relative; flex: 1; height: 132px; border-radius: 0; overflow: hidden;
+      cursor: pointer; user-select: none; isolation: isolate;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      color: #5eead4; border: 1px solid rgba(94, 234, 212, 0.22);
+      background:
+        radial-gradient(120% 90% at 50% 18%, rgba(94, 234, 212, 0.12), transparent 60%),
+        #0a0f0e;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -22px 40px rgba(0, 0, 0, 0.45);
+      transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.07s ease;
     }
-    .you-loop-countin-tap:active { background: rgba(94, 234, 212, 0.2); }
-    .you-loop-countin-bpmrow { display: flex; justify-content: center; margin: 14px 0; }
-    .you-loop-countin-bpm {
-      font-size: 26px; color: #5eead4; cursor: ns-resize; user-select: none;
-      font-variant-numeric: tabular-nums;
+    .you-loop-countin-tap::before {
+      content: ""; position: absolute; inset: 0; z-index: 0; opacity: 0.5; pointer-events: none;
+      background-image: radial-gradient(rgba(94, 234, 212, 0.1) 1px, transparent 1.4px);
+      background-size: 13px 13px;
+      -webkit-mask-image: radial-gradient(80% 80% at 50% 45%, #000, transparent 78%);
+      mask-image: radial-gradient(80% 80% at 50% 45%, #000, transparent 78%);
     }
-    .you-loop-countin-bpm-unit { font-size: 11px; color: #7dd; margin-left: 4px; }
+    .you-loop-countin-tap[data-flash="true"] {
+      transform: translateY(1px); border-color: rgba(94, 234, 212, 0.65);
+      box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.3), 0 0 26px rgba(94, 234, 212, 0.28),
+                  inset 0 -22px 40px rgba(0, 0, 0, 0.45);
+    }
+    .you-loop-countin-tap-read {
+      position: relative; z-index: 2; display: flex; align-items: baseline; gap: 5px; line-height: 1;
+      font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 18px rgba(94, 234, 212, 0.45);
+    }
+    .you-loop-countin-tap-unit { font-size: 10px; letter-spacing: 0.14em; color: #7dd3c8; opacity: 0.75; }
+    .you-loop-countin-tap-hint {
+      position: relative; z-index: 2; font-size: 10px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: #6fb6ab; opacity: 0.8;
+    }
+    .you-loop-countin-ripple {
+      position: absolute; z-index: 1; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+      border-radius: 50%; border: 1.5px solid rgba(94, 234, 212, 0.7); pointer-events: none;
+      animation: you-loop-countin-ripple 0.5s ease-out forwards;
+    }
+    @keyframes you-loop-countin-ripple {
+      from { transform: scale(0.4); opacity: 0.85; }
+      to { transform: scale(7); opacity: 0; }
+    }
+    /* BPM rail — tick tape under a fixed needle, drag to scrub (square edges). */
+    .you-loop-countin-rail {
+      position: relative; width: 58px; height: 132px; flex: none; overflow: hidden;
+      cursor: ns-resize; touch-action: none; border-radius: 0;
+      background: rgba(28, 28, 32, 0.92); border: 1px solid rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+    }
+    .you-loop-countin-tape {
+      position: absolute; inset: 0 0 auto 0;
+      transition: transform 0.09s cubic-bezier(0.2, 0, 0.2, 1); will-change: transform;
+    }
+    .you-loop-countin-tick {
+      position: absolute; left: 9px; width: 8px; height: 1.5px; transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .you-loop-countin-tick[data-labeled="true"] { width: 13px; background: rgba(255, 255, 255, 0.42); }
+    .you-loop-countin-tick-label {
+      position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+      font-size: 9.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+      color: rgba(255, 255, 255, 0.55);
+    }
+    .you-loop-countin-needle {
+      position: absolute; left: 0; right: 0; top: 50%; height: 0;
+      border-top: 2px solid #2dd4bf; box-shadow: 0 0 8px rgba(45, 212, 191, 0.55);
+      transform: translateY(-50%); pointer-events: none;
+    }
     .you-loop-countin-seg { display: flex; gap: 5px; margin-top: 8px; }
     .you-loop-countin-seg button {
       flex: 1; padding: 6px 0; border-radius: 8px; cursor: pointer; font-size: 12px;

@@ -3,7 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, MouseEvent, PointerEvent } from "react";
 import type { CountInSettings } from "../persistence/countInStore";
-import { bpmFromTaps, clampBpm, MIN_BPM, MAX_BPM } from "../playback/tapTempo";
+import { bpmFromTaps, MIN_BPM, MAX_BPM } from "../playback/tapTempo";
+import {
+  bpmFromDrag,
+  isLabeledBpm,
+  tapeOffset,
+  tapeStops,
+  tapeY
+} from "./bpmScrub";
 
 export type CountInControlProps = {
   enabled: boolean; // consumed by parent; reserved for future conditional mounting
@@ -40,9 +47,20 @@ export function CountInControl({
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const tapsRef = useRef<number[]>([]);
-  const dragRef = useRef<{ y: number; bpm: number } | null>(null);
+  const padRef = useRef<HTMLButtonElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const bpmDragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    startBpm: number;
+    accY: number;
+  } | null>(null);
+  const flashTimerRef = useRef(0);
   const [open, setOpen] = useState(false);
+  const [tapFlash, setTapFlash] = useState(false);
   const [anchor, setAnchor] = useState({ left: 0, top: 0 });
+
+  useEffect(() => () => window.clearTimeout(flashTimerRef.current), []);
 
   // Dismiss the popover on an outside click or Escape — it is a persistent
   // panel (unlike the speed scrubber, which lives only for the duration of a
@@ -92,29 +110,79 @@ export function CountInControl({
     const t = now();
     const recent = [...tapsRef.current, t].filter((x) => t - x < 3000);
     tapsRef.current = recent;
+    // Flash the pad and ripple out from the strike point.
+    setTapFlash(true);
+    window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setTapFlash(false), 95);
+    const pad = padRef.current;
+    if (pad != null) {
+      const r = pad.getBoundingClientRect();
+      const ring = document.createElement("span");
+      ring.className = "you-loop-countin-ripple";
+      ring.style.left = `${e.clientX - r.left}px`;
+      ring.style.top = `${e.clientY - r.top}px`;
+      pad.appendChild(ring);
+      window.setTimeout(() => ring.remove(), 520);
+    }
     const bpm = bpmFromTaps(recent);
     if (bpm != null) onSettingsChange({ ...settings, bpm });
   };
 
+  // The BPM rail is a press-and-drag scrubber mirroring the speed control:
+  // pointer-lock the cursor and integrate movementY so the tape tracks the
+  // finger without the OS cursor wandering off the rail (clientY fallback for
+  // when lock is denied — also the test path).
   const onBpmPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     swallow(e);
-    dragRef.current = { y: e.clientY, bpm: settings.bpm };
+    bpmDragRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      startBpm: settings.bpm,
+      accY: 0
+    };
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
       // uncaptured drag still works
     }
+    try {
+      const lock = e.currentTarget.requestPointerLock?.() as
+        | Promise<void>
+        | undefined;
+      lock?.catch?.(() => {});
+    } catch {
+      // keep the drag alive
+    }
   };
   const onBpmPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    const d = dragRef.current;
-    if (d == null) return;
+    const d = bpmDragRef.current;
+    if (d == null || e.pointerId !== d.pointerId) return;
     swallow(e);
-    const next = clampBpm(d.bpm + Math.round((d.y - e.clientY) / 4));
+    if (document.pointerLockElement === railRef.current) {
+      d.accY += e.movementY ?? 0;
+    } else {
+      d.accY = e.clientY - d.startY;
+    }
+    const next = bpmFromDrag(d.startBpm, -d.accY);
     if (next !== settings.bpm) onSettingsChange({ ...settings, bpm: next });
   };
+  const endBpmDrag = () => {
+    bpmDragRef.current = null;
+    if (document.pointerLockElement === railRef.current) {
+      document.exitPointerLock?.();
+    }
+  };
   const onBpmPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    const d = bpmDragRef.current;
+    if (d == null || e.pointerId !== d.pointerId) return;
     swallow(e);
-    dragRef.current = null;
+    endBpmDrag();
+  };
+  // requestPointerLock implicitly releases pointer capture; that
+  // lostpointercapture must not end the drag it belongs to.
+  const onBpmLostCapture = () => {
+    if (document.pointerLockElement === railRef.current) return;
+    endBpmDrag();
   };
 
   return (
@@ -170,13 +238,24 @@ export function CountInControl({
             </p>
 
             <span className="you-loop-countin-label">Tempo</span>
-            <button type="button" className="you-loop-countin-tap" onClick={tap}>
-              Tap in time
-            </button>
-
-            <div className="you-loop-countin-bpmrow">
+            <div className="you-loop-countin-tempo">
+              <button
+                ref={padRef}
+                type="button"
+                className="you-loop-countin-tap"
+                data-flash={tapFlash}
+                aria-label="Tap tempo"
+                onClick={tap}
+              >
+                <span className="you-loop-countin-tap-read">
+                  {settings.bpm}
+                  <span className="you-loop-countin-tap-unit">BPM</span>
+                </span>
+                <span className="you-loop-countin-tap-hint">tap</span>
+              </button>
               <div
-                className="you-loop-countin-bpm"
+                ref={railRef}
+                className="you-loop-countin-rail"
                 role="slider"
                 aria-label="Tempo (BPM) — drag up or down"
                 aria-valuemin={MIN_BPM}
@@ -185,10 +264,26 @@ export function CountInControl({
                 onPointerDown={onBpmPointerDown}
                 onPointerMove={onBpmPointerMove}
                 onPointerUp={onBpmPointerUp}
-                onLostPointerCapture={onBpmPointerUp}
+                onLostPointerCapture={onBpmLostCapture}
               >
-                {settings.bpm}
-                <span className="you-loop-countin-bpm-unit">BPM</span>
+                <div
+                  className="you-loop-countin-tape"
+                  style={{ transform: `translateY(${tapeOffset(settings.bpm)}px)` }}
+                >
+                  {tapeStops().map((stop) => (
+                    <div
+                      key={stop}
+                      className="you-loop-countin-tick"
+                      data-labeled={isLabeledBpm(stop)}
+                      style={{ top: `${tapeY(stop)}px` } as CSSProperties}
+                    >
+                      {isLabeledBpm(stop) && (
+                        <span className="you-loop-countin-tick-label">{stop}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="you-loop-countin-needle" />
               </div>
             </div>
 

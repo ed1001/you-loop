@@ -37,15 +37,21 @@ function fakeContext() {
   return { ctx, oscillators };
 }
 
+/** Unlocked player over a fake context with a single-bar 4/4 plan at 120 BPM. */
+function setupPlayer() {
+  const { ctx, oscillators } = fakeContext();
+  const player = createCountInPlayer(() => ctx as unknown as AudioContext);
+  player.unlock();
+  const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
+  return { ctx, oscillators, player, plan };
+}
+
 describe("createCountInPlayer", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
   it("schedules one oscillator per beat", () => {
-    const { ctx, oscillators } = fakeContext();
-    const player = createCountInPlayer(() => ctx as unknown as AudioContext);
-    player.unlock();
-    const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
+    const { oscillators, player, plan } = setupPlayer();
     const ok = player.play(plan, {});
     expect(ok).toBe(true);
     // 4/4 single bar = 4 pulses (no rest)
@@ -53,10 +59,7 @@ describe("createCountInPlayer", () => {
   });
 
   it("cancel stops scheduled oscillators so a restart does not overlap", () => {
-    const { ctx, oscillators } = fakeContext();
-    const player = createCountInPlayer(() => ctx as unknown as AudioContext);
-    player.unlock();
-    const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
+    const { oscillators, player, plan } = setupPlayer();
     player.play(plan, {});
     player.cancel();
     expect(oscillators).toHaveLength(4);
@@ -64,12 +67,9 @@ describe("createCountInPlayer", () => {
   });
 
   it("fires onBeat per beat and onDone at totalSec", () => {
-    const { ctx } = fakeContext();
-    const player = createCountInPlayer(() => ctx as unknown as AudioContext);
-    player.unlock();
+    const { player, plan } = setupPlayer();
     const onBeat = vi.fn();
     const onDone = vi.fn();
-    const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
     player.play(plan, { onBeat, onDone });
     vi.advanceTimersByTime(2000); // totalSec = 2s
     expect(onBeat).toHaveBeenCalledTimes(4);
@@ -89,11 +89,8 @@ describe("createCountInPlayer", () => {
   });
 
   it("cancel clears pending onDone", () => {
-    const { ctx } = fakeContext();
-    const player = createCountInPlayer(() => ctx as unknown as AudioContext);
-    player.unlock();
+    const { player, plan } = setupPlayer();
     const onDone = vi.fn();
-    const plan = buildCountOff({ meter: { beatsPerBar: 4, noteValue: 4 }, bars: 1, bpm: 120 });
     player.play(plan, { onDone });
     player.cancel();
     vi.advanceTimersByTime(3000);

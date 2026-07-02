@@ -828,7 +828,6 @@ describe("page UI", () => {
     act(() => {
       fireEvent.click(screen.getByLabelText("Saved loops"));
     });
-    expect(screen.getByText("♩140 · 4/4")).toBeInTheDocument();
     const band = document.querySelector(".you-loop-lm-map-band") as HTMLElement;
     // SAVED_ENTRY loop 5–9 on a 120s video.
     expect(band.style.left).toBe("4.166666666666666%");

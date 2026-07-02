@@ -257,61 +257,59 @@ export function SavedLoopsModal({
 
                   {editing ? (
                     <div className="you-loop-lm-edit-row">
+                      <input
+                        type="text"
+                        className="you-loop-loops-input you-loop-lm-edit-name"
+                        maxLength={NAME_MAX_LENGTH}
+                        value={editName}
+                        aria-label="Loop name"
+                        onPointerDown={stopOnly}
+                        onMouseDown={stopOnly}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitEdit(loop);
+                          }
+                        }}
+                      />
                       <div className="you-loop-lm-edit-line">
-                        <input
-                          type="text"
-                          className="you-loop-loops-input you-loop-lm-edit-name"
-                          maxLength={NAME_MAX_LENGTH}
-                          value={editName}
-                          aria-label="Loop name"
-                          onPointerDown={stopOnly}
-                          onMouseDown={stopOnly}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              commitEdit(loop);
-                            }
+                        <button
+                          type="button"
+                          className="you-loop-lm-replace"
+                          aria-label={`Replace ${loop.name} with current loop`}
+                          onClick={(e) => {
+                            swallow(e);
+                            commitReplace(loop);
                           }}
-                        />
+                        >
+                          Replace with current loop
+                        </button>
                         <span className="you-loop-lm-edit-actions">
-                          <button
-                            type="button"
-                            className="you-loop-lm-edit-save"
-                            aria-label={`Save changes to ${loop.name}`}
-                            title="Save"
-                            onClick={(e) => {
-                              swallow(e);
-                              commitEdit(loop);
-                            }}
-                          >
-                            ✓
-                          </button>
                           <button
                             type="button"
                             className="you-loop-lm-edit-cancel"
                             aria-label="Cancel edit"
-                            title="Cancel"
                             onClick={(e) => {
                               swallow(e);
                               setEditingId(null);
                             }}
                           >
-                            ✕
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="you-loop-lm-edit-save"
+                            aria-label={`Save changes to ${loop.name}`}
+                            onClick={(e) => {
+                              swallow(e);
+                              commitEdit(loop);
+                            }}
+                          >
+                            Save
                           </button>
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className="you-loop-lm-replace"
-                        aria-label={`Replace ${loop.name} with current loop`}
-                        onClick={(e) => {
-                          swallow(e);
-                          commitReplace(loop);
-                        }}
-                      >
-                        ⟳ Replace with current loop
-                      </button>
                     </div>
                   ) : (
                     <>
@@ -328,11 +326,6 @@ export function SavedLoopsModal({
                         <span className="you-loop-lm-name-text">
                           {loop.name}
                         </span>
-                        {loop.countIn != null && (
-                          <span className="you-loop-lm-tempo">
-                            {`♩${loop.countIn.bpm} · ${loop.countIn.beatsPerBar}/${loop.countIn.noteValue}`}
-                          </span>
-                        )}
                         <span className="you-loop-lm-range">
                           {formatRange(loop.main)}
                         </span>

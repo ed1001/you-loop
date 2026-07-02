@@ -1845,15 +1845,6 @@ export const PAGE_UI_STYLES = `
       font-variant-numeric: tabular-nums;
     }
 
-    /* Tempo snapshot badge; only rendered for loops carrying a count-in. */
-    .you-loop-lm-tempo {
-      color: rgba(94, 234, 212, 0.8);
-      flex: none;
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
     .you-loop-lm-actions {
       display: inline-flex;
       gap: 2px;
@@ -1894,10 +1885,18 @@ export const PAGE_UI_STYLES = `
       color: #5eead4;
     }
 
+    /* An SVG with only a viewBox defaults to 300×150 — it must be sized
+       explicitly or the pencil renders unusably. */
+    .you-loop-lm-edit svg {
+      display: block;
+      height: 13px;
+      width: 13px;
+    }
+
     /* Pencil-edit form: replaces a row's apply/actions content while it is
-       being edited. Two lines — name + always-visible save/cancel, then the
-       full-width replace button — so a slight height growth over a normal
-       row is fine; the list is a flex column and reflows around it. */
+       being edited. Two lines — the full-width name input, then Replace on
+       the left with Cancel/Save on the right — so a slight height growth
+       over a normal row is fine; the list is a flex column and reflows. */
     .you-loop-lm-edit-row {
       display: flex;
       flex: 1;
@@ -1911,11 +1910,12 @@ export const PAGE_UI_STYLES = `
       align-items: center;
       display: flex;
       gap: 8px;
+      justify-content: space-between;
     }
 
     .you-loop-lm-edit-name {
-      flex: 1;
       min-width: 0;
+      width: 100%;
     }
 
     /* Always visible — unlike .you-loop-lm-actions, these are not
@@ -1924,33 +1924,40 @@ export const PAGE_UI_STYLES = `
     .you-loop-lm-edit-actions {
       display: inline-flex;
       flex: none;
-      gap: 2px;
+      gap: 6px;
     }
 
     .you-loop-lm-edit-actions button {
-      background: transparent;
       border: 0;
-      border-radius: 4px;
-      color: rgba(255, 255, 255, 0.55);
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 13px;
+      font-family: inherit;
+      font-size: 12px;
       line-height: 1;
-      padding: 5px 6px;
+      padding: 6px 10px;
       transition: background 0.12s ease, color 0.12s ease;
     }
 
+    /* Save mirrors the modal's primary save button, scaled to the row. */
     .you-loop-lm-edit-save {
-      color: #5eead4;
+      background: #5eead4;
+      color: #06302b;
+      font-weight: 700;
     }
 
     .you-loop-lm-edit-save:hover {
-      background: rgba(94, 234, 212, 0.14);
+      background: #7af0de;
     }
 
-    /* Neutral hover: unlike delete, cancelling an edit is never destructive. */
+    /* Neutral quiet text button: cancelling an edit is never destructive. */
+    .you-loop-lm-edit-cancel {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
     .you-loop-lm-edit-cancel:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.85);
     }
 
     .you-loop-lm-replace {
@@ -1959,11 +1966,11 @@ export const PAGE_UI_STYLES = `
       border-radius: 6px;
       color: #5eead4;
       cursor: pointer;
+      flex: none;
       font-family: inherit;
       font-size: 12px;
       padding: 6px 10px;
       transition: background 0.15s ease;
-      width: 100%;
     }
 
     .you-loop-lm-replace:hover {

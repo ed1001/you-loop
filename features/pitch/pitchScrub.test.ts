@@ -16,6 +16,7 @@ import {
   clampSemitones,
   fineProgress,
   formatPitch,
+  formatPitchDecimal,
   isZeroPitch,
   pitchFromKey,
   pitchRatio,
@@ -173,5 +174,16 @@ describe("formatPitch", () => {
     expect(formatPitch({ semitones: -2, cents: 0 })).toBe("-2");
     expect(formatPitch({ semitones: 3, cents: 12 })).toBe("+3 +12¢");
     expect(formatPitch({ semitones: 0, cents: -5 })).toBe("0 -5¢");
+  });
+});
+
+describe("formatPitchDecimal", () => {
+  it("folds cents into a decimal semitone count", () => {
+    expect(formatPitchDecimal({ semitones: 0, cents: 0 })).toBe("0");
+    expect(formatPitchDecimal({ semitones: 3, cents: 0 })).toBe("+3");
+    expect(formatPitchDecimal({ semitones: 3, cents: 45 })).toBe("+3.45");
+    expect(formatPitchDecimal({ semitones: 3, cents: -5 })).toBe("+2.95");
+    expect(formatPitchDecimal({ semitones: -2, cents: -50 })).toBe("-2.5");
+    expect(formatPitchDecimal({ semitones: 0, cents: 5 })).toBe("+0.05");
   });
 });

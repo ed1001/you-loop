@@ -139,6 +139,20 @@ export function formatPitch(settings: { semitones: number; cents: number }): str
   return `${semStr} ${formatCents(settings.cents)}`;
 }
 
+/**
+ * Pill label as a decimal semitone count — cents are hundredths of a
+ * semitone, so the total offset is exact: +3 +45¢ → "+3.45", +3 −5¢ →
+ * "+2.95", 0 → "0". Whole semitones stay bare ("+3"), so a fraction on the
+ * pill is itself the signal that a fine trim is applied.
+ */
+export function formatPitchDecimal(settings: {
+  semitones: number;
+  cents: number;
+}): string {
+  const total = Number((settings.semitones + settings.cents / 100).toFixed(2));
+  return total > 0 ? `+${total}` : `${total}`;
+}
+
 // Keyboard slider semantics mirroring the speed pill: arrows nudge a semitone
 // (with shift: trim 5¢), Page keys jump an octave, Home/End hit the range ends.
 const KEY_STEPS: Record<string, number> = {

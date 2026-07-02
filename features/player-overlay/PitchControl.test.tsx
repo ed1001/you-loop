@@ -88,6 +88,30 @@ describe("PitchControl", () => {
     ).not.toBeNull();
   });
 
+  it("pulling back right leaves cents gear and resumes semitone scrub", () => {
+    const onChange = vi.fn();
+    const chip = renderChip({ onChange });
+    press(chip);
+    moveBy(chip, -FINE_ARM_DX, 0);
+    moveBy(chip, -FINE_ARM_DX, -PX_PER_CENT * 10); // +10¢ in fine gear
+    // Back out of the fine zone: gear returns to semitones...
+    moveBy(chip, 0, -PX_PER_CENT * 10);
+    expect(
+      document.querySelector('.you-loop-pitch-pop[data-fine="true"]')
+    ).toBeNull();
+    // ...and vertical travel from the crossover moves semitones again,
+    // keeping the cents trimmed in fine gear.
+    moveBy(chip, 0, -PX_PER_CENT * 10 - PX_PER_SEMITONE);
+    expect(onChange).toHaveBeenLastCalledWith({ semitones: 1, cents: 0 });
+  });
+
+  it("shows a decimal readout when a fine trim is applied", () => {
+    renderChip({ settings: { semitones: 3, cents: 45 } });
+    expect(
+      document.querySelector(".you-loop-pitch-num")?.textContent
+    ).toBe("+3.45st");
+  });
+
   it("does not reset from cents gear even after a rightward swing", () => {
     const onReset = vi.fn();
     const chip = renderChip({ settings: { semitones: 3, cents: 0 }, onReset });

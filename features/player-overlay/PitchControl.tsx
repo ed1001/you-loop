@@ -15,6 +15,7 @@ import {
   fineProgress,
   formatCents,
   formatPitch,
+  formatPitchDecimal,
   formatSemitones,
   isZeroPitch,
   pitchFromKey,
@@ -77,10 +78,15 @@ export function PitchControl({
     suppressNextClick,
     isLocked
   } = useScrubChip<{
+    // Press-time values, for restoring on an interrupted drag.
+    pressSemitones: number;
+    pressCents: number;
+    // The active gear's baselines. Each gear change rebases its start value
+    // and Y origin so the value never jumps at the crossover.
     startSemitones: number;
-    // Fine gear latches for the rest of the hold once the leftward drag
-    // crosses the arm threshold; cents then track vertical travel from the
-    // latch point.
+    coarseBaseY: number;
+    // Fine (cents) gear: entered by dragging left past the arm threshold,
+    // exited by pulling back right out of the reveal zone.
     fine: boolean;
     fineBaseY: number;
     fineBaseCents: number;
@@ -108,7 +114,10 @@ export function PitchControl({
     setFineX(0);
     setFine(false);
     beginDrag(event, {
+      pressSemitones: settings.semitones,
+      pressCents: settings.cents,
       startSemitones: settings.semitones,
+      coarseBaseY: 0,
       fine: false,
       fineBaseY: 0,
       fineBaseCents: settings.cents
@@ -120,16 +129,30 @@ export function PitchControl({
     if (drag == null) return;
 
     if (drag.fine) {
-      // Cents gear: vertical travel from the latch point trims cents.
-      const next = centsFromDrag(drag.fineBaseCents, -(drag.accY - drag.fineBaseY));
-      if (next !== settings.cents) onChange({ ...settings, cents: next });
-      return;
+      if (fineProgress(-drag.accX) <= 0) {
+        // Pulled back out of the fine zone: return to the semitone gear,
+        // rebasing so neither value jumps at the crossover.
+        drag.fine = false;
+        drag.startSemitones = settings.semitones;
+        drag.coarseBaseY = drag.accY;
+        setFine(false);
+        setFineX(0);
+      } else {
+        // Cents gear: vertical travel from the latch point trims cents.
+        const next = centsFromDrag(
+          drag.fineBaseCents,
+          -(drag.accY - drag.fineBaseY)
+        );
+        if (next !== settings.cents) onChange({ ...settings, cents: next });
+        return;
+      }
     }
 
     const fineP = fineProgress(-drag.accX);
     setFineX(fineP);
     if (fineP >= 1) {
-      // Latch into cents gear for the rest of the hold.
+      // Shift into the cents gear (hysteresis: enters at the arm threshold,
+      // exits back at the reveal edge, so the crossover cannot chatter).
       drag.fine = true;
       drag.fineBaseY = drag.accY;
       drag.fineBaseCents = settings.cents;
@@ -143,7 +166,10 @@ export function PitchControl({
     // While the reset gesture is armed the tape freezes; vertical motion
     // resumes if the user backs out of it.
     if (progress < 1) {
-      const next = semitonesFromDrag(drag.startSemitones, -drag.accY);
+      const next = semitonesFromDrag(
+        drag.startSemitones,
+        -(drag.accY - drag.coarseBaseY)
+      );
       if (next !== settings.semitones) onChange({ ...settings, semitones: next });
     }
   };
@@ -171,12 +197,12 @@ export function PitchControl({
     if (drag == null || event.pointerId !== drag.pointerId) return;
     // Interrupted drag (capture lost, alt-tab…): put the settings back.
     if (
-      settings.semitones !== drag.startSemitones ||
-      settings.cents !== drag.fineBaseCents
+      settings.semitones !== drag.pressSemitones ||
+      settings.cents !== drag.pressCents
     ) {
       onChange({
-        semitones: drag.startSemitones,
-        cents: drag.fineBaseCents
+        semitones: drag.pressSemitones,
+        cents: drag.pressCents
       });
     }
     finishDrag();
@@ -247,8 +273,11 @@ export function PitchControl({
         onKeyDown={onKeyDown}
         onAnimationEnd={() => setPulse(false)}
       >
+        {/* Decimal readout: cents are hundredths of a semitone, so +3 +45¢
+            reads "+3.45" — a fraction on the pill is the tell that a fine
+            trim is applied. */}
         <span className="you-loop-pitch-num">
-          {formatSemitones(settings.semitones)}
+          {formatPitchDecimal(settings)}
           <span className="you-loop-pitch-st">st</span>
         </span>
       </button>

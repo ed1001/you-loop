@@ -245,6 +245,7 @@ const KEYS = `
     <div class="keyitem"><div class="keycap">A</div><div class="knm">Restart</div><div class="kdesc">Jump to the start of the loop and play.</div></div>
     <div class="keyitem"><div class="keycap">S</div><div class="knm">Cue <span class="khold">hold</span></div><div class="kdesc">Play from the top; release snaps back.</div></div>
     <div class="keyitem"><div class="keycap">D</div><div class="knm">Push-to-play <span class="khold">hold</span></div><div class="kdesc">Hold to listen, release to pause in place.</div></div>
+    <div class="keyitem"><div class="keycap">[ ]</div><div class="knm">Nudge loop</div><div class="kdesc">Shift the loop region back/forward, maintaining loop length.</div></div>
   </div>`;
 
 const MAG_GLASS = `<svg viewBox="0 0 24 24" fill="none"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="2.4"/><path d="M14.8 14.8L20 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;

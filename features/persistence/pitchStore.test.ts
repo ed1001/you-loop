@@ -43,6 +43,17 @@ describe("loadPitchSettings", () => {
     expect(await loadPitchSettings("vid", area)).toEqual({ semitones: 12, cents: -50 });
   });
 
+  it("zeroes non-finite stored values", async () => {
+    // NaN survives a plain min/max clamp and would flow into the audio engine.
+    const { area } = memArea({
+      [pitchKeyFor("vid")]: { semitones: NaN, cents: Infinity }
+    });
+    expect(await loadPitchSettings("vid", area)).toEqual({
+      semitones: 0,
+      cents: 0
+    });
+  });
+
   it("falls back to defaults when the area throws", async () => {
     expect(await loadPitchSettings("vid", throwingArea)).toEqual(DEFAULT_PITCH_SETTINGS);
   });

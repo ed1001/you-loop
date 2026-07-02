@@ -131,6 +131,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   // Per-video saved loops, persisted to extension storage.
   let videoId: string | null = currentVideoId();
+  // The video whose loop state has been seeded. Gates loadForVideo so repeat
+  // durationchange events on the same video don't wipe the user's loop.
+  let seededVideoId: string | null = null;
   // Set by stop(): async loaders must not touch the graph or render after
   // teardown (the React root is unmounted).
   let stopped = false;
@@ -379,7 +382,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     entry: VideoEntry | null,
     persistedOn: boolean
   ) => {
-    if (launched && entry != null) {
+    if (launched && entry != null && entry.loops.length > 0) {
       applySavedEntry(entry);
       enableLoop();
       void setLoopOn(true);
@@ -398,10 +401,17 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const loadForVideo = async () => {
     const id = videoId;
     if (!hasKnownDuration(video)) return; // retried on loadedmetadata
+    // durationchange re-fires on the same video mid-session — a mid-roll ad
+    // swapping the source in, a live stream growing, a quality flip. Reseeding
+    // then would silently wipe the loop the user has set up. Only the first
+    // successful load for a video seeds state; navigation clears the segment
+    // (clearLoop) so the next video passes this gate again.
+    if (seededVideoId === id && state.loopSegment != null) return;
     const duration = getVideoDuration(video);
 
     if (id == null) {
       seedDefaultLoop(duration);
+      seededVideoId = id;
       render();
       return;
     }
@@ -434,6 +444,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (videoId !== id) return; // navigated away mid-await
 
     applyPanelActivation(launched, entry, persistedOn);
+    seededVideoId = id;
     render();
   };
 
@@ -653,6 +664,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // loading spinner that used to flash on loop restart).
   const enforce = () => {
     if (video.seeking) return;
+    // An ad plays through the same <video> element. Enforcing the loop then
+    // would wrap the ad inside the user's segment (or seek the ad around);
+    // stand down until the player drops its ad flag.
+    if (video.closest(".html5-video-player")?.classList.contains("ad-showing")) {
+      return;
+    }
     if (wrapSeekPending) {
       if (performance.now() - wrapSeekAt < WRAP_SETTLE_TIMEOUT_MS) return;
       // Fail-safe: `seeked` never arrived (rare); release so looping resumes.

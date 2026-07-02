@@ -75,4 +75,32 @@ describe("countInStore per-video settings", () => {
       bpm: 80
     });
   });
+
+  it("replaces non-finite stored values with defaults", async () => {
+    // A corrupt bpm reaching buildCountOff turns 60/bpm into NaN/Infinity beat
+    // timing, so the store must never surface one.
+    const area = makeArea({
+      [countInKeyFor("abc")]: {
+        bpm: NaN,
+        beatsPerBar: Infinity,
+        noteValue: "x",
+        bars: null
+      }
+    });
+    expect(await loadCountInSettings("abc", area)).toEqual(
+      DEFAULT_COUNT_IN_SETTINGS
+    );
+  });
+
+  it("clamps finite out-of-range stored values into range", async () => {
+    const area = makeArea({
+      [countInKeyFor("abc")]: { bpm: 0, beatsPerBar: -3, noteValue: 64, bars: 99 }
+    });
+    expect(await loadCountInSettings("abc", area)).toEqual({
+      bpm: 40, // MIN_BPM
+      beatsPerBar: 1,
+      noteValue: 16,
+      bars: 4
+    });
+  });
 });

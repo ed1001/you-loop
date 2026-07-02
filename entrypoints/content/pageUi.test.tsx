@@ -647,6 +647,141 @@ describe("page UI", () => {
     expect(video.currentTime).toBe(50);
   });
 
+  it("swallows the drag-end click even when release comes macrotasks after grab", async () => {
+    const { player } = mountWithLoopEnabled();
+
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    const startHandle = screen.getByLabelText("Loop start");
+    startHandle.setPointerCapture = () => {};
+
+    // A stand-in for YouTube's play/pause click handler on the player.
+    const playerClick = vi.fn();
+    document.addEventListener("click", playerClick);
+
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+    });
+    // Real drags hold the pointer across many macrotasks before releasing; a
+    // grab-time click guard with a 0ms lifetime dies right here.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    act(() => {
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+      // The click the browser synthesizes after the drag, landing on the video.
+      fireEvent.click(document.body);
+    });
+    expect(playerClick).not.toHaveBeenCalled();
+
+    // The guard is one-shot: an unrelated later click still gets through.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    act(() => {
+      fireEvent.click(document.body);
+    });
+    expect(playerClick).toHaveBeenCalledTimes(1);
+    document.removeEventListener("click", playerClick);
+  });
+
+  it("shows a time chip on the dragged handle and hides it on release", () => {
+    const { player } = mountWithLoopEnabled();
+
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    const startHandle = screen.getByLabelText("Loop start");
+    startHandle.setPointerCapture = () => {};
+
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+    });
+    // Mid-drag: the chip is live and tracks the handle's time.
+    expect(startHandle.dataset.dragLive).toBe("true");
+    expect(
+      startHandle.querySelector(".you-loop-handle-chip")?.textContent
+    ).toBe("0:20");
+
+    act(() => {
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+    });
+    expect(startHandle.dataset.dragLive).toBeUndefined();
+  });
+
+  it("keeps the user's loop when the same video re-fires durationchange (ads, live)", async () => {
+    const { player, video } = await mountWatch("vid1");
+    await flushAsync();
+    act(() => {
+      enableLoop();
+    });
+
+    const timeline = player.querySelector(
+      "[data-testid='timeline-handles']"
+    ) as HTMLElement;
+    // 1px == 1s so pointer clientX maps directly to seconds (duration is 120).
+    timeline.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 10, right: 120, bottom: 10, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    const startHandle = screen.getByLabelText("Loop start");
+    startHandle.setPointerCapture = () => {};
+    act(() => {
+      fireEvent.pointerDown(startHandle, { pointerId: 1, clientX: 0 });
+      fireEvent.pointerMove(startHandle, { pointerId: 1, clientX: 20 });
+      fireEvent.pointerUp(startHandle, { pointerId: 1, clientX: 20 });
+    });
+
+    const band = player.querySelector(".you-loop-loop-range") as HTMLElement;
+    expect(band.style.left).toBe("16.666666666666664%"); // 20/120
+
+    // A mid-roll ad or a live stream re-fires durationchange on the same
+    // video element. That must not reseed the loop back to the default.
+    await act(async () => {
+      fireEvent(video, new Event("durationchange"));
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+
+    expect(band.style.left).toBe("16.666666666666664%");
+  });
+
+  it("suspends loop enforcement while an ad is showing", () => {
+    const { player, video } = mountWithLoopEnabled();
+
+    // Default 0–120 loop. An ad takes over the same <video>: the playhead
+    // crossing the segment end must NOT wrap — that would loop the ad.
+    player.classList.add("ad-showing");
+    video.currentTime = 120;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(120);
+
+    // Ad over: enforcement resumes.
+    player.classList.remove("ad-showing");
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+    expect(video.currentTime).toBe(0);
+  });
+
+  it("survives a popup launch pointing at an entry with no loops", async () => {
+    await mountWatch("vid1", {
+      [keyFor("vid1")]: { loops: [], lastUsedId: null, addedAt: 10, title: "Empty" },
+      [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+    });
+    await flushAsync();
+
+    // Must not crash the overlay: with no loop to apply, the launch falls back
+    // to the persisted preference (off here) and the pill still renders.
+    expectPanelOff();
+  });
+
   it("] nudges the main loop window forward by NUDGE_SECONDS and seeks to the new start", () => {
     const { player, video } = mountWithLoopEnabled();
 

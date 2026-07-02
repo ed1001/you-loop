@@ -1,4 +1,5 @@
 import type { StorageArea } from "./loopStore";
+import { MIN_BPM, MAX_BPM } from "../playback/tapTempo";
 
 export const COUNT_IN_KEY = "you-loop:count-in";
 // fallow-ignore-next-line unused-export
@@ -46,6 +47,21 @@ export async function setCountInEnabled(
   }
 }
 
+// Stored numbers can be corrupt (a bad sync write, another device on an older
+// version). A non-finite bpm reaching buildCountOff turns 60/bpm into
+// NaN/Infinity beat timing, so sanitize at this boundary: finite values clamp
+// into range, anything else falls back to the field's default.
+function intInRange(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, Math.round(value)))
+    : fallback;
+}
+
 export async function loadCountInSettings(
   videoId: string,
   area?: StorageArea
@@ -55,7 +71,14 @@ export async function loadCountInSettings(
     const r = await resolveArea(area).get(key);
     const raw = r[key];
     if (raw == null || typeof raw !== "object") return DEFAULT_COUNT_IN_SETTINGS;
-    return { ...DEFAULT_COUNT_IN_SETTINGS, ...(raw as Partial<CountInSettings>) };
+    const merged = { ...DEFAULT_COUNT_IN_SETTINGS, ...(raw as Partial<CountInSettings>) };
+    const d = DEFAULT_COUNT_IN_SETTINGS;
+    return {
+      bpm: intInRange(merged.bpm, MIN_BPM, MAX_BPM, d.bpm),
+      beatsPerBar: intInRange(merged.beatsPerBar, 1, 12, d.beatsPerBar),
+      noteValue: intInRange(merged.noteValue, 1, 16, d.noteValue),
+      bars: intInRange(merged.bars, 1, 4, d.bars)
+    };
   } catch {
     return DEFAULT_COUNT_IN_SETTINGS;
   }

@@ -33,10 +33,14 @@ export const FINE_REVEAL_DX = 10;
 export const FINE_ARM_DX = 48;
 
 export function clampSemitones(semitones: number): number {
+  // NaN survives min/max (and ±Infinity would pin to an extreme); a corrupt
+  // stored value must land on the neutral 0, not in the audio engine.
+  if (!Number.isFinite(semitones)) return 0;
   return Math.max(MIN_SEMITONES, Math.min(MAX_SEMITONES, Math.round(semitones)));
 }
 
 export function clampCents(cents: number): number {
+  if (!Number.isFinite(cents)) return 0;
   return Math.max(MIN_CENTS, Math.min(MAX_CENTS, Math.round(cents)));
 }
 

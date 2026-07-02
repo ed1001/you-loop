@@ -1,33 +1,51 @@
-import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   CSSProperties,
+  KeyboardEvent,
   MouseEvent,
   PointerEvent as ReactPointerEvent
 } from "react";
+import { useState } from "react";
 import type { PitchSettings } from "../persistence/pitchStore";
 import {
-  MAX_CENTS,
-  MIN_CENTS,
-  clampCents,
+  centsFromDrag,
+  centsTapeOffset,
+  centsTapeStops,
+  centsTapeY,
+  fineProgress,
+  formatCents,
   formatPitch,
+  formatSemitones,
+  isZeroPitch,
+  pitchFromKey,
+  resetProgress,
+  semitoneTapeOffset,
+  semitoneTapeStops,
+  semitoneTapeY,
   semitonesFromDrag
 } from "../pitch/pitchScrub";
+import { useScrubChip } from "./useScrubChip";
 
 type Props = {
   settings: PitchSettings;
   enabled: boolean;
   available: boolean;
   disabled: boolean;
-  /** Portal host for the popover (the player element); the panel cluster clips
-      overflow, so the popover cannot live inside the pill. */
+  /** Portal host for the scrubber popover (the player element); the panel's
+      cluster clips overflow, so the popover cannot live inside the pill. */
   container: HTMLElement | null;
   onChange: (settings: PitchSettings) => void;
   onToggleEnabled: () => void;
   onReset: () => void;
 };
 
-const POP_EXIT_MS = 140;
+// Even semitones carry a printed value; odd ones are bare ticks.
+const isLabeled = (stop: number) => stop % 2 === 0;
+
+// Cents ticks are labeled at the quarter-tone marks and zero.
+const isCentsLabeled = (stop: number) => stop % 25 === 0;
+
+const KEY_RESET = new Set(["Enter", "Backspace", "Delete"]);
 
 const swallow = (event: MouseEvent | ReactPointerEvent) => {
   event.preventDefault();
@@ -44,187 +62,157 @@ export function PitchControl({
   onToggleEnabled,
   onReset
 }: Props) {
-  const chipRef = useRef<HTMLButtonElement>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    startY: number;
+  const {
+    chipRef,
+    dragRef,
+    open,
+    closing,
+    anchor,
+    pulse,
+    setPulse,
+    beginDrag,
+    foldMove,
+    foldRelease,
+    endDrag,
+    suppressNextClick,
+    isLocked
+  } = useScrubChip<{
     startSemitones: number;
-    moved: boolean;
-    accY: number;
-  } | null>(null);
-  const exitTimerRef = useRef(0);
+    // Fine gear latches for the rest of the hold once the leftward drag
+    // crosses the arm threshold; cents then track vertical travel from the
+    // latch point.
+    fine: boolean;
+    fineBaseY: number;
+    fineBaseCents: number;
+  }>(container);
 
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const [anchor, setAnchor] = useState({ left: 0, top: 0 });
-
-  useEffect(() => () => window.clearTimeout(exitTimerRef.current), []);
+  // 0–1 reveal of the snap-back target; ≥ 1 means release resets.
+  const [armX, setArmX] = useState(0);
+  // 0–1 reveal of the fine-gear target; 1 latches cents gear.
+  const [fineX, setFineX] = useState(0);
+  const [fine, setFine] = useState(false);
 
   const blocked = disabled || !available;
 
-  // Pin our overlay and YouTube's chrome visible while scrubbing, hiding the
-  // cursor (reusing the speed-scrub flag's CSS rule).
-  const setDragLock = (on: boolean) => {
-    const chip = chipRef.current;
-    if (chip == null) return;
-    const ui = chip.closest<HTMLElement>(".you-loop-page-ui");
-    const player = chip.closest<HTMLElement>(".html5-video-player");
-    if (on) {
-      if (ui != null) ui.dataset.dragging = "true";
-      if (player != null) {
-        player.dataset.youLoopScrubbing = "true";
-        player.dataset.youLoopSpeedScrub = "true";
-      }
-    } else {
-      if (ui != null) delete ui.dataset.dragging;
-      if (player != null) {
-        delete player.dataset.youLoopScrubbing;
-        delete player.dataset.youLoopSpeedScrub;
-      }
-    }
-  };
-
-  // The drag's release can land over a YouTube control; swallow the synthetic
-  // click once, in capture, so the gesture stays ours.
-  const suppressNextClick = () => {
-    const swallowOnce = (event: Event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    };
-    window.addEventListener("click", swallowOnce, { capture: true, once: true });
-    window.setTimeout(() => {
-      window.removeEventListener("click", swallowOnce, { capture: true });
-    }, 250);
-  };
-
-  const updateAnchor = () => {
-    const chip = chipRef.current;
-    if (chip == null || container == null) return;
-    const chipRect = chip.getBoundingClientRect();
-    const hostRect = container.getBoundingClientRect();
-    const left = chipRect.left + chipRect.width / 2 - hostRect.left;
-    const top = chipRect.top - hostRect.top;
-    setAnchor((prev) =>
-      prev.left === left && prev.top === top ? prev : { left, top }
-    );
-  };
-
-  const openPopover = () => {
-    window.clearTimeout(exitTimerRef.current);
-    setClosing(false);
-    updateAnchor();
-    setOpen(true);
-  };
-
-  const closePopover = () => {
-    setClosing(true);
-    exitTimerRef.current = window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-    }, POP_EXIT_MS);
-  };
-
-  const togglePopover = () => {
-    if (open && !closing) closePopover();
-    else openPopover();
-  };
-
-  const endDrag = () => {
-    dragRef.current = null;
-    if (document.pointerLockElement === chipRef.current) {
-      document.exitPointerLock?.();
-    }
-    setDragLock(false);
+  const finishDrag = () => {
+    setArmX(0);
+    setFineX(0);
+    setFine(false);
+    endDrag();
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     swallow(event);
     if (blocked || dragRef.current != null) return;
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startY: event.clientY,
+    setArmX(0);
+    setFineX(0);
+    setFine(false);
+    beginDrag(event, {
       startSemitones: settings.semitones,
-      moved: false,
-      accY: 0
-    };
-    try {
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-    } catch {
-      // keep the drag alive
-    }
-    try {
-      const lock = event.currentTarget.requestPointerLock?.() as
-        | Promise<void>
-        | undefined;
-      lock?.catch?.(() => {});
-    } catch {
-      // keep the drag alive
-    }
-    setDragLock(true);
-  };
-
-  const trackTravel = (
-    drag: NonNullable<typeof dragRef.current>,
-    event: ReactPointerEvent<HTMLButtonElement>
-  ) => {
-    if (document.pointerLockElement === chipRef.current) {
-      drag.accY += event.movementY ?? 0;
-    } else {
-      drag.accY = event.clientY - drag.startY;
-    }
-    if (Math.abs(drag.accY) > 2) drag.moved = true;
+      fine: false,
+      fineBaseY: 0,
+      fineBaseCents: settings.cents
+    });
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (drag == null || event.pointerId !== drag.pointerId) return;
-    swallow(event);
-    trackTravel(drag, event);
-    const next = semitonesFromDrag(drag.startSemitones, -drag.accY);
-    if (next !== settings.semitones) onChange({ ...settings, semitones: next });
+    const drag = foldMove(event);
+    if (drag == null) return;
+
+    if (drag.fine) {
+      // Cents gear: vertical travel from the latch point trims cents.
+      const next = centsFromDrag(drag.fineBaseCents, -(drag.accY - drag.fineBaseY));
+      if (next !== settings.cents) onChange({ ...settings, cents: next });
+      return;
+    }
+
+    const fineP = fineProgress(-drag.accX);
+    setFineX(fineP);
+    if (fineP >= 1) {
+      // Latch into cents gear for the rest of the hold.
+      drag.fine = true;
+      drag.fineBaseY = drag.accY;
+      drag.fineBaseCents = settings.cents;
+      setFine(true);
+      setArmX(0);
+      return;
+    }
+
+    const progress = resetProgress(drag.accX);
+    setArmX(progress);
+    // While the reset gesture is armed the tape freezes; vertical motion
+    // resumes if the user backs out of it.
+    if (progress < 1) {
+      const next = semitonesFromDrag(drag.startSemitones, -drag.accY);
+      if (next !== settings.semitones) onChange({ ...settings, semitones: next });
+    }
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (drag == null || event.pointerId !== drag.pointerId) return;
-    swallow(event);
-    trackTravel(drag, event);
+    const drag = foldRelease(event);
+    if (drag == null) return;
+    const armed = !drag.fine && resetProgress(drag.accX) >= 1;
     const moved = drag.moved;
-    endDrag();
+    finishDrag();
     if (moved) suppressNextClick();
-    else togglePopover();
+    if (armed) {
+      if (!isZeroPitch(settings)) onReset();
+      // Acknowledge the gesture landed even when already at 0.
+      setPulse(true);
+      return;
+    }
+    // A plain click (no travel) toggles the bypass: instant A/B against the
+    // untouched original without losing the dialled offset.
+    if (!moved) onToggleEnabled();
   };
 
   const onPointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
     if (drag == null || event.pointerId !== drag.pointerId) return;
-    if (settings.semitones !== drag.startSemitones) {
-      onChange({ ...settings, semitones: drag.startSemitones });
+    // Interrupted drag (capture lost, alt-tab…): put the settings back.
+    if (
+      settings.semitones !== drag.startSemitones ||
+      settings.cents !== drag.fineBaseCents
+    ) {
+      onChange({
+        semitones: drag.startSemitones,
+        cents: drag.fineBaseCents
+      });
     }
-    endDrag();
+    finishDrag();
   };
 
+  // Acquiring pointer lock implicitly releases pointer capture — that
+  // lostpointercapture must not cancel the drag it belongs to.
   const onLostCapture = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (document.pointerLockElement === chipRef.current) return;
+    if (isLocked()) return;
     onPointerCancel(event);
   };
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        closePopover();
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (blocked) return;
+    if (KEY_RESET.has(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isZeroPitch(settings)) {
+        onReset();
+        setPulse(true);
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+      return;
+    }
+    const next = pitchFromKey(settings, event.key, event.shiftKey);
+    if (next == null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (next.semitones !== settings.semitones || next.cents !== settings.cents) {
+      onChange(next);
+    }
+  };
 
-  const scrubbing = dragRef.current != null;
+  const scrubbing = dragRef.current != null && !closing;
+  const armed = armX >= 1;
   const label = formatPitch(settings);
-  const modified = settings.semitones !== 0 || settings.cents !== 0;
+  const modified = !isZeroPitch(settings);
 
   return (
     <div
@@ -237,16 +225,17 @@ export function PitchControl({
         ref={chipRef}
         type="button"
         role="slider"
-        aria-label="Pitch — drag up or down to transpose by semitones, click for fine tuning and on/off"
+        aria-label="Pitch — drag up or down to transpose, drag left for cents, drag right and release to reset, click to bypass"
         aria-valuemin={-12}
         aria-valuemax={12}
         aria-valuenow={settings.semitones}
         aria-valuetext={label}
         className="you-loop-pitch-value"
-        title="Drag ↕ pitch · click for fine / on-off / reset"
+        title="Drag ↕ pitch · ⇠ fine · fling ⇢ reset · click bypass"
         data-modified={modified}
         data-scrubbing={scrubbing}
         data-off={!enabled}
+        data-pulse={pulse}
         disabled={blocked}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -255,66 +244,128 @@ export function PitchControl({
         onLostPointerCapture={onLostCapture}
         onMouseDown={swallow}
         onClick={swallow}
+        onKeyDown={onKeyDown}
+        onAnimationEnd={() => setPulse(false)}
       >
-        <span className="you-loop-pitch-num">{label}</span>
-        <span className="you-loop-pitch-unit">st</span>
+        <span className="you-loop-pitch-num">
+          {formatSemitones(settings.semitones)}
+          <span className="you-loop-pitch-st">st</span>
+        </span>
       </button>
 
       {open &&
         container != null &&
         createPortal(
+          // Reuses the speed scrubber's rail/tape/needle/reset styles — the
+          // two controls share one visual system on purpose.
           <div
-            className="you-loop-pitch-pop"
+            className="you-loop-speed-pop you-loop-pitch-pop"
             data-closing={closing}
+            data-armed={armed}
+            data-fine={fine}
             style={
-              { left: `${anchor.left}px`, top: `${anchor.top}px` } as CSSProperties
+              {
+                left: `${anchor.left}px`,
+                top: `${anchor.top}px`,
+                "--you-loop-arm": armX,
+                "--you-loop-fine": fineX
+              } as CSSProperties
             }
-            onPointerDown={swallow}
-            onMouseDown={swallow}
-            onClick={swallow}
+            aria-hidden="true"
           >
-            <div className="you-loop-pitch-pop-row">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                aria-label={enabled ? "Turn pitch off" : "Turn pitch on"}
-                className="you-loop-pitch-switch"
-                data-on={enabled}
-                onClick={(e) => {
-                  swallow(e);
-                  onToggleEnabled();
-                }}
-              >
-                {enabled ? "On" : "Off"}
-              </button>
-              <button
-                type="button"
-                className="you-loop-pitch-reset"
-                onClick={(e) => {
-                  swallow(e);
-                  onReset();
-                }}
-              >
-                Reset
-              </button>
+            <div className="you-loop-speed-rail">
+              {fine ? (
+                <div
+                  className="you-loop-speed-tape"
+                  style={{
+                    transform: `translateY(${centsTapeOffset(settings.cents)}px)`
+                  }}
+                >
+                  {centsTapeStops().map((stop) => (
+                    <div
+                      key={stop}
+                      className="you-loop-speed-tick"
+                      data-labeled={isCentsLabeled(stop)}
+                      data-home={stop === 0}
+                      data-current={stop === settings.cents}
+                      style={{ top: `${centsTapeY(stop)}px` }}
+                    >
+                      {isCentsLabeled(stop) && (
+                        <span className="you-loop-speed-tick-label">
+                          {formatCents(stop)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="you-loop-speed-tape"
+                  style={{
+                    transform: `translateY(${semitoneTapeOffset(settings.semitones)}px)`
+                  }}
+                >
+                  {semitoneTapeStops().map((stop) => (
+                    <div
+                      key={stop}
+                      className="you-loop-speed-tick"
+                      data-labeled={isLabeled(stop)}
+                      data-home={stop === 0}
+                      data-current={stop === settings.semitones}
+                      style={{ top: `${semitoneTapeY(stop)}px` }}
+                    >
+                      {isLabeled(stop) && (
+                        <span className="you-loop-speed-tick-label">
+                          {formatSemitones(stop)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="you-loop-speed-needle" />
             </div>
-            <label className="you-loop-pitch-fine">
-              <span className="you-loop-pitch-fine-label">Fine</span>
-              <input
-                type="range"
-                min={MIN_CENTS}
-                max={MAX_CENTS}
-                step={1}
-                value={settings.cents}
-                onChange={(e) =>
-                  onChange({ ...settings, cents: clampCents(Number(e.target.value)) })
-                }
-              />
-              <span className="you-loop-pitch-fine-value">
-                {settings.cents > 0 ? `+${settings.cents}` : settings.cents}¢
+            {/* Outside the rail: its overflow clip + edge mask would swallow
+                anything hanging past the rounded frame. */}
+            <span className="you-loop-speed-needle-value">{label}</span>
+            <div className="you-loop-speed-reset-target">
+              <svg
+                className="you-loop-speed-reset-chevrons"
+                viewBox="0 0 26 12"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M2 1.5 L7 6 L2 10.5" />
+                <path d="M10 1.5 L15 6 L10 10.5" />
+                <path d="M18 1.5 L23 6 L18 10.5" />
+              </svg>
+              <span className="you-loop-speed-reset-col">
+                <span className="you-loop-speed-reset-ring">0</span>
+                <span className="you-loop-speed-reset-word">
+                  {armed ? "release" : "reset"}
+                </span>
               </span>
-            </label>
+            </div>
+            {/* Mirror of the reset target on the left: pull toward it to shift
+                into cents gear. */}
+            <div className="you-loop-pitch-fine-target">
+              <span className="you-loop-pitch-fine-col">
+                <span className="you-loop-pitch-fine-ring">¢</span>
+                <span className="you-loop-pitch-fine-word">
+                  {fine ? "cents" : "fine"}
+                </span>
+              </span>
+              <svg
+                className="you-loop-pitch-fine-chevrons"
+                viewBox="0 0 26 12"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M24 1.5 L19 6 L24 10.5" />
+                <path d="M16 1.5 L11 6 L16 10.5" />
+                <path d="M8 1.5 L3 6 L8 10.5" />
+              </svg>
+            </div>
           </div>,
           container
         )}

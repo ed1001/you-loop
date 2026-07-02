@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   CSSProperties,
@@ -6,6 +5,7 @@ import type {
   MouseEvent,
   PointerEvent as ReactPointerEvent
 } from "react";
+import { useState } from "react";
 import {
   MAX_PLAYBACK_RATE,
   MIN_PLAYBACK_RATE,
@@ -13,13 +13,13 @@ import {
   clampPlaybackRate
 } from "../playback/reducer";
 import {
-  TAPE_WINDOW_PX,
   rateFromDrag,
   resetProgress,
   tapeOffset,
   tapeStops,
   tapeY
 } from "./speedScrub";
+import { useScrubChip } from "./useScrubChip";
 
 type Props = {
   rate: number;
@@ -30,10 +30,6 @@ type Props = {
   onRateChange: (rate: number) => void;
   onReset: () => void;
 };
-
-// Mirror of the pill's exit animation length; keeps the popover mounted long
-// enough to play its sink-out.
-const POP_EXIT_MS = 140;
 
 // Quarter stops carry a printed value; the 0.05s between them are bare ticks.
 const isLabeled = (stop: number) => Math.round(stop * 100) % 25 === 0;
@@ -71,172 +67,40 @@ export function SpeedControl({
   onRateChange,
   onReset
 }: Props) {
-  const chipRef = useRef<HTMLButtonElement>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    startRate: number;
-    moved: boolean;
-    // Drag travel in px. With pointer lock the OS cursor is frozen and
-    // clientX/Y stop moving, so travel accumulates from movementX/Y instead.
-    accX: number;
-    accY: number;
-  } | null>(null);
-  const exitTimerRef = useRef(0);
+  const {
+    chipRef,
+    dragRef,
+    open,
+    closing,
+    anchor,
+    pulse,
+    setPulse,
+    beginDrag,
+    foldMove,
+    foldRelease,
+    endDrag,
+    suppressNextClick,
+    isLocked
+  } = useScrubChip<{ startRate: number }>(container);
 
-  const [open, setOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
-  // Popover anchor, in container-local coordinates (px).
-  const [anchor, setAnchor] = useState({ left: 0, top: 0 });
   // 0–1 reveal of the snap-back target; ≥ 1 means release resets.
   const [armX, setArmX] = useState(0);
-  const [pulse, setPulse] = useState(false);
 
-  useEffect(() => () => window.clearTimeout(exitTimerRef.current), []);
-
-  // Pin our overlay (and YouTube's bottom chrome) visible while scrubbing,
-  // same flags the zoom timeline uses. The speed-scrub flag additionally
-  // hides the cursor: the popover is the pointer during the gesture.
-  const setDragLock = (on: boolean) => {
-    const chip = chipRef.current;
-    if (chip == null) return;
-    const ui = chip.closest<HTMLElement>(".you-loop-page-ui");
-    const player = chip.closest<HTMLElement>(".html5-video-player");
-    if (on) {
-      if (ui != null) ui.dataset.dragging = "true";
-      if (player != null) {
-        player.dataset.youLoopScrubbing = "true";
-        player.dataset.youLoopSpeedScrub = "true";
-      }
-    } else {
-      if (ui != null) delete ui.dataset.dragging;
-      if (player != null) {
-        delete player.dataset.youLoopScrubbing;
-        delete player.dataset.youLoopSpeedScrub;
-      }
-    }
-  };
-
-  // The release of a scrub can land over any YouTube control (pause, settings,
-  // the scrubber…); the browser then synthesizes a click there. Swallow the
-  // next click, once, in the capture phase so the drag's release stays ours.
-  const suppressNextClick = () => {
-    const swallowOnce = (event: Event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    };
-    window.addEventListener("click", swallowOnce, { capture: true, once: true });
-    // If no click materializes (e.g. release outside the window), drop the
-    // trap so it cannot eat an unrelated later click.
-    window.setTimeout(() => {
-      window.removeEventListener("click", swallowOnce, { capture: true });
-    }, 250);
-  };
-
-  const updateAnchor = () => {
-    const chip = chipRef.current;
-    if (chip == null || container == null) return;
-    const chipRect = chip.getBoundingClientRect();
-    const hostRect = container.getBoundingClientRect();
-    const left = chipRect.left + chipRect.width / 2 - hostRect.left;
-    const top = chipRect.top - hostRect.top;
-    setAnchor((prev) =>
-      prev.left === left && prev.top === top ? prev : { left, top }
-    );
-  };
-
-  const openPopover = () => {
-    window.clearTimeout(exitTimerRef.current);
-    setClosing(false);
-    updateAnchor();
-    setOpen(true);
-  };
-
-  const closePopover = () => {
-    setClosing(true);
-    exitTimerRef.current = window.setTimeout(() => {
-      setOpen(false);
-      setClosing(false);
-    }, POP_EXIT_MS);
-  };
-
-  const endDrag = () => {
-    dragRef.current = null;
-    // Unpin the cursor; the browser restores it to the press point (the chip).
-    if (document.pointerLockElement === chipRef.current) {
-      document.exitPointerLock?.();
-    }
+  const finishDrag = () => {
     setArmX(0);
-    setDragLock(false);
-    closePopover();
+    endDrag();
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     swallow(event);
     if (disabled || dragRef.current != null) return;
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startRate: rate,
-      moved: false,
-      accX: 0,
-      accY: 0
-    };
-    // Capture before anything else: without it the release lands on whatever
-    // YouTube control sits under the pointer. Throws on an already-released
-    // (or synthetic) pointer — the drag still works, only uncaptured.
-    try {
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-    } catch {
-      // keep the drag alive
-    }
-    // Pin the OS cursor for the scrub (input-scrubbing idiom): it reappears
-    // exactly on the chip at release instead of wherever the drag wandered.
-    // Best-effort — when unavailable/denied the clientX/Y fallback below
-    // still drives the drag, with the cursor merely hidden by CSS.
-    try {
-      const lock = event.currentTarget.requestPointerLock?.() as
-        | Promise<void>
-        | undefined;
-      lock?.catch?.(() => {});
-    } catch {
-      // keep the drag alive
-    }
     setArmX(0);
-    setDragLock(true);
-    openPopover();
-  };
-
-  // Fold a pointer event into the drag's accumulated travel. Locked: the
-  // cursor is frozen, so integrate movementX/Y. Unlocked: absolute deltas
-  // from the press point (also the test-environment path).
-  const trackTravel = (
-    drag: NonNullable<typeof dragRef.current>,
-    event: ReactPointerEvent<HTMLButtonElement>
-  ) => {
-    if (document.pointerLockElement === chipRef.current) {
-      drag.accX += event.movementX ?? 0;
-      drag.accY += event.movementY ?? 0;
-    } else {
-      drag.accX = event.clientX - drag.startX;
-      drag.accY = event.clientY - drag.startY;
-    }
-    if (Math.abs(drag.accX) > 2 || Math.abs(drag.accY) > 2) drag.moved = true;
+    beginDrag(event, { startRate: rate });
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    // pointerId filter: a second pointer (other touch, stray mouse) must not
-    // steer a drag it didn't start.
-    if (drag == null || event.pointerId !== drag.pointerId) return;
-    swallow(event);
-    // The pill animates open/closed; if the press landed mid-animation the
-    // anchor measured at pointerdown is stale, so track the chip while it
-    // settles.
-    updateAnchor();
-    trackTravel(drag, event);
+    const drag = foldMove(event);
+    if (drag == null) return;
     const progress = resetProgress(drag.accX);
     setArmX(progress);
     // While the reset gesture is armed the tape freezes; vertical motion
@@ -248,13 +112,11 @@ export function SpeedControl({
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (drag == null || event.pointerId !== drag.pointerId) return;
-    swallow(event);
-    trackTravel(drag, event);
+    const drag = foldRelease(event);
+    if (drag == null) return;
     const armed = resetProgress(drag.accX) >= 1;
     if (drag.moved) suppressNextClick();
-    endDrag();
+    finishDrag();
     if (armed && rate !== 1) {
       onReset();
       setPulse(true);
@@ -269,13 +131,13 @@ export function SpeedControl({
     if (drag == null || event.pointerId !== drag.pointerId) return;
     // Interrupted drag (capture lost, alt-tab…): put the rate back.
     if (rate !== drag.startRate) onRateChange(drag.startRate);
-    endDrag();
+    finishDrag();
   };
 
   // Acquiring pointer lock implicitly releases pointer capture — that
   // lostpointercapture must not cancel the drag it belongs to.
   const onLostCapture = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (document.pointerLockElement === chipRef.current) return;
+    if (isLocked()) return;
     onPointerCancel(event);
   };
 

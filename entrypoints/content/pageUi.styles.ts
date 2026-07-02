@@ -792,7 +792,8 @@ export const PAGE_UI_STYLES = `
     }
 
     /* Same chip anatomy as the speed pill: grid-centered readout, teal when
-       an offset is dialled in, lifted while scrubbing. */
+       an offset is dialled in, lifted while scrubbing. Wide enough for the
+       longest readout ("-12.45 st") so the value never reflows the panel. */
     .you-loop-pitch-value {
       background: transparent;
       border: 0;
@@ -806,7 +807,7 @@ export const PAGE_UI_STYLES = `
       font-weight: 600;
       height: 27px;
       letter-spacing: 0.01em;
-      min-width: 44px;
+      min-width: 66px;
       padding: 0 6px;
       place-items: center;
       text-align: center;

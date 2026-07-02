@@ -40,6 +40,15 @@ import {
   DEFAULT_COUNT_IN_SETTINGS,
   type CountInSettings
 } from "../../features/persistence/countInStore";
+import { createPitchGraph } from "../../features/pitch/pitchGraph";
+import {
+  DEFAULT_PITCH_SETTINGS,
+  getPitchEnabled,
+  loadPitchSettings,
+  savePitchSettings,
+  setPitchEnabled,
+  type PitchSettings
+} from "../../features/persistence/pitchStore";
 import { buildCountOff } from "../../features/playback/countOff";
 import { createCountInPlayer } from "../../features/player-overlay/countInAudio";
 import { createCountInController } from "../../features/player-overlay/countInController";
@@ -124,6 +133,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
 
   // Per-video saved loops, persisted to extension storage.
   let videoId: string | null = currentVideoId();
+  // Set by stop(): async loaders must not touch the graph or render after
+  // teardown (the React root is unmounted).
+  let stopped = false;
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
@@ -138,6 +150,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
   // when the modal opens and after a save (so the list reflects new titles).
   let savedVideos: SavedVideo[] = [];
+
+  // Pitch shift: independent of the loop. The graph taps the element lazily on
+  // first engage; settings persist per video.
+  let pitchSettings: PitchSettings = DEFAULT_PITCH_SETTINGS;
+  let pitchEnabled = false;
+  const pitchGraph = createPitchGraph(video);
+  let pitchAvailable = pitchGraph.isAvailable();
 
   // The loop playback actually obeys: the zoom sub-region while magnified,
   // otherwise the main loop.
@@ -289,6 +308,56 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const resetSpeed = () => {
     state = playbackReducer(state, { type: "resetPlaybackRate" });
     applyPlaybackState(video, state);
+    render();
+  };
+
+  // Push current pitch state into the graph and reflect availability.
+  const applyPitch = () => {
+    pitchGraph.setSettings(pitchSettings);
+    pitchGraph.setEnabled(pitchEnabled);
+    pitchAvailable = pitchGraph.isAvailable();
+  };
+
+  const setPitch = (next: PitchSettings) => {
+    pitchSettings = next;
+    // Dialling in an offset auto-engages, so dragging "just works" without
+    // first flipping the switch.
+    if (!pitchEnabled && (next.semitones !== 0 || next.cents !== 0)) {
+      pitchEnabled = true;
+      void setPitchEnabled(true);
+    }
+    applyPitch();
+    if (videoId != null) void savePitchSettings(videoId, pitchSettings);
+    render();
+  };
+
+  const togglePitch = () => {
+    pitchEnabled = !pitchEnabled;
+    void setPitchEnabled(pitchEnabled);
+    applyPitch();
+    render();
+  };
+
+  const resetPitch = () => {
+    pitchSettings = DEFAULT_PITCH_SETTINGS;
+    applyPitch();
+    if (videoId != null) void savePitchSettings(videoId, pitchSettings);
+    render();
+  };
+
+  // Load per-video pitch + global enabled flag, then apply. Same async race
+  // guard as loadForVideo (videoId can change mid-await on SPA navigation),
+  // plus a stop guard: the storage awaits can resolve after teardown, and
+  // rendering an unmounted root throws.
+  const loadPitchForVideo = async () => {
+    const id = videoId;
+    const en = await getPitchEnabled();
+    if (stopped || videoId !== id) return;
+    const s = id != null ? await loadPitchSettings(id) : DEFAULT_PITCH_SETTINGS;
+    if (stopped || videoId !== id) return;
+    pitchEnabled = en;
+    pitchSettings = s;
+    applyPitch();
     render();
   };
 
@@ -533,6 +602,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onToggleZoom={toggleZoom}
           onSpeedChange={setSpeed}
           onResetSpeed={resetSpeed}
+          pitchSettings={pitchSettings}
+          pitchEnabled={pitchEnabled}
+          pitchAvailable={pitchAvailable}
+          onPitchChange={setPitch}
+          onTogglePitch={togglePitch}
+          onResetPitch={resetPitch}
           onShowHelp={() => {
             helpOpen = true;
             render();
@@ -744,6 +819,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     state = playbackReducer(state, { type: "clearLoop" });
     render();
     void loadForVideo();
+    void loadPitchForVideo();
   };
 
   // Cancel a running count when the USER seeks (scrubs) during the count.
@@ -783,10 +859,12 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   if (!video.paused) startEnforce();
   render();
   void loadForVideo();
+  void loadPitchForVideo();
 
   return {
     root,
     stop: () => {
+      stopped = true;
       clearZoomCloseTimer();
       stopEnforce();
       countInController.cancel();
@@ -805,6 +883,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       document.removeEventListener("yt-navigate-finish", onNavigate);
       document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
       document.removeEventListener("keyup", keyHandlers.onKeyUp, true);
+      pitchGraph.dispose();
     }
   };
 }

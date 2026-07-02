@@ -1,6 +1,8 @@
 import type { MouseEvent, PointerEvent } from "react";
 import type { LoopSegment, PlayMode } from "../playback/types";
 import { SpeedControl } from "./SpeedControl";
+import { PitchControl } from "./PitchControl";
+import type { PitchSettings } from "../persistence/pitchStore";
 import { SavedLoopsModal } from "./SavedLoopsModal";
 import { EtudeWordmark } from "./EtudeWordmark";
 import type { SavedLoop, SavedVideo } from "../persistence/loopStore";
@@ -17,6 +19,12 @@ type Props = {
   onToggleZoom: () => void;
   onSpeedChange: (rate: number) => void;
   onResetSpeed: () => void;
+  pitchSettings: PitchSettings;
+  pitchEnabled: boolean;
+  pitchAvailable: boolean;
+  onPitchChange: (settings: PitchSettings) => void;
+  onTogglePitch: () => void;
+  onResetPitch: () => void;
   onShowHelp: () => void;
   canSaveLoops: boolean;
   loopsContainer: HTMLElement | null;
@@ -68,6 +76,12 @@ export function LoopPanel({
   onToggleZoom,
   onSpeedChange,
   onResetSpeed,
+  pitchSettings,
+  pitchEnabled,
+  pitchAvailable,
+  onPitchChange,
+  onTogglePitch,
+  onResetPitch,
   onShowHelp,
   canSaveLoops,
   loopsContainer,
@@ -252,7 +266,18 @@ export function LoopPanel({
               onRateChange={onSpeedChange}
               onReset={onResetSpeed}
             />
-  
+
+            <PitchControl
+              settings={pitchSettings}
+              enabled={pitchEnabled}
+              available={pitchAvailable}
+              disabled={!enabled}
+              container={loopsContainer}
+              onChange={onPitchChange}
+              onToggleEnabled={onTogglePitch}
+              onReset={onResetPitch}
+            />
+
             <button
               type="button"
               role="switch"

@@ -130,6 +130,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // Count-in state: global on/off and per-video tempo/meter settings.
   let countInOn = false;
   let countInSettings: CountInSettings = DEFAULT_COUNT_IN_SETTINGS;
+  // Live count-off beat for the on-bar beacon: the current beat index while a
+  // count runs, null otherwise. `countInSession` bumps per count so a restarted
+  // count re-keys the beacon and replays the beat-0 pulse.
+  let countInBeat: number | null = null;
+  let countInSession = 0;
   // The cross-video index shown on the modal's "Saved videos" tab. Refreshed
   // when the modal opens and after a save (so the list reflects new titles).
   let savedVideos: SavedVideo[] = [];
@@ -477,6 +482,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
     const loopDirty = isLoopDirty(selectedLoop, state.loopSegment, zoomLoop);
     const zoomVisible = zoomStripVisible();
+    // Beacon at the point playback will resume from — the zoom sub-region
+    // start while magnified, else the main loop start. Rendered by the zoom
+    // strip while it is up, otherwise by the main-bar handles.
+    const countIn =
+      countInBeat != null && effectiveSegment() != null
+        ? {
+            timeSec: effectiveSegment()!.start,
+            beatIndex: countInBeat,
+            beatsPerBar: countInSettings.beatsPerBar,
+            session: countInSession
+          }
+        : null;
 
     root.render(
       <>
@@ -491,6 +508,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
               video.currentTime = loop.start;
             }}
             closing={zoomClosing}
+            countIn={countIn}
           />
         )}
         {state.loopEnabled && (
@@ -502,6 +520,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
               onMainLoopChange(seg);
               video.currentTime = seg.start;
             }}
+            countIn={zoomVisible ? null : countIn}
           />
         )}
         <LoopPanel
@@ -685,7 +704,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
         },
         bars: countInSettings.bars,
         bpm: countInSettings.bpm
-      })
+      }),
+    onCountStart: () => {
+      countInSession++;
+    },
+    onBeat: (index) => {
+      countInBeat = index;
+      render();
+    },
+    onCountEnd: () => {
+      countInBeat = null;
+      render();
+    }
   });
 
   // Seed/restore saved loops once metadata is ready, and re-run on SPA
@@ -724,6 +754,18 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     if (countInController.isCounting() && !wrapSeekPending) countInController.cancel();
   };
 
+  // The video must not play while a count runs. Any play attempt mid-count
+  // (Space/K, the player button, a scrub side effect) is treated as a pause
+  // intent — the play/pause control behaves as though the video were already
+  // playing: it stops the count and stays paused. The controller's own
+  // downbeat resume clears `counting` before calling play(), so it passes.
+  const onPlay = () => {
+    if (countInController.isCounting()) {
+      video.pause();
+      countInController.cancel();
+    }
+  };
+
   video.addEventListener("timeupdate", enforce);
   video.addEventListener("seeked", onSeeked);
   video.addEventListener("play", startEnforce);
@@ -734,6 +776,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   video.addEventListener("loadedmetadata", onLoadedMetadata);
   video.addEventListener("durationchange", onLoadedMetadata);
   video.addEventListener("seeking", onSeeking);
+  video.addEventListener("play", onPlay);
   document.addEventListener("yt-navigate-finish", onNavigate);
   document.addEventListener("keydown", keyHandlers.onKeyDown, true);
   document.addEventListener("keyup", keyHandlers.onKeyUp, true);
@@ -758,6 +801,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("durationchange", onLoadedMetadata);
       video.removeEventListener("seeking", onSeeking);
+      video.removeEventListener("play", onPlay);
       document.removeEventListener("yt-navigate-finish", onNavigate);
       document.removeEventListener("keydown", keyHandlers.onKeyDown, true);
       document.removeEventListener("keyup", keyHandlers.onKeyUp, true);

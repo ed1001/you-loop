@@ -142,7 +142,7 @@ const CONTROLS: Control[] = [
   {
     icon: CountInIcon,
     term: "Count-in",
-    desc: "A metronome counts you in before each loop repeats, so you come in on time. Tap or drag the tempo, pick the time signature and how many bars — the loop resumes on the downbeat.",
+    desc: "A metronome counts you in before the loop starts, so you come in on time. Tap or drag the tempo, pick the time signature and how many bars — the loop resumes on the downbeat.",
   },
   {
     icon: SaveIcon,

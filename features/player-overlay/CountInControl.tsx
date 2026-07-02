@@ -1,9 +1,9 @@
 // features/player-overlay/CountInControl.tsx
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { CSSProperties, MouseEvent, PointerEvent } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import type { CountInSettings } from "../persistence/countInStore";
-import { bpmFromTaps, MIN_BPM, MAX_BPM } from "../playback/tapTempo";
+import { bpmFromTaps, clampBpm, MIN_BPM, MAX_BPM } from "../playback/tapTempo";
 import {
   bpmFromDrag,
   isLabeledBpm,
@@ -35,6 +35,9 @@ const swallow = (e: MouseEvent | PointerEvent) => {
   e.stopPropagation();
 };
 
+// Must cover the you-loop-countin-pop-out animation duration.
+const POP_EXIT_MS = 140;
+
 export function CountInControl({
   on,
   settings,
@@ -56,11 +59,30 @@ export function CountInControl({
     accY: number;
   } | null>(null);
   const flashTimerRef = useRef(0);
+  const closeTimerRef = useRef(0);
   const [open, setOpen] = useState(false);
+  // Kept mounted briefly after a close so the popover can play its exit
+  // animation before unmounting (mirrors the zoom strip's closing pattern).
+  const [closing, setClosing] = useState(false);
   const [tapFlash, setTapFlash] = useState(false);
   const [anchor, setAnchor] = useState({ left: 0, top: 0 });
 
-  useEffect(() => () => window.clearTimeout(flashTimerRef.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(flashTimerRef.current);
+      window.clearTimeout(closeTimerRef.current);
+    },
+    []
+  );
+
+  const closePopover = () => {
+    if (!open || closing) return;
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, POP_EXIT_MS);
+  };
 
   // Dismiss the popover on an outside click or Escape — it is a persistent
   // panel (unlike the speed scrubber, which lives only for the duration of a
@@ -73,21 +95,28 @@ export function CountInControl({
     const onDocDown = (e: Event) => {
       const t = e.target as Node | null;
       if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
-      setOpen(false);
+      closePopover();
     };
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        setOpen(false);
+        closePopover();
       }
     };
+    // The popover is anchored to the pill's position captured at open time;
+    // re-capture when the player resizes (theater mode, window resize) so it
+    // doesn't hang in the old spot.
+    const onResize = () => updateAnchor();
     document.addEventListener("pointerdown", onDocDown, true);
     document.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onDocDown, true);
       document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", onResize);
     };
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, closing]);
 
   const updateAnchor = () => {
     const btn = btnRef.current;
@@ -101,8 +130,12 @@ export function CountInControl({
   // switch inside the popover, so the button never has to mean two things.
   const onButtonClick = (e: MouseEvent) => {
     swallow(e);
-    if (!open) updateAnchor();
-    setOpen((v) => !v);
+    if (open) {
+      closePopover();
+    } else {
+      updateAnchor();
+      setOpen(true);
+    }
   };
 
   const tap = (e: MouseEvent) => {
@@ -185,6 +218,17 @@ export function CountInControl({
     endBpmDrag();
   };
 
+  // Keyboard access for the rail: arrows ±1 BPM, Shift+arrows ±5. Swallowed so
+  // YouTube's own arrow-key seek/volume handlers never see them.
+  const onBpmKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const dir = e.key === "ArrowUp" ? 1 : e.key === "ArrowDown" ? -1 : 0;
+    if (dir === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const next = clampBpm(settings.bpm + dir * (e.shiftKey ? 5 : 1));
+    if (next !== settings.bpm) onSettingsChange({ ...settings, bpm: next });
+  };
+
   return (
     <div className="you-loop-countin" data-disabled={disabled}>
       <button
@@ -211,6 +255,7 @@ export function CountInControl({
           <div
             ref={popRef}
             className="you-loop-countin-pop"
+            data-closing={closing ? "true" : undefined}
             style={{ left: `${anchor.left}px`, top: `${anchor.top}px` } as CSSProperties}
             onPointerDown={swallow}
             onMouseDown={swallow}
@@ -233,8 +278,7 @@ export function CountInControl({
             </div>
 
             <p className="you-loop-countin-hint">
-              Plays a metronome count before each loop repeat. You come in on the
-              downbeat.
+              Plays a metronome count before the loop starts.
             </p>
 
             <span className="you-loop-countin-label">Tempo</span>
@@ -257,10 +301,12 @@ export function CountInControl({
                 ref={railRef}
                 className="you-loop-countin-rail"
                 role="slider"
+                tabIndex={0}
                 aria-label="Tempo (BPM) — drag up or down"
                 aria-valuemin={MIN_BPM}
                 aria-valuemax={MAX_BPM}
                 aria-valuenow={settings.bpm}
+                onKeyDown={onBpmKeyDown}
                 onPointerDown={onBpmPointerDown}
                 onPointerMove={onBpmPointerMove}
                 onPointerUp={onBpmPointerUp}

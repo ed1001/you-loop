@@ -170,3 +170,29 @@ describe("ZoomTimeline plain cursor drag (resize mode)", () => {
     expect(onWindowMove).not.toHaveBeenCalled();
   });
 });
+
+describe("ZoomTimeline count-in beacon", () => {
+  const renderWithCountIn = (countIn: Parameters<typeof ZoomTimeline>[0]["countIn"]) =>
+    render(
+      <ZoomTimeline
+        video={makeVideo()}
+        window={{ start: 20, end: 40 }}
+        loop={{ start: 25, end: 30 }}
+        onLoopChange={vi.fn()}
+        countIn={countIn}
+      />
+    );
+
+  it("renders nothing without a count in progress", () => {
+    renderWithCountIn(null);
+    expect(screen.queryByTestId("countin-beacon")).toBeNull();
+  });
+
+  it("positions the beacon within the zoom window and shows the beat numeral", () => {
+    renderWithCountIn({ timeSec: 25, beatIndex: 1, beatsPerBar: 4, session: 1 });
+    const beacon = screen.getByTestId("countin-beacon");
+    expect(beacon.textContent).toBe("2");
+    // 25s in the 20–40s window → 25% across the strip.
+    expect(parseFloat(beacon.style.left)).toBeCloseTo(25, 6);
+  });
+});

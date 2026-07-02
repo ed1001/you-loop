@@ -6,8 +6,11 @@ import { clampBpm, MIN_BPM, MAX_BPM } from "../playback/tapTempo";
 /** Vertical pixels of drag per 1 BPM. */
 export const PX_PER_BPM = 4;
 
-/** Visible height of the tape window, in px. Needle sits at its midpoint. */
-export const BPM_WINDOW_PX = 150;
+/** Visible height of the tape window, in px. Needle sits at its midpoint.
+ *  MUST match the .you-loop-countin-rail CSS height — a mismatch skews the
+ *  needle reading (the tape centers on this value's midpoint, the needle on
+ *  the real one). */
+export const BPM_WINDOW_PX = 132;
 
 /** Tick spacing on the tape, in BPM. */
 const TICK_STEP = 5;
@@ -17,7 +20,7 @@ export const isLabeledBpm = (bpm: number) => bpm % 20 === 0;
 
 /**
  * BPM after dragging `dyUp` pixels upward (positive = up) from a press that
- * started at `startBpm`. Quantized to whole BPM, clamped to 40–220.
+ * started at `startBpm`. Quantized to whole BPM, clamped to the BPM range.
  */
 export function bpmFromDrag(startBpm: number, dyUp: number): number {
   return clampBpm(startBpm + Math.round(dyUp / PX_PER_BPM));
@@ -33,7 +36,7 @@ export function tapeOffset(bpm: number): number {
   return BPM_WINDOW_PX / 2 - tapeY(bpm);
 }
 
-/** All tick stops from 40 to 220 in TICK_STEP increments. */
+/** All tick stops across the BPM range in TICK_STEP increments. */
 export function tapeStops(): number[] {
   const count = Math.round((MAX_BPM - MIN_BPM) / TICK_STEP) + 1;
   return Array.from({ length: count }, (_, i) => MIN_BPM + i * TICK_STEP);

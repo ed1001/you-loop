@@ -41,14 +41,23 @@ const popover = () =>
   document.body.querySelector(".you-loop-countin-pop") as HTMLElement | null;
 const openPopover = () => act(() => fireEvent.click(toggleBtn()));
 
+// The popover unmounts after its exit animation (a close timer), so close
+// assertions advance fake timers past it.
+const settleClose = () => act(() => void vi.advanceTimersByTime(200));
+
 describe("CountInControl", () => {
   it("opens the popover on button click and closes it on a second click", () => {
+    vi.useFakeTimers();
     render(<CountInControl {...base} container={document.body} />);
     expect(popover()).toBeNull();
     openPopover();
     expect(popover()).not.toBeNull();
     act(() => fireEvent.click(toggleBtn()));
+    // Exit animation: stays mounted (closing) until the timer elapses.
+    expect(popover()!.dataset.closing).toBe("true");
+    settleClose();
     expect(popover()).toBeNull();
+    vi.useRealTimers();
   });
 
   it("does NOT toggle on/off from the pill button (only the switch does)", () => {
@@ -73,22 +82,28 @@ describe("CountInControl", () => {
   });
 
   it("dismisses the popover on an outside pointerdown", () => {
+    vi.useFakeTimers();
     render(<CountInControl {...base} container={document.body} />);
     openPopover();
     expect(popover()).not.toBeNull();
     const outside = document.createElement("div");
     document.body.append(outside);
     act(() => fireEvent.pointerDown(outside));
+    settleClose();
     expect(popover()).toBeNull();
     outside.remove();
+    vi.useRealTimers();
   });
 
   it("dismisses the popover on Escape", () => {
+    vi.useFakeTimers();
     render(<CountInControl {...base} container={document.body} />);
     openPopover();
     expect(popover()).not.toBeNull();
     act(() => fireEvent.keyDown(document, { key: "Escape" }));
+    settleClose();
     expect(popover()).toBeNull();
+    vi.useRealTimers();
   });
 
   it("keeps the popover open when clicking inside it", () => {
@@ -147,5 +162,48 @@ describe("CountInControl", () => {
     expect(onSettingsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ bars: 2 })
     );
+  });
+});
+
+describe("CountInControl BPM rail keyboard", () => {
+  const rail = () =>
+    document.body.querySelector(".you-loop-countin-rail") as HTMLElement;
+
+  it("ArrowUp/ArrowDown nudge BPM by 1", () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <CountInControl {...base} container={document.body} onSettingsChange={onSettingsChange} />
+    );
+    openPopover();
+    act(() => fireEvent.keyDown(rail(), { key: "ArrowUp" }));
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bpm: DEFAULT_COUNT_IN_SETTINGS.bpm + 1 })
+    );
+    act(() => fireEvent.keyDown(rail(), { key: "ArrowDown" }));
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bpm: DEFAULT_COUNT_IN_SETTINGS.bpm - 1 })
+    );
+  });
+
+  it("Shift+arrow nudges by 5", () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <CountInControl {...base} container={document.body} onSettingsChange={onSettingsChange} />
+    );
+    openPopover();
+    act(() => fireEvent.keyDown(rail(), { key: "ArrowUp", shiftKey: true }));
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ bpm: DEFAULT_COUNT_IN_SETTINGS.bpm + 5 })
+    );
+  });
+
+  it("other keys are ignored", () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <CountInControl {...base} container={document.body} onSettingsChange={onSettingsChange} />
+    );
+    openPopover();
+    act(() => fireEvent.keyDown(rail(), { key: "ArrowLeft" }));
+    expect(onSettingsChange).not.toHaveBeenCalled();
   });
 });

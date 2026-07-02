@@ -723,10 +723,10 @@ describe("page UI", () => {
   // We cannot drive a full AudioContext in jsdom, so we stub window.AudioContext
   // with a minimal mock that returns state:"running" — just enough for
   // countInPlayer.play() to return true (which is required for counting=true).
-  it("wrap seek does not cancel the count-in it triggered", async () => {
-    // Stub AudioContext so countInPlayer.play() can return true.
-    // The mock satisfies: ctx.state === "running", ctx.currentTime,
-    // ctx.createOscillator(), ctx.createGain(), ctx.destination, ctx.resume().
+  // Stub AudioContext so countInPlayer.play() can return true.
+  // The mock satisfies: ctx.state === "running", ctx.currentTime,
+  // ctx.createOscillator(), ctx.createGain(), ctx.destination, ctx.resume().
+  const stubRunningAudioContext = () => {
     const mockGain = {
       connect: () => {},
       gain: {
@@ -752,23 +752,29 @@ describe("page UI", () => {
       close() { return Promise.resolve(); }
     }
     vi.stubGlobal("AudioContext", MockAudioContext);
+  };
 
-    // Mount with loop on and count-in enabled via storage.
-    window.history.replaceState(null, "", "/watch?v=wrap-seek-test");
+  // Mount the page UI with the loop on and count-in enabled via storage.
+  const mountWithCountInOn = async (videoId: string) => {
+    stubRunningAudioContext();
+    window.history.replaceState(null, "", `/watch?v=${videoId}`);
     const area = makeMemoryArea({ [COUNT_IN_KEY]: true, [LOOP_ON_KEY]: true });
     vi.stubGlobal("browser", {
       storage: { sync: area, local: area },
       runtime: { getURL: (p: string) => p }
     });
-
     const { video } = mountYouTubePlayer();
     await act(async () => {
       setPageUiVisible(video.closest(".html5-video-player")!, true);
       for (let i = 0; i < 5; i++) await Promise.resolve();
     });
-
     // Sanity: loop is on (persisted LOOP_ON_KEY=true loaded from storage).
     expect(screen.getByLabelText("Disable loop range")).toBeInTheDocument();
+    return { video };
+  };
+
+  it("wrap seek does not cancel the count-in it triggered", async () => {
+    const { video } = await mountWithCountInOn("wrap-seek-test");
 
     // Spy on video.play so we can detect whether cancel() resumed playback.
     // cancel() calls video.play() when the video is paused; if the wrap's own
@@ -797,6 +803,35 @@ describe("page UI", () => {
     // have cancelled the count-in. Before the fix this would have been called
     // once (cancel → play to resume).
     expect(playSpy).not.toHaveBeenCalled();
+  });
+
+  // The video must never play while a count runs: a play attempt mid-count
+  // (Space/K, the player button) is a pause intent — it stops the count and
+  // the video stays paused.
+  it("a play attempt during the count pauses and stops the count", async () => {
+    const { video } = await mountWithCountInOn("play-guard-test");
+
+    // Trigger a wrap so a count begins (counting=true, video paused).
+    video.currentTime = 120;
+    act(() => {
+      fireEvent.timeUpdate(video);
+    });
+
+    // The user hits Space: YouTube starts playback → `play` fires. The guard
+    // must re-pause immediately (pause intent while counting).
+    const pauseSpy = vi.spyOn(video, "pause");
+    act(() => {
+      fireEvent(video, new Event("play"));
+    });
+    expect(pauseSpy).toHaveBeenCalled();
+
+    // The count was cancelled: a second play attempt is a normal play and
+    // must NOT be re-paused.
+    pauseSpy.mockClear();
+    act(() => {
+      fireEvent(video, new Event("play"));
+    });
+    expect(pauseSpy).not.toHaveBeenCalled();
   });
 });
 

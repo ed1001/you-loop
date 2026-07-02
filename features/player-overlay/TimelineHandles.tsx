@@ -4,6 +4,7 @@ import { translateSegment } from "../playback/translateSegment";
 import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 import { buildTimeMap, type Segment, type TimeMap } from "./chapterMapping";
+import { CountInBeacon, type CountInBeat } from "./CountInBeacon";
 
 type Props = {
   duration: number;
@@ -13,12 +14,14 @@ type Props = {
   // (start changed). Callers use this to seek the playhead to the new start.
   // Falls back to onSegmentChange when not provided.
   onWindowMove?: (segment: LoopSegment) => void;
+  // Live count-in beat, or null when no count is running.
+  countIn?: CountInBeat | null;
 };
 
 type Handle = "start" | "end";
 type DragMode = "resize" | "window";
 
-export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMove }: Props) {
+export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMove, countIn }: Props) {
   const timelineRef = useRef<HTMLDivElement>(null);
   const startRef = useRef<HTMLButtonElement>(null);
   const endRef = useRef<HTMLButtonElement>(null);
@@ -270,6 +273,12 @@ export function TimelineHandles({ duration, segment, onSegmentChange, onWindowMo
         style={{ left: handleLeft(endPercent) }}
         {...createDragHandlers("end")}
       />
+      {countIn != null && (
+        <CountInBeacon
+          beat={countIn}
+          leftPercent={mapRef.current.timeToPercent(countIn.timeSec)}
+        />
+      )}
     </div>
   );
 }

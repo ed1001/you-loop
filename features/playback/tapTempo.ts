@@ -1,5 +1,5 @@
 export const MIN_BPM = 40;
-export const MAX_BPM = 220;
+export const MAX_BPM = 400;
 
 export function clampBpm(bpm: number): number {
   return Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(bpm)));

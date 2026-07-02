@@ -91,6 +91,105 @@ export const PAGE_UI_STYLES = `
       z-index: 2147483647;
     }
 
+    /* Count-in beacon: a numeral over a vertical line, rising from the loop
+       start on the progress bar. Remounted per beat (keyed in React), so the
+       pulse keyframes replay on every tick. */
+    .you-loop-countin-beacon {
+      align-items: center;
+      bottom: calc(50% + 14px);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+      position: absolute;
+      transform: translateX(-50%);
+      z-index: 2147483647;
+    }
+
+    .you-loop-countin-beacon-line {
+      animation: you-loop-countin-flash 0.4s ease-out;
+      background: linear-gradient(to top, #14b8a6, rgba(20, 184, 166, 0.15));
+      border-radius: 1px;
+      box-shadow: 0 0 6px rgba(20, 184, 166, 0.7);
+      height: 18px;
+      transform-origin: bottom;
+      width: 2px;
+    }
+
+    /* The numeral sits in a small glass disc (same dark-pill language as the
+       panel) so it stays legible over bright or busy video frames. The pop
+       plays once when the beacon mounts (per count), not per beat — only the
+       line pulses with the metronome. */
+    .you-loop-countin-beacon-num {
+      align-items: center;
+      animation: you-loop-countin-pop 0.4s ease-out;
+      transition:
+        width 0.12s ease,
+        height 0.12s ease,
+        font-size 0.12s ease,
+        box-shadow 0.12s ease,
+        color 0.12s ease;
+      backdrop-filter: blur(6px) saturate(1.3);
+      background: rgba(24, 26, 29, 0.72);
+      border-radius: 999px;
+      box-shadow:
+        inset 0 0 0 1px rgba(20, 184, 166, 0.45),
+        0 2px 10px rgba(0, 0, 0, 0.45);
+      color: #ffffff;
+      display: flex;
+      font-family: "YouTube Sans", Roboto, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      height: 24px;
+      justify-content: center;
+      line-height: 1;
+      width: 24px;
+    }
+
+    /* Downbeat: taller, brighter strike. */
+    .you-loop-countin-beacon[data-accent] .you-loop-countin-beacon-line {
+      background: linear-gradient(to top, #5eead4, rgba(94, 234, 212, 0.2));
+      box-shadow: 0 0 10px rgba(94, 234, 212, 0.9);
+      height: 26px;
+    }
+
+    .you-loop-countin-beacon[data-accent] .you-loop-countin-beacon-num {
+      box-shadow:
+        inset 0 0 0 1px rgba(94, 234, 212, 0.8),
+        0 0 12px rgba(20, 184, 166, 0.5),
+        0 2px 10px rgba(0, 0, 0, 0.45);
+      color: #ccfbf1;
+      font-size: 14px;
+      height: 28px;
+      width: 28px;
+    }
+
+    @keyframes you-loop-countin-flash {
+      from {
+        filter: brightness(2.2);
+        transform: scaleY(0.3);
+      }
+      40% {
+        filter: brightness(1.6);
+        transform: scaleY(1.12);
+      }
+      to {
+        filter: brightness(1);
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes you-loop-countin-pop {
+      from {
+        opacity: 0.4;
+        transform: scale(1.5);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
     .you-loop-panel {
       align-items: center;
       background: rgba(38, 38, 42, 0.9);
@@ -1701,11 +1800,37 @@ export const PAGE_UI_STYLES = `
       background: rgba(20, 184, 166, 0.18); color: #14b8a6;
     }
     .you-loop-countin-toggle:disabled { opacity: 0.4; cursor: default; }
+    /* House card recipe (help card, saved-loops modal): charcoal glass, dark
+       border, whisper-teal ring, inset top highlight. */
     .you-loop-countin-pop {
       position: absolute; transform: translate(-50%, -100%) translateY(-12px);
-      width: 300px; padding: 14px; border-radius: 14px;
-      background: rgba(16, 18, 18, 0.98); border: 1px solid rgba(94, 234, 212, 0.3);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); z-index: 2147483647;
+      width: 300px; padding: 14px; border-radius: 16px;
+      background: rgba(28, 28, 32, 0.92);
+      -webkit-backdrop-filter: blur(18px) saturate(1.2);
+      backdrop-filter: blur(18px) saturate(1.2);
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      box-shadow:
+        0 0 0 1px rgba(20, 184, 166, 0.18),
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      z-index: 2147483647;
+      animation: you-loop-countin-pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: center bottom;
+    }
+    @keyframes you-loop-countin-pop-in {
+      from { opacity: 0; transform: translate(-50%, -100%) translateY(-8px); }
+      to { opacity: 1; transform: translate(-50%, -100%) translateY(-12px); }
+    }
+    /* Exit mirrors the entrance: settle back toward the pill and fade.
+       Duration must stay in sync with POP_EXIT_MS in CountInControl. */
+    .you-loop-countin-pop[data-closing="true"] {
+      animation: you-loop-countin-pop-out 0.14s ease forwards;
+      pointer-events: none;
+    }
+    @keyframes you-loop-countin-pop-out {
+      from { opacity: 1; transform: translate(-50%, -100%) translateY(-12px); }
+      to { opacity: 0; transform: translate(-50%, -100%) translateY(-8px); }
     }
     .you-loop-countin-head {
       display: flex; align-items: center; justify-content: space-between;
@@ -1715,6 +1840,9 @@ export const PAGE_UI_STYLES = `
     }
     .you-loop-countin-switch {
       position: relative; width: 38px; height: 22px; padding: 0; cursor: pointer;
+      /* border-box so the 16px thumb's translateX(16px) lands symmetric (2px
+         inset each side) regardless of the page's default sizing. */
+      box-sizing: border-box;
       border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 999px;
       background: rgba(255, 255, 255, 0.1); transition: background 0.15s ease, border-color 0.15s ease;
     }
@@ -1785,6 +1913,8 @@ export const PAGE_UI_STYLES = `
       position: relative; width: 58px; height: 132px; flex: none; overflow: hidden;
       cursor: ns-resize; touch-action: none; border-radius: 0;
       background: rgba(28, 28, 32, 0.92); border: 1px solid rgba(0, 0, 0, 0.6);
+      -webkit-backdrop-filter: blur(12px) saturate(1.2);
+      backdrop-filter: blur(12px) saturate(1.2);
       box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
       -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
       mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
@@ -1800,6 +1930,7 @@ export const PAGE_UI_STYLES = `
     .you-loop-countin-tick[data-labeled="true"] { width: 13px; background: rgba(255, 255, 255, 0.42); }
     .you-loop-countin-tick-label {
       position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
       font-size: 9.5px; font-weight: 600; font-variant-numeric: tabular-nums;
       color: rgba(255, 255, 255, 0.55);
     }
@@ -1808,10 +1939,16 @@ export const PAGE_UI_STYLES = `
       border-top: 2px solid #2dd4bf; box-shadow: 0 0 8px rgba(45, 212, 191, 0.55);
       transform: translateY(-50%); pointer-events: none;
     }
+    /* Square corners: the seg buttons speak the same machine language as the
+       tap pad and BPM rail above them. */
     .you-loop-countin-seg { display: flex; gap: 5px; margin-top: 8px; }
     .you-loop-countin-seg button {
-      flex: 1; padding: 6px 0; border-radius: 8px; cursor: pointer; font-size: 12px;
+      flex: 1; padding: 6px 0; border-radius: 0; cursor: pointer; font-size: 12px;
       border: 1px solid rgba(255, 255, 255, 0.15); background: transparent; color: #cfd2d2;
+      transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+    }
+    .you-loop-countin-seg button:hover {
+      border-color: rgba(94, 234, 212, 0.5); color: #5eead4;
     }
     .you-loop-countin-seg button[data-active="true"] {
       border-color: #5eead4; color: #5eead4; background: rgba(94, 234, 212, 0.2);

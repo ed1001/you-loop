@@ -65,7 +65,7 @@ Five shots (Chrome Web Store allows a maximum of 5; AMO uses the same set):
 
 1. `01-overview` — the control pill as an annotated diagram (connector lines to Playback mode · Speed · Pitch · Zoom · Count-in · Saved) + the A/S/D and `[ ]` keyboard shortcuts. Caption: "Minimal look. Maximum control."
 2. `02-loop-zoom` — the panel + a loop region on the scrubber expanding (zoom funnel) into the magnified strip. Caption: "Loop a section — then zoom in." (shows granular control)
-3. `03-speed-pitch` — the speed and pitch scrub pills side by side; speed at 0.5×, pitch at −2 st with the Shift-to-cents flank. Caption: "Slow it down. Change the key, not the tempo."
+3. `03-speed-pitch` — the speed and pitch scrub pills side by side; speed at 0.5×, pitch at −2 st with the Shift-to-cents flank. Caption: "Change the speed and pitch independently."
 4. `04-countin` — the count-in popover (tap-tempo pad, BPM rail, time-signature + bars) with the on-timeline count beacon. Caption: "Counted in, so you come in on time."
 5. `05-saved` — the single-pane saved-loops modal with named loops and the pencil-edit affordance. Caption: "Pick up where you left off."
 

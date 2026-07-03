@@ -22,6 +22,12 @@ PRACTICE TOOLS, BUILT AROUND LOOP REGIONS
 ZOOM IN FOR PRECISION
 Open the zoom panel to expand your loop region into a magnified timeline. Place the start and end exactly where they belong — down to the split second.
 
+CHANGE THE KEY — NOT THE TEMPO
+Transpose the song up or down by up to 12 semitones without slowing it down. Match a song to your voice or to your instrument's tuning, or shift a lick into an easier position — then hold Shift to fine-tune by cents.
+
+COUNT YOURSELF IN
+A metronome counts you in before the loop starts, so you come in on time instead of scrambling. Tap the tempo or drag it, pick the time signature, and choose how many bars to count.
+
 KEYBOARD-FIRST DRILLING
 • A — restart the loop region
 • S — cue: hold to play from the top of the loop, release to snap straight back
@@ -34,7 +40,7 @@ Dial in the right length once, then walk it through the piece — the loop slide
 • Shift+drag a loop handle (on the timeline or in the zoom panel) to slide the whole loop; playback picks up at the new start
 
 SAVED LOOPS
-Name and save loops per video. Come back tomorrow; your work is where you left it.
+Name and save loops per video — a save captures the loop region, the zoom, and your count-in, so a whole practice setup comes back in one tap. Rename a saved loop, or replace it with your current one. Come back tomorrow; your last loop is applied automatically.
 
 SYNCED ACROSS YOUR DEVICES
 Saved loops follow you between computers through your browser's own account sync — set a loop at the desk, pick it up on the laptop. No Étude account and no server; when browser sync is off, loops simply stay local.
@@ -55,10 +61,13 @@ markup — rendered enlarged on the étude brand canvas with instructional capti
 so the controls read clearly at thumbnail size without a distracting video frame.
 Edit the shot definitions / captions in `generate-screenshots.mjs` and re-run.
 
-1. `01-overview` — the control pill as an annotated diagram (connector lines to Playback mode · Speed · Zoom · Saved) + the A/S/D keyboard shortcuts. Caption: "Minimal look. Maximum control."
+Five shots (Chrome Web Store allows a maximum of 5; AMO uses the same set):
+
+1. `01-overview` — the control pill as an annotated diagram (connector lines to Playback mode · Speed · Pitch · Zoom · Count-in · Saved) + the A/S/D and `[ ]` keyboard shortcuts. Caption: "Minimal look. Maximum control."
 2. `02-loop-zoom` — the panel + a loop region on the scrubber expanding (zoom funnel) into the magnified strip. Caption: "Loop a section — then zoom in." (shows granular control)
-3. `03-speed` — the speed-scrub tick rail at 0.5× with the snap-to-1× target. Caption: "Slow it down — 0.25× to 3×, in fine steps."
-4. `04-saved` — the saved-loops modal with named loops. Caption: "Pick up where you left off."
+3. `03-speed-pitch` — the speed and pitch scrub pills side by side; speed at 0.5×, pitch at −2 st with the Shift-to-cents flank. Caption: "Slow it down. Change the key, not the tempo."
+4. `04-countin` — the count-in popover (tap-tempo pad, BPM rail, time-signature + bars) with the on-timeline count beacon. Caption: "Counted in, so you come in on time."
+5. `05-saved` — the single-pane saved-loops modal with named loops and the pencil-edit affordance. Caption: "Pick up where you left off."
 
 Promo tiles: 440×280 small tile + 1400×560 marquee — wordmark `étude` on `#0f0f10`, teal accent, one-line tagline "Turn any YouTube video into a practice piece."
 

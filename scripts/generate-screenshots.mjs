@@ -409,7 +409,7 @@ const SHOTS = [
               <div class="you-loop-timeline">
                 <div class="you-loop-loop-range" style="left:30%;width:28%"></div>
                 <div class="you-loop-handle" data-edge="start" style="left:30%"></div>
-                <div class="you-loop-handle" data-edge="end" style="left:58%"></div>
+                <div class="you-loop-handle" data-edge="end" style="left:calc(58% - 9px)"></div>
               </div>
               <div class="yt-playhead"></div>
             </div>

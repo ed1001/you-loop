@@ -408,8 +408,8 @@ const SHOTS = [
               <div class="watched"></div>
               <div class="you-loop-timeline">
                 <div class="you-loop-loop-range" style="left:30%;width:28%"></div>
-                <div class="you-loop-handle" style="left:30%"></div>
-                <div class="you-loop-handle" style="left:58%"></div>
+                <div class="you-loop-handle" data-edge="start" style="left:30%"></div>
+                <div class="you-loop-handle" data-edge="end" style="left:58%"></div>
               </div>
               <div class="yt-playhead"></div>
             </div>
@@ -422,7 +422,7 @@ const SHOTS = [
   },
   {
     name: "03-speed-pitch",
-    caption: `Slow it down. <em>Change the key, not the tempo.</em>`,
+    caption: `Change the speed and pitch <em>independently</em>.`,
     scene: `
       <div style="display:flex;align-items:flex-start;justify-content:center;gap:280px;margin-top:36px">
         <div style="display:flex;flex-direction:column;align-items:center;gap:30px">
@@ -458,7 +458,7 @@ const SHOTS = [
     caption: `Pick up where you <em>left off</em>.`,
     scene: `
       <div class="mag" style="zoom:1.12">${savedModal()}</div>`,
-    sub: `A save captures the loop, zoom and count-in. Rename it or replace it with the pencil — it comes back next visit.`
+    sub: `You can edit your loops — rename them, or replace one with your current selection.`
   }
 ];
 

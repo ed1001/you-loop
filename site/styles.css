@@ -483,22 +483,24 @@
       .zcursor {
         position: absolute;
         top: 50%;
-        width: 8px;
+        width: 7px;
         height: 21px;
         transform: translate(-50%, -50%);
-        background: #14b8a6;
-        border: 2px solid #fff;
-        border-radius: 4px;
-        box-shadow:
-          0 0 0 1px rgba(13, 148, 136, 0.6),
-          0 2px 8px rgba(0, 0, 0, 0.45);
+        border: 2.5px solid #14b8a6;
+        background: transparent;
+        filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.85))
+          drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
         z-index: 2;
       }
       .zcursor.a {
         left: 18%;
+        border-right: 0;
+        border-radius: 4px 0 0 4px;
       }
       .zcursor.b {
         left: 74%;
+        border-left: 0;
+        border-radius: 0 4px 4px 0;
       }
       .zplayhead {
         position: absolute;

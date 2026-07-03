@@ -1497,41 +1497,66 @@ export const PAGE_UI_STYLES = `
       grid-template-columns: 96px 1fr;
     }
 
-    /* Panel rows lead with the control's own glyph in a narrow column. */
+    /* Panel rows have no key column, so the body spans the whole row and the
+       glyph (when present) rides inline with the term. */
     .you-loop-help-row--panel {
-      align-items: start;
-      grid-template-columns: 30px 1fr;
+      grid-template-columns: 1fr;
     }
 
-    .you-loop-help-ico {
+    /* Panel controls read as a single full-width column — one control per row,
+       no ragged two-column heights. */
+    .you-loop-help-list--panel {
+      grid-template-columns: 1fr;
+    }
+
+    /* Inline glyph accent leading a control's term. Rows without a panel glyph
+       simply omit it — no reserved column, so no empty holes in the grid. */
+    .you-loop-help-glyph {
       align-items: center;
       color: #5eead4;
       display: inline-flex;
-      height: 17px;
+      flex: none;
       justify-content: center;
+      /* Shared left rail so the readout pills and the icon glyphs start on the
+         same edge down the list. */
+      min-width: 22px;
     }
 
-    .you-loop-help-ico svg {
-      height: 16px;
-      width: 16px;
+    .you-loop-help-glyph svg {
+      height: 15px;
+      width: 15px;
     }
 
-    .you-loop-help-ico-pair {
-      align-items: center;
+    /* Miniature of the Speed/Pitch readout pill, mirroring the panel's own
+       value chips so the docs point at the exact thing you drag. */
+    .you-loop-help-pill {
+      align-items: baseline;
+      background: rgba(255, 255, 255, 0.09);
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
       color: #5eead4;
       display: inline-flex;
-      gap: 1px;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      padding: 2px 5px;
     }
 
-    .you-loop-help-ico-pair svg {
-      height: 12px;
-      width: 12px;
+    .you-loop-help-pill-unit {
+      font-size: 7.5px;
+      font-weight: 700;
+      margin-left: 1px;
+      opacity: 0.72;
     }
 
     .you-loop-help-term {
+      align-items: center;
       color: rgba(255, 255, 255, 0.92);
+      display: flex;
       font-size: 12.5px;
       font-weight: 600;
+      gap: 7px;
     }
 
     .you-loop-help-desc {

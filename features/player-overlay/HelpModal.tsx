@@ -43,40 +43,39 @@ const PowerIcon = (
   </svg>
 );
 
-// Vertical scrub glyph: up/down arrows around a tick, matching the
-// press-and-drag speed control.
-const SpeedIcon = (
+// Loop-arrows glyph, mirrored from the loop/one-shot mode toggle's loop state.
+// The glyph is intentionally identical to LoopPanel's — the help entry mirrors
+// the real control, so the duplication is deliberate.
+const ModeIcon = (
+  // fallow-ignore-next-line code-duplication
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path
-      d="M12 3.5l-3 3.2h6zM12 20.5l-3-3.2h6z"
-      fill="currentColor"
-      stroke="none"
-    />
-    <path
-      d="M7.5 12h9"
+      d="M5 9a4 4 0 0 1 4-4h7"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.2"
       strokeLinecap="round"
     />
-  </svg>
-);
-
-// Accidentals glyph: sharp beside flat, matching the transpose control.
-const PitchIcon = (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path
-      d="M8.2 3.5v13M12.2 3v13M6 8.3l8.4-1.8M6 13.3l8.4-1.8"
+      d="M13 2.5 16.5 5 13 7.5"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.9"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M19 15a4 4 0 0 1-4 4H8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
       strokeLinecap="round"
     />
     <path
-      d="M17.6 8v9.5M17.6 17.5c0-2.4 3.4-3.6 3.4-1.2 0 1.3-1.8 2.6-3.4 3.7z"
+      d="M11 21.5 7.5 19 11 16.5"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.9"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -101,6 +100,21 @@ const ZoomIcon = (
       strokeLinecap="round"
     />
   </svg>
+);
+
+// Speed and Pitch have no glyph button in the panel — they're readout pills you
+// drag. So their "icon" is a miniature of that pill, mirroring what you actually
+// look for in the panel.
+const SpeedPill = (
+  <span className="you-loop-help-pill">
+    1<span className="you-loop-help-pill-unit">×</span>
+  </span>
+);
+
+const PitchPill = (
+  <span className="you-loop-help-pill">
+    0<span className="you-loop-help-pill-unit">st</span>
+  </span>
 );
 
 // Metronome glyph, mirrored from the count-in control in the panel.
@@ -139,6 +153,9 @@ const SaveIcon = (
 type Shortcut = { keys: string; hold?: boolean; name: string; desc: string };
 type Control = { icon: ReactNode; term: string; desc: string };
 
+// Ordered by use-flow, not panel position: first set up the loop (on/off,
+// mode, region), then shape how it plays back (speed, pitch, count-in), then
+// keep it (saved loops).
 const CONTROLS: Control[] = [
   {
     icon: PowerIcon,
@@ -146,19 +163,9 @@ const CONTROLS: Control[] = [
     desc: "Turn Étude on or off. Your loop range is kept while off.",
   },
   {
-    icon: null,
+    icon: ModeIcon,
     term: "Loop / One-shot",
     desc: "Loop repeats the range; one-shot plays it through once and stops.",
-  },
-  {
-    icon: SpeedIcon,
-    term: "Speed",
-    desc: "Hold the readout and drag up or down to scrub the speed in 0.05× steps (0.25×–3×). Drag it hard right and let go to snap back to 1×; turning Étude off also resets it.",
-  },
-  {
-    icon: PitchIcon,
-    term: "Pitch",
-    desc: "Transpose the song without changing its speed. Hold the readout and drag up or down to shift in semitones (±12); hold Shift to zoom the dial into cents and fine-tune, release Shift to zoom back out. Fling right and let go to snap back to 0 — inside cents, the fling zeroes just the cents without ending the scrub. At 0 the audio path is untouched. A decimal readout (+3.45) means a fine trim is applied.",
   },
   {
     icon: ZoomIcon,
@@ -166,14 +173,24 @@ const CONTROLS: Control[] = [
     desc: "Magnify the looped region to fine-tune a precise sub-loop — handy on long videos.",
   },
   {
+    icon: SpeedPill,
+    term: "Speed",
+    desc: "Hold the readout and drag up or down to scrub the speed in 0.05× steps (0.25×–3×). Drag it hard right and let go to snap back to 1×; turning Étude off also resets it.",
+  },
+  {
+    icon: PitchPill,
+    term: "Pitch",
+    desc: "Transpose the song without changing its speed. Hold the readout and drag up or down to shift in semitones (±12); hold Shift to zoom the dial into cents and fine-tune, release Shift to zoom back out. Fling right and let go to snap back to 0 — inside cents, the fling zeroes just the cents without ending the scrub.",
+  },
+  {
     icon: CountInIcon,
     term: "Count-in",
-    desc: "A metronome counts you in before the loop starts, so you come in on time. Tap or drag the tempo, pick the time signature and how many bars — the loop resumes on the downbeat.",
+    desc: "A metronome counts you in before the loop starts, so you come in on time. Tap or drag the tempo, pick the time signature and how many bars.",
   },
   {
     icon: SaveIcon,
     term: "Saved loops",
-    desc: "Save the current loop and zoom as a named loop. Keep several per video — apply or delete them anytime — and browse every video you've saved loops on. They come back automatically next visit, last-used applied.",
+    desc: "Save the current loop, zoom and count-in as a named loop. Keep several per video — tap one to apply it, or use its pencil to rename it or replace it with your current loop. They come back automatically next visit, last-used applied.",
   },
 ];
 
@@ -287,15 +304,21 @@ export function HelpModal({ open, container, onClose }: Props) {
 
         <section className="you-loop-help-section">
           <h3 className="you-loop-help-label">Panel</h3>
-          <ul className="you-loop-help-list">
+          <ul className="you-loop-help-list you-loop-help-list--panel">
             {CONTROLS.map((control) => (
               <li
                 key={control.term}
                 className="you-loop-help-row you-loop-help-row--panel"
               >
-                <span className="you-loop-help-ico">{control.icon}</span>
                 <span className="you-loop-help-body">
-                  <span className="you-loop-help-term">{control.term}</span>
+                  <span className="you-loop-help-term">
+                    {control.icon && (
+                      <span className="you-loop-help-glyph" aria-hidden="true">
+                        {control.icon}
+                      </span>
+                    )}
+                    {control.term}
+                  </span>
                   <span className="you-loop-help-desc">{control.desc}</span>
                 </span>
               </li>

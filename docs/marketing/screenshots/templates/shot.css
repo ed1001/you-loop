@@ -171,11 +171,44 @@ body::after {
   animation: none !important;
 }
 
+/* count-in popover: production portals it and absolutely-anchors + animates it
+   above the toggle; lay it upright on the flat canvas. */
+.you-loop-countin-pop {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  animation: none !important;
+}
+
 /* modals: drop the dimmed full-bleed backdrop — the cards float on the canvas. */
 .you-loop-help-card,
 .you-loop-lm-card {
   animation: none !important;
   position: static !important;
+}
+
+/* saved-loops row actions (pencil + delete) reveal on hover in the real UI;
+   force them visible on the selected row so the edit affordance shows (shot 5). */
+.you-loop-lm-row[data-selected="true"] .you-loop-lm-actions button {
+  opacity: 1 !important;
+}
+
+/* paired-control labels beneath the speed + pitch pills (shot 3) */
+.pairlabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.pairlabel span {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--muted);
 }
 
 /* ---- timeline context (shot 2): a stand-in for YouTube's scrubber that the

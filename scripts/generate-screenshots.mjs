@@ -42,9 +42,16 @@ const FRAME_CSS = readFileSync(
 // ── Reusable real-UI fragments (markup mirrors the components) ───────────────
 const WORDMARK = `é<span class="you-loop-eacute-acc">é</span>`;
 
-// The control pill in its enabled state: power · Loop/One-shot · speed · zoom ·
-// saved · help. data-on="true" so the cluster is expanded.
-function pill({ mode = "loop", rate = "1", zoom = false } = {}) {
+// The control pill in its enabled state, mirroring the real LoopPanel child
+// order: power · Loop/One-shot · speed · pitch · zoom · count-in · saved · help.
+// data-on="true" so the cluster is expanded.
+function pill({
+  mode = "loop",
+  rate = "1",
+  semitones = "0",
+  zoom = false,
+  countIn = false
+} = {}) {
   return `
   <div class="you-loop-panel" data-on="true">
     <button class="you-loop-power" data-on="true" aria-label="Disable loop range">
@@ -63,9 +70,19 @@ function pill({ mode = "loop", rate = "1", zoom = false } = {}) {
               <span class="you-loop-speed-num">${rate}<span class="you-loop-speed-x">×</span></span>
             </button>
           </div>
+          <div class="you-loop-pitch" role="group" data-disabled="false">
+            <button class="you-loop-pitch-value" data-modified="${semitones !== "0"}">
+              <span class="you-loop-pitch-num">${semitones}<span class="you-loop-pitch-st">st</span></span>
+            </button>
+          </div>
           <button class="you-loop-zoom-toggle" data-on="${zoom}" data-disabled="false">
             <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
           </button>
+          <div class="you-loop-countin" data-disabled="false">
+            <button class="you-loop-countin-toggle" data-on="${countIn}" aria-label="Count-in">
+              <svg viewBox="0 0 24 24"><path d="M9 3h6l3 16H6L9 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 19V7l5-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
           <button class="you-loop-loops-toggle">
             <svg viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.5L7 20z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
           </button>
@@ -133,6 +150,112 @@ function speedPop({ value = "0.5×" } = {}) {
   </div>`;
 }
 
+// The pitch scrub popover — the speed control's twin. Reuses the speed
+// rail/tape/needle/reset styles (shared by design); adds the pitch lens and the
+// Shift "fine" flank that advertises the cents gear. Coarse gear shown, the
+// readout centred on the current semitone.
+// fallow-ignore-next-line complexity
+function pitchPop({ value = "−2", center = -2 } = {}) {
+  const railH = 148;
+  const pxPerStep = 11; // px between adjacent semitone ticks
+  const ticks = [];
+  for (let stop = -7; stop <= 7; stop++) {
+    const y = railH / 2 + (center - stop) * pxPerStep;
+    if (y < 8 || y > railH - 8) continue;
+    const labeled = stop % 3 === 0;
+    const lbl = stop > 0 ? `+${stop}` : stop < 0 ? `−${Math.abs(stop)}` : "0";
+    ticks.push(
+      `<div class="you-loop-speed-tick" data-labeled="${labeled}" data-home="${stop === 0}" data-current="${stop === center}" style="top:${y}px">${
+        labeled ? `<span class="you-loop-speed-tick-label">${lbl}</span>` : ""
+      }</div>`
+    );
+  }
+  return `
+  <div class="you-loop-speed-pop you-loop-pitch-pop" data-armed="false" data-fine="false" data-zoomed="false" style="--you-loop-arm:0">
+    <div class="you-loop-speed-rail">
+      <div class="you-loop-pitch-lens" data-gear="coarse">
+        <div class="you-loop-speed-tape">${ticks.join("")}</div>
+      </div>
+      <div class="you-loop-speed-needle"></div>
+    </div>
+    <span class="you-loop-speed-needle-value">${value} st</span>
+    <div class="you-loop-speed-reset-target">
+      <svg class="you-loop-speed-reset-chevrons" viewBox="0 0 26 12"><path d="M2 1.5 L7 6 L2 10.5"/><path d="M10 1.5 L15 6 L10 10.5"/><path d="M18 1.5 L23 6 L18 10.5"/></svg>
+      <span class="you-loop-speed-reset-col"><span class="you-loop-speed-reset-ring">0</span><span class="you-loop-speed-reset-word">reset</span></span>
+    </div>
+    <div class="you-loop-pitch-fine-target">
+      <span class="you-loop-pitch-fine-col"><span class="you-loop-pitch-fine-key">⇧</span><span class="you-loop-pitch-fine-word">fine</span></span>
+    </div>
+  </div>`;
+}
+
+// The count-in settings popover: on/off switch, tap-tempo pad + BPM scrub rail,
+// time-signature and bars segments. Mirrors CountInControl's markup.
+// fallow-ignore-next-line complexity
+function countInPop({ bpm = 92 } = {}) {
+  const railH = 132;
+  const center = railH / 2;
+  const pxPerBpm = 1.5;
+  const ticks = [];
+  for (let b = 40; b <= 168; b += 5) {
+    const y = center + (bpm - b) * pxPerBpm;
+    if (y < 6 || y > railH - 6) continue;
+    const labeled = b % 20 === 0;
+    ticks.push(
+      `<div class="you-loop-countin-tick" data-labeled="${labeled}" style="top:${y}px">${
+        labeled ? `<span class="you-loop-countin-tick-label">${b}</span>` : ""
+      }</div>`
+    );
+  }
+  const sigs = [
+    ["2/4", 2],
+    ["3/4", 3],
+    ["4/4", 4],
+    ["6/8", 6]
+  ]
+    .map(
+      ([label, bpb]) =>
+        `<button data-sig="${bpb}" data-active="${label === "4/4"}">${label}</button>`
+    )
+    .join("");
+  const bars = [1, 2, 3, 4]
+    .map((n) => `<button data-bars="${n}" data-active="${n === 2}">${n}</button>`)
+    .join("");
+  return `
+  <div class="you-loop-countin-pop">
+    <div class="you-loop-countin-head">
+      <span class="you-loop-countin-headname">Count-in</span>
+      <button class="you-loop-countin-switch" role="switch" aria-checked="true" data-on="true"></button>
+    </div>
+    <p class="you-loop-countin-hint">Plays a metronome count before the loop starts.</p>
+    <span class="you-loop-countin-label">Tempo</span>
+    <div class="you-loop-countin-tempo">
+      <button class="you-loop-countin-tap" data-flash="false">
+        <span class="you-loop-countin-tap-read">${bpm}<span class="you-loop-countin-tap-unit">BPM</span></span>
+        <span class="you-loop-countin-tap-hint">tap</span>
+      </button>
+      <div class="you-loop-countin-rail" role="slider">
+        <div class="you-loop-countin-tape">${ticks.join("")}</div>
+        <div class="you-loop-countin-needle"></div>
+      </div>
+    </div>
+    <span class="you-loop-countin-label">Time signature</span>
+    <div class="you-loop-countin-seg" role="group">${sigs}</div>
+    <span class="you-loop-countin-label">Bars</span>
+    <div class="you-loop-countin-seg" role="group">${bars}</div>
+  </div>`;
+}
+
+// The on-timeline count beacon: a beat numeral in a glass disc over a pulse
+// line. Sits absolutely in a relatively-positioned timeline stand-in.
+function countInBeacon({ n = 1, accent = true, left = 50 } = {}) {
+  return `
+  <div class="you-loop-countin-beacon"${accent ? ' data-accent="true"' : ""} style="left:${left}%">
+    <span class="you-loop-countin-beacon-num">${n}</span>
+    <span class="you-loop-countin-beacon-line"></span>
+  </div>`;
+}
+
 function savedModal() {
   const rows = [
     { name: "Solo — bars 33–40", range: "1:12 – 1:39", sel: true },
@@ -147,7 +270,12 @@ function savedModal() {
           <span class="you-loop-lm-name-text">${r.name}</span>
           <span class="you-loop-lm-range">${r.range}</span>
         </button>
-        <span class="you-loop-lm-actions"><button>✕</button></span>
+        <span class="you-loop-lm-actions">
+          <button class="you-loop-lm-edit" aria-label="Edit" title="Edit">
+            <svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="you-loop-lm-delete" aria-label="Delete" title="Delete">✕</button>
+        </span>
       </li>`
     )
     .join("");
@@ -157,23 +285,16 @@ function savedModal() {
     <button class="you-loop-lm-close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     <header class="you-loop-lm-head">
       <h2 class="you-loop-lm-title">Saved loops</h2>
-      <p class="you-loop-lm-sub">Current selection · 1:12 – 1:39</p>
     </header>
-    <nav class="you-loop-lm-tabs" role="tablist">
-      <button class="you-loop-lm-tab" data-active="true">This video</button>
-      <button class="you-loop-lm-tab" data-active="false">Saved videos</button>
-    </nav>
-    <div class="you-loop-lm-pane">
-      <section class="you-loop-lm-list-wrap">
-        <h3 class="you-loop-lm-label">Your loops</h3>
-        <ul class="you-loop-lm-list">${rows}</ul>
-      </section>
-      <section class="you-loop-lm-save" data-disabled="false">
-        <h3 class="you-loop-lm-label">Save current loop</h3>
-        <input class="you-loop-loops-input you-loop-lm-name" type="text" placeholder="Name this loop" value="Verse 2 phrasing" />
-        <button class="you-loop-lm-savebtn">Save</button>
-      </section>
-    </div>
+    <section class="you-loop-lm-list-wrap">
+      <h3 class="you-loop-lm-label">Your loops</h3>
+      <ul class="you-loop-lm-list">${rows}</ul>
+    </section>
+    <section class="you-loop-lm-save">
+      <h3 class="you-loop-lm-label">Save current loop</h3>
+      <input class="you-loop-loops-input you-loop-lm-name" type="text" placeholder="Name this loop" value="Verse 2 phrasing" />
+      <button class="you-loop-lm-savebtn">Save</button>
+    </section>
   </div>
   </div>`;
 }
@@ -188,9 +309,11 @@ const OVERVIEW_CALLOUTS = `<script>
     var pill=document.querySelector('.you-loop-panel').getBoundingClientRect();
     var T=[
       {sel:'.you-loop-modes',text:'Playback mode'},
-      {sel:'.you-loop-speed',text:'Speed · 0.25–3×'},
-      {sel:'.you-loop-zoom-toggle',text:'Zoom in'},
-      {sel:'.you-loop-loops-toggle',text:'Saved loops'}
+      {sel:'.you-loop-speed',text:'Speed'},
+      {sel:'.you-loop-pitch',text:'Pitch'},
+      {sel:'.you-loop-zoom-toggle',text:'Zoom'},
+      {sel:'.you-loop-countin-toggle',text:'Count-in'},
+      {sel:'.you-loop-loops-toggle',text:'Saved'}
     ];
     var ns='http://www.w3.org/2000/svg';
     T.forEach(function(t,i){
@@ -250,7 +373,7 @@ const KEYS = `
 
 const MAG_GLASS = `<svg viewBox="0 0 24 24" fill="none"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="2.4"/><path d="M14.8 14.8L20 20" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 
-// ── The four shots ───────────────────────────────────────────────────────────
+// ── The five shots ───────────────────────────────────────────────────────────
 const SHOTS = [
   {
     name: "01-overview",
@@ -259,7 +382,7 @@ const SHOTS = [
       <div style="display:flex;flex-direction:column;align-items:center">
         <div style="height:24px"></div>
         <div class="reserve" style="height:108px;margin-bottom:156px">
-          <div class="mag" style="transform:scale(2.0)">${pill({ mode: "loop", rate: "1" })}</div>
+          <div class="mag" style="transform:scale(1.9)">${pill({ mode: "loop", rate: "1", semitones: "0", countIn: false })}</div>
         </div>
         <div>
           <div class="kbd-eyebrow">Keyboard shortcuts</div>
@@ -298,18 +421,44 @@ const SHOTS = [
       ${ZOOM_FUNNEL}`
   },
   {
-    name: "03-speed",
-    caption: `Slow it down.<br><em>0.25× to 3×, in fine steps.</em>`,
+    name: "03-speed-pitch",
+    caption: `Slow it down. <em>Change the key, not the tempo.</em>`,
     scene: `
-      <div class="mag" style="zoom:2.2">${speedPop({ value: "0.5×" })}</div>
-      <p class="annot" style="margin-top:18px">Hold the speed readout and drag up or down to scrub the tempo in 0.05× steps. Take a hard passage slow, then bring it back up — fling right to snap home to <span class="t">1×</span>.</p>`
+      <div style="display:flex;align-items:flex-start;justify-content:center;gap:280px;margin-top:36px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:30px">
+          <div class="mag" style="zoom:1.5">${speedPop({ value: "0.5×" })}</div>
+          <div class="pairlabel">Speed<span>0.25× – 3×</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:30px">
+          <div class="mag" style="zoom:1.5">${pitchPop({ value: "−2", center: -2 })}</div>
+          <div class="pairlabel">Pitch<span>±12 st · ⇧ cents</span></div>
+        </div>
+      </div>
+      <p class="annot" style="margin-top:40px">Two matching pills: hold and drag. Scrub the <span class="t">speed</span> in fine steps to take a hard passage slow — or transpose the <span class="t">pitch</span> up to 12 semitones <strong>without changing the tempo</strong>. Hold Shift to fine-tune in cents.</p>`
   },
   {
-    name: "04-saved",
+    name: "04-countin",
+    caption: `Counted in, <em>so you come in on time</em>.`,
+    scene: `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:40px">
+        <div class="mag" style="zoom:1.02">${countInPop({ bpm: 92 })}</div>
+        <div class="reserve" style="height:60px;width:660px">
+          <div class="scrubber" style="width:600px">
+            <div class="rail"></div>
+            <div class="watched" style="width:30%"></div>
+            ${countInBeacon({ n: 1, accent: true, left: 30 })}
+            <div class="yt-playhead" style="left:30%"></div>
+          </div>
+        </div>
+      </div>
+      <p class="annot" style="margin-top:28px">Tap or drag the tempo, pick the time signature and how many bars. A metronome counts you in, and the <span class="t">beacon</span> marks the count right on the timeline.</p>`
+  },
+  {
+    name: "05-saved",
     caption: `Pick up where you <em>left off</em>.`,
     scene: `
       <div class="mag" style="zoom:1.12">${savedModal()}</div>`,
-    sub: `Name and save loops per video — tomorrow's practice starts where today's ended.`
+    sub: `A save captures the loop, zoom and count-in. Rename it or replace it with the pencil — it comes back next visit.`
   }
 ];
 

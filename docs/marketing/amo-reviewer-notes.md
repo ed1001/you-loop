@@ -28,7 +28,10 @@ No code is generated or fetched at runtime; all source is in the repo.
 
 ## Permissions
 
-- `storage` — persist user-named loop regions locally (no sync, no network).
+- `storage` — persist user-named loop regions via the `storage` API. If the user
+  has Firefox account sync enabled, Firefox syncs them across the user's own
+  devices like bookmarks; Étude itself makes no network requests and runs no
+  server. No data is sent to Étude.
 - host `https://www.youtube.com/*` — inject the practice UI (loop handles,
   speed control, zoom panel) into the YouTube watch page.
 

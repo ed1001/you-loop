@@ -791,7 +791,7 @@
         padding: 0;
       }
       .epanel .econtrols {
-        max-width: 340px;
+        max-width: 460px;
         opacity: 1;
       }
       /* OFF state, driven by JS during the intro */
@@ -827,7 +827,8 @@
         transform: rotate(360deg);
       }
       .epanel .emodes,
-      .epanel .espeed {
+      .epanel .espeed,
+      .epanel .epitch {
         position: relative;
         display: flex;
         gap: 2px;
@@ -869,6 +870,25 @@
       /* off 1× — highlight the active rate teal */
       .epanel .espeed-val.off {
         color: var(--teal-light);
+      }
+      /* pitch readout — twin of the speed pill, semitone unit */
+      .epanel .epitch-val {
+        min-width: 46px;
+        height: 27px;
+        display: grid;
+        grid-auto-flow: column;
+        gap: 1px;
+        place-items: center;
+        color: rgba(242, 241, 237, 0.8);
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .epanel .epitch-st {
+        font-size: 9px;
+        font-weight: 600;
+        color: rgba(242, 241, 237, 0.5);
       }
 
       /* guided-tour cursor + click ring */
@@ -1285,5 +1305,11 @@
         }
         .reveal-ready .features .grid .feature:nth-child(6) {
           transition-delay: 0.4s;
+        }
+        .reveal-ready .features .grid .feature:nth-child(7) {
+          transition-delay: 0.48s;
+        }
+        .reveal-ready .features .grid .feature:nth-child(8) {
+          transition-delay: 0.56s;
         }
       }

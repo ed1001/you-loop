@@ -16,6 +16,7 @@ import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { translateSegment } from "../../features/playback/translateSegment";
+import { addMark, removeMark, resolveSegment, marksEqual } from "../../features/playback/marks";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
@@ -102,13 +103,15 @@ function isLoopDirty(
   source: SavedLoop | undefined,
   segment: LoopSegment | null,
   zoom: LoopSegment | null,
-  countIn: CountInSettings
+  countIn: CountInSettings,
+  marks: number[]
 ): boolean {
   if (segment == null) return false;
   if (source == null) return true;
   if (!segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)) {
     return true;
   }
+  if (!marksEqual(source.marks, marks)) return true;
   return source.countIn != null && !countInEqual(source.countIn, countIn);
 }
 
@@ -121,14 +124,16 @@ function buildEditStorePatch(
   patch: { name?: string; replaceState?: boolean },
   loopSegment: LoopSegment | null,
   zoom: LoopSegment | null,
-  countIn: CountInSettings
-): Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">> {
-  const store: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">> = {};
+  countIn: CountInSettings,
+  marks: number[]
+): Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn" | "marks">> {
+  const store: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn" | "marks">> = {};
   if (patch.name != null) store.name = patch.name;
   if (patch.replaceState) {
     store.main = loopSegment!;
     store.zoom = zoom;
     store.countIn = countIn;
+    store.marks = marks;
   }
   return store;
 }
@@ -164,6 +169,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let zoomClosing = false;
   let zoomCloseTimer = 0;
 
+  // Deep-study practice marks: absolute times shown on the zoom strip.
+  // `activeMark` temporarily moves the loop start while zoomed; null means
+  // the whole loop plays. Marks persist with saved loops; which one is
+  // active is session-only.
+  let marks: number[] = [];
+  let activeMark: number | null = null;
+
   // Per-video saved loops, persisted to extension storage.
   let videoId: string | null = currentVideoId();
   // The video whose loop state has been seeded. Gates loadForVideo so repeat
@@ -191,10 +203,14 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   const pitchGraph = createPitchGraph(video);
   let pitchAvailable = pitchGraph.isAvailable();
 
-  // The loop playback actually obeys: the zoom sub-region while magnified,
-  // otherwise the main loop.
+  // The loop playback actually obeys: the zoom sub-region while magnified
+  // (with an active practice mark as a temporary start when one is set),
+  // otherwise the main loop. The mark applies only while zoom is open — that
+  // is where marks are visible and where the active one can be clicked off.
   const effectiveSegment = (): LoopSegment | null =>
-    zoomed && zoomLoop != null ? zoomLoop : state.loopSegment;
+    zoomed && zoomLoop != null
+      ? resolveSegment(zoomLoop, activeMark)
+      : state.loopSegment;
 
   // Turn the loop on. Positions are normally pre-seeded by loadForVideo; the
   // fallback guards against an unknown-duration race before metadata loads.
@@ -300,6 +316,22 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     render();
   };
 
+  const onAddMark = (time: number) => {
+    marks = addMark(marks, time);
+    render();
+  };
+
+  const onToggleMark = (time: number) => {
+    activeMark = activeMark === time ? null : time;
+    render();
+  };
+
+  const onRemoveMark = (time: number) => {
+    marks = removeMark(marks, time);
+    if (activeMark === time) activeMark = null;
+    render();
+  };
+
   // Move the active loop window by `delta` seconds, length preserved. While
   // magnified it slides the zoom sub-region inside the main loop; otherwise it
   // slides the main loop within the timeline (which re-clamps the zoom
@@ -384,6 +416,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       segment: defaultLoopSegment(duration)
     });
     zoomLoop = null;
+    marks = [];
+    activeMark = null;
     savedLoops = [];
     selectedLoopId = null;
   };
@@ -412,6 +446,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       loop.zoom != null && state.loopSegment != null
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
+    marks = loop.marks ?? [];
+    activeMark = null;
     restoreLoopCountIn(loop);
   };
 
@@ -499,7 +535,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       state.loopSegment,
       zoomLoop,
       countInSettings,
-      undefined
+      marks.length > 0 ? marks : undefined
     );
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;
@@ -522,6 +558,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       loop.zoom != null && state.loopSegment != null
         ? clampLoopToRegion(loop.zoom, state.loopSegment)
         : null;
+    marks = loop.marks ?? [];
+    activeMark = null;
     restoreLoopCountIn(loop);
     if (videoId != null) await setLastUsed(videoId, id);
     // Modal stays open on apply; the row flashes to confirm.
@@ -549,7 +587,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   ): Promise<void> => {
     if (videoId == null) return;
     if (patch.replaceState && state.loopSegment == null) return;
-    const storePatch = buildEditStorePatch(patch, state.loopSegment, zoomLoop, countInSettings);
+    const storePatch = buildEditStorePatch(patch, state.loopSegment, zoomLoop, countInSettings, marks);
     if (Object.keys(storePatch).length === 0) return;
 
     const updated = await updateLoop(videoId, id, storePatch);
@@ -611,7 +649,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       selectedLoop,
       state.loopSegment,
       zoomLoop,
-      countInSettings
+      countInSettings,
+      marks
     );
     const zoomVisible = zoomStripVisible();
     // Beacon at the point playback will resume from — the zoom sub-region
@@ -634,6 +673,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
             video={video}
             window={state.loopSegment!}
             loop={zoomLoop!}
+            marks={marks}
+            activeMark={activeMark}
+            onAddMark={onAddMark}
+            onToggleMark={onToggleMark}
+            onRemoveMark={onRemoveMark}
             onLoopChange={onZoomLoopChange}
             onWindowMove={(loop) => {
               onZoomLoopChange(loop);
@@ -879,6 +923,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     zoomLoop = null;
     zoomed = false;
     zoomClosing = false;
+    marks = [];
+    activeMark = null;
     countInController.cancel();
     state = playbackReducer(state, { type: "clearLoop" });
     render();

@@ -1582,3 +1582,126 @@ describe("pencil edit", () => {
     expect(savedEntry.loops[1].main).toEqual(savedEntry.loops[0].main);
   });
 });
+
+describe("deep-study practice marks", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  // Enable the loop, open zoom, and stub the zoom track to 1px == 1s over the
+  // default whole-video window [0,120] (rect width 120).
+  async function mountZoomed() {
+    const ctx = await mountWatch("vid1");
+    act(() => enableLoop());
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Show loop zoom timeline"));
+    });
+    const track = document.querySelector(".you-loop-zoom-track") as HTMLElement;
+    track.getBoundingClientRect = () =>
+      ({ left: 0, width: 120, top: 0, height: 30, right: 120, bottom: 30, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    track.setPointerCapture = () => {};
+    return { ...ctx, track };
+  }
+
+  function addMarkAt(track: HTMLElement, clientX: number) {
+    act(() => {
+      fireEvent.pointerDown(track, { pointerId: 1, clientX, shiftKey: true });
+    });
+  }
+
+  it("shift-click adds a mark; activating it makes A restart from the mark", async () => {
+    const { video, track } = await mountZoomed();
+    addMarkAt(track, 30); // mark at 30s
+
+    const mark = screen.getByRole("button", { name: "Practice mark at 0:30" });
+    fireEvent.click(mark);
+    expect(mark.getAttribute("aria-pressed")).toBe("true");
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "a" });
+      fireEvent.keyUp(document, { key: "a" });
+    });
+    expect(video.currentTime).toBe(30);
+  });
+
+  it("clicking the active mark deactivates it — A restarts from the loop start again", async () => {
+    const { video, track } = await mountZoomed();
+    addMarkAt(track, 30);
+    const mark = screen.getByRole("button", { name: "Practice mark at 0:30" });
+    fireEvent.click(mark); // activate
+    fireEvent.click(mark); // deactivate
+    expect(mark.getAttribute("aria-pressed")).toBe("false");
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "a" });
+      fireEvent.keyUp(document, { key: "a" });
+    });
+    expect(video.currentTime).toBe(0); // whole-video default loop start
+  });
+
+  it("shift-clicking a mark removes it", async () => {
+    const { track } = await mountZoomed();
+    addMarkAt(track, 30);
+    const mark = screen.getByRole("button", { name: "Practice mark at 0:30" });
+    fireEvent.click(mark, { shiftKey: true });
+    expect(screen.queryByRole("button", { name: "Practice mark at 0:30" })).toBeNull();
+  });
+
+  it("closing zoom reverts playback to the main loop but keeps the marks", async () => {
+    const { video, track } = await mountZoomed();
+    addMarkAt(track, 30);
+    fireEvent.click(screen.getByRole("button", { name: "Practice mark at 0:30" }));
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Hide loop zoom timeline"));
+    });
+    act(() => {
+      fireEvent.keyDown(document, { key: "a" });
+      fireEvent.keyUp(document, { key: "a" });
+    });
+    expect(video.currentTime).toBe(0); // mark inert while zoom is off
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Show loop zoom timeline"));
+    });
+    const mark = screen.getByRole("button", { name: "Practice mark at 0:30" });
+    expect(mark.getAttribute("aria-pressed")).toBe("true"); // active resumed
+  });
+
+  it("navigation clears marks", async () => {
+    const { track } = await mountZoomed();
+    addMarkAt(track, 30);
+    await navigateTo("vid2");
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Show loop zoom timeline"));
+    });
+    expect(screen.queryByRole("button", { name: /Practice mark/ })).toBeNull();
+  });
+
+  it("saving a loop stores the marks; applying a saved loop restores them", async () => {
+    const entry = {
+      loops: [
+        { id: "l1", name: "A", main: { start: 5, end: 60 }, zoom: null, marks: [12, 20] }
+      ],
+      lastUsedId: "l1",
+      addedAt: 10
+    };
+    await mountWatch("vid1", { [keyFor("vid1")]: entry });
+    act(() => enableLoop());
+    await flushAsync();
+
+    // Apply the saved loop through the modal.
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Saved loops"));
+    });
+    fireEvent.click(screen.getByText("A"));
+    await flushAsync();
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Show loop zoom timeline"));
+    });
+    expect(screen.getByRole("button", { name: "Practice mark at 0:12" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Practice mark at 0:20" })).toBeInTheDocument();
+  });
+});

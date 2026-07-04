@@ -227,6 +227,11 @@ const SHORTCUTS: Shortcut[] = [
     name: "Move window",
     desc: "Hold Shift and drag a loop handle (main timeline or zoom) to slide the whole loop, length unchanged. Releases to the new start.",
   },
+  {
+    keys: "⇧ click",
+    name: "Practice marks",
+    desc: "Shift-click the zoom strip to drop a mark. Click a mark to practice from there — the loop plays mark to end. Click it again for the whole loop; Shift-click a mark to remove it.",
+  },
 ];
 
 export function HelpModal({ open, container, onClose }: Props) {

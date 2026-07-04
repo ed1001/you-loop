@@ -230,7 +230,7 @@ const SHORTCUTS: Shortcut[] = [
   {
     keys: "⇧ click",
     name: "Practice marks",
-    desc: "Shift-click the zoom strip to drop a mark. Click a mark to practice from there — the loop plays mark to end. Click it again for the whole loop; Shift-click a mark to remove it.",
+    desc: "Shift-click the zoom strip to drop a mark. Click a mark to activate/deactivate it — while active, the loop plays from that mark. Shift-click a mark to remove it.",
   },
 ];
 

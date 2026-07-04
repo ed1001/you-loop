@@ -1444,7 +1444,7 @@ export const PAGE_UI_STYLES = `
       color: rgba(255, 255, 255, 0.78);
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
       max-height: calc(100% - 48px);
-      max-width: 660px;
+      max-width: 760px;
       overflow-y: auto;
       padding: 26px 28px 22px;
       position: relative;

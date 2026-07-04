@@ -109,4 +109,8 @@ describe("sanitizeMarks", () => {
     expect(sanitizeMarks(null)).toEqual([]);
     expect(sanitizeMarks(undefined)).toEqual([]);
   });
+
+  it("rounds stored values to 3dp so they match addMark-created marks", () => {
+    expect(sanitizeMarks([1.23456, 1.2351])).toEqual([1.235]);
+  });
 });

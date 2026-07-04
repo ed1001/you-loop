@@ -53,11 +53,13 @@ export function marksEqual(
 
 // Storage-read boundary (same role as sanitizeCountInSettings): a corrupt
 // sync write can never reach playback. Keeps finite positive numbers only,
-// deduped and sorted.
+// rounds to 3dp, deduped and sorted.
 export function sanitizeMarks(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
-  const clean = value.filter(
-    (v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0
-  );
+  const clean = value
+    .filter(
+      (v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0
+    )
+    .map(round3);
   return [...new Set(clean)].sort((a, b) => a - b);
 }

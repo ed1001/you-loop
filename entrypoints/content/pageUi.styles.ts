@@ -1345,10 +1345,11 @@ export const PAGE_UI_STYLES = `
     }
 
     /* Brightened stripe from the active mark to the loop end — the region
-       that actually plays while drilling. */
+       that actually plays while drilling. No left border: the stripe starts at
+       the mark's center, so a border would paint a smear just right of the
+       mark's own tick — the tick alone delineates the start. */
     .you-loop-zoom-drill-fill {
       background: rgba(94, 234, 212, 0.28);
-      border-left: 2px solid #2dd4bf;
       height: 100%;
       pointer-events: none;
       position: absolute;

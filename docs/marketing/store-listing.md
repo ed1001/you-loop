@@ -22,6 +22,9 @@ PRACTICE TOOLS, BUILT AROUND LOOP REGIONS
 ZOOM IN FOR PRECISION
 Open the zoom panel to expand your loop region into a magnified timeline. Place the start and end exactly where they belong — down to the split second.
 
+MARK THE TROUBLE SPOTS
+Shift-click the zoomed timeline to drop practice marks inside your loop. Click a mark and the loop plays from that point to the end — drill the hard bit, then click it off to run the whole passage again. Shift-click a mark to remove it.
+
 CHANGE THE KEY — NOT THE TEMPO
 Transpose the song up or down by up to 12 semitones without slowing it down. Match a song to your voice or to your instrument's tuning, or shift a lick into an easier position — then hold Shift to fine-tune by cents.
 
@@ -40,7 +43,7 @@ Dial in the right length once, then walk it through the piece — the loop slide
 • Shift+drag a loop handle (on the timeline or in the zoom panel) to slide the whole loop; playback picks up at the new start
 
 SAVED LOOPS
-Name and save loops per video — a save captures the loop region, the zoom, and your count-in, so a whole practice setup comes back in one tap. Rename a saved loop, or replace it with your current one. Come back tomorrow; your last loop is applied automatically.
+Name and save loops per video — a save captures the loop region, the zoom, your practice marks, and your count-in, so a whole practice setup comes back in one tap. Rename a saved loop, or replace it with your current one. Come back tomorrow; your last loop is applied automatically.
 
 SYNCED ACROSS YOUR DEVICES
 Saved loops follow you between computers through your browser's own account sync — set a loop at the desk, pick it up on the laptop. No Étude account and no server; when browser sync is off, loops simply stay local.

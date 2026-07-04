@@ -312,3 +312,33 @@ describe("ZoomTimeline practice marks", () => {
     expect(document.querySelector(".you-loop-zoom-drill-fill")).toBeNull();
   });
 });
+
+describe("ZoomTimeline shift-hover cursor flag", () => {
+  it("mirrors held Shift into data-shift on the track and clears on release", () => {
+    const { track } = setup();
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "Shift" });
+    });
+    expect(track.dataset.shift).toBe("true");
+
+    act(() => {
+      fireEvent.keyUp(window, { key: "Shift" });
+    });
+    expect(track.dataset.shift).toBeUndefined();
+  });
+
+  it("clears the flag when the window loses focus with Shift held", () => {
+    const { track } = setup();
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "Shift" });
+    });
+    expect(track.dataset.shift).toBe("true");
+
+    act(() => {
+      fireEvent.blur(window);
+    });
+    expect(track.dataset.shift).toBeUndefined();
+  });
+});

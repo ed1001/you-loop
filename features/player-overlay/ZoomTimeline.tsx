@@ -201,6 +201,32 @@ export function ZoomTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video, win.start, win.end]);
 
+  // Show the add-mark cursor while Shift is held anywhere over the strip. CSS
+  // cannot see modifier keys, so mirror Shift into a data attribute on the
+  // track. Window-level listeners so an already-held Shift is caught by its
+  // keydown even before the pointer reaches us; blur clears a stuck flag when
+  // focus leaves with Shift down.
+  useEffect(() => {
+    const setShift = (on: boolean) => {
+      const el = trackRef.current;
+      if (el == null) return;
+      if (on) el.dataset.shift = "true";
+      else delete el.dataset.shift;
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Shift") setShift(event.type === "keydown");
+    };
+    const onBlur = () => setShift(false);
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKey, true);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKey, true);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
   // Map a pointer's clientX to a time, clamped to the window. Vertical position
   // is never read, so the drag ignores it; horizontal travel past an edge pins
   // to that edge instead of running off the strip.

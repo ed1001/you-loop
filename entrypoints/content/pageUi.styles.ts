@@ -1214,6 +1214,11 @@ export const PAGE_UI_STYLES = `
       touch-action: none;
     }
 
+    /* Shift held: the next press drops a practice mark, not a scrub. */
+    .you-loop-zoom-track[data-shift="true"] {
+      cursor: copy;
+    }
+
     /* A filled teal knob, like YouTube's scrubber dot. */
     /* Playhead: an ivory needle, deliberately NOT teal — teal is the loop's
        structural color (brackets, band). A neutral needle stays legible when it

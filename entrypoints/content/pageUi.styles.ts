@@ -1282,6 +1282,87 @@ export const PAGE_UI_STYLES = `
       z-index: 2;
     }
 
+    /* Practice marks: a diamond-headed tick dropped on the zoom strip. Ivory
+       like the playhead (teal is the loop's structural color); teal-lit when
+       active, dimmed when outside the current loop. */
+    .you-loop-zoom-mark {
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      height: 26px;
+      margin: 0;
+      padding: 0;
+      pointer-events: auto;
+      position: absolute;
+      top: 50%;
+      touch-action: none;
+      transform: translate(-50%, -50%);
+      width: 12px;
+      /* Above the drill fill and playhead, below the loop cursors. */
+      z-index: 1;
+    }
+
+    .you-loop-zoom-mark::before {
+      background: rgba(242, 241, 237, 0.9);
+      content: "";
+      height: 14px;
+      left: 50%;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: background 0.15s ease;
+      width: 2px;
+    }
+
+    .you-loop-zoom-mark::after {
+      background: #f2f1ed;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+      content: "";
+      height: 7px;
+      left: 50%;
+      position: absolute;
+      top: -2px;
+      transform: translateX(-50%) rotate(45deg);
+      transition: background 0.15s ease, box-shadow 0.15s ease,
+        transform 0.15s ease;
+      width: 7px;
+    }
+
+    .you-loop-zoom-mark:hover::after {
+      transform: translateX(-50%) rotate(45deg) scale(1.2);
+    }
+
+    .you-loop-zoom-mark:hover .you-loop-handle-chip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .you-loop-zoom-mark[data-active="true"]::before {
+      background: #2dd4bf;
+    }
+
+    .you-loop-zoom-mark[data-active="true"]::after {
+      background: #2dd4bf;
+      box-shadow: 0 0 6px rgba(20, 184, 166, 0.8),
+        0 0 0 1px rgba(0, 0, 0, 0.4);
+    }
+
+    .you-loop-zoom-mark[data-inert="true"] {
+      opacity: 0.35;
+    }
+
+    /* Brightened stripe from the active mark to the loop end — the region
+       that actually plays while drilling. */
+    .you-loop-zoom-drill-fill {
+      background: rgba(94, 234, 212, 0.28);
+      border-left: 2px solid #2dd4bf;
+      height: 100%;
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      will-change: left, width;
+    }
+
     /* While hovering the zoom track, suppress YouTube's "most replayed" heatmap
        so it does not pop up and obscure the zoom timeline. */
     .html5-video-player:has(.you-loop-zoom-track:hover) .ytp-heat-map-container,

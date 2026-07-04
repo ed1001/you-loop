@@ -12,6 +12,7 @@ import { suppressNextClick } from "./suppressNextClick";
 import { setPlayerDragLock } from "./playerDragLock";
 import { CountInBeacon, type CountInBeat } from "./CountInBeacon";
 import { formatTime, formatTimePrecise } from "./formatTime";
+import { isInertMark } from "../playback/marks";
 
 // Hovering the zoom strip must not bubble into YouTube's scrubber (it would pop
 // the timeline preview). Stop move/hover events without preventDefault.
@@ -36,6 +37,14 @@ type Props = {
   // Live count-in beat, or null when no count is running. While the strip is
   // up it owns the beacon (the count resumes from the zoom sub-region start).
   countIn?: CountInBeat | null;
+  // Deep-study practice marks (absolute times). A mark inside the loop can be
+  // activated as a temporary loop start; the active one draws a drill fill to
+  // the loop end. All optional — the strip works markless.
+  marks?: number[];
+  activeMark?: number | null;
+  onAddMark?: (time: number) => void;
+  onToggleMark?: (time: number) => void;
+  onRemoveMark?: (time: number) => void;
 };
 
 type Edge = "start" | "end";
@@ -50,7 +59,12 @@ export function ZoomTimeline({
   onLoopChange,
   onWindowMove,
   closing = false,
-  countIn
+  countIn,
+  marks = [],
+  activeMark = null,
+  onAddMark,
+  onToggleMark,
+  onRemoveMark
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -237,6 +251,14 @@ export function ZoomTimeline({
   };
 
   const onTrackPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    // Shift+press drops a practice mark instead of scrubbing. The follow-up
+    // synthesized click is swallowed by the track's existing onClick blockMouse.
+    if (event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      onAddMark?.(timeFromPointer(event.clientX));
+      return;
+    }
     scrubbingRef.current = true;
     setDragLock(true);
     // Pause while scrubbing (like the native bar) so frames step under the
@@ -466,6 +488,15 @@ export function ZoomTimeline({
           className="you-loop-zoom-fill"
           style={{ left: `${pct(loop.start)}%`, width: `${pct(loop.end) - pct(loop.start)}%` }}
         />
+        {activeMark != null && !isInertMark(activeMark, loop) && (
+          <div
+            className="you-loop-zoom-drill-fill"
+            style={{
+              left: `${pct(activeMark)}%`,
+              width: `${pct(loop.end) - pct(activeMark)}%`
+            }}
+          />
+        )}
         <button
           ref={startRef}
           type="button"
@@ -488,6 +519,36 @@ export function ZoomTimeline({
         >
           <span ref={endChipRef} className="you-loop-handle-chip" aria-hidden="true" />
         </button>
+        {marks
+          .filter((time) => time >= win.start && time <= win.end)
+          .map((time) => (
+            <button
+              key={time}
+              type="button"
+              className="you-loop-zoom-mark"
+              data-active={activeMark === time ? "true" : undefined}
+              data-inert={isInertMark(time, loop) ? "true" : undefined}
+              aria-pressed={activeMark === time}
+              aria-label={`Practice mark at ${formatTime(time)}`}
+              style={{ left: `${pct(time)}%` }}
+              // Do not let the press start a track scrub, and keep the
+              // synthesized click out of YouTube's player.
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onMouseDown={blockMouse}
+              onClick={(event) => {
+                blockMouse(event);
+                if (event.shiftKey) onRemoveMark?.(time);
+                else onToggleMark?.(time);
+              }}
+            >
+              <span className="you-loop-handle-chip" aria-hidden="true">
+                {formatTimePrecise(time)}
+              </span>
+            </button>
+          ))}
         <div
           ref={playheadRef}
           className="you-loop-zoom-playhead"

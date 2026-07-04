@@ -1,8 +1,16 @@
 import { act } from "react";
 import { render, screen } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZoomTimeline } from "./ZoomTimeline";
+
+// suppressNextClick() arms a one-shot window click listener cleaned up either
+// by a real click or a setTimeout(0) safety net. In real usage the browser's
+// synthesized click follows synchronously in the same gesture; tests that
+// pointerdown+pointerup a drag without also firing that click leave the
+// listener armed past the test. Flush real timers between tests so it never
+// bleeds into an unrelated click assertion in a later test.
+afterEach(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
 // jsdom lacks PointerEvent; a MouseEvent subclass carries clientX/pointerId/shiftKey.
 if (typeof window.PointerEvent === "undefined") {
@@ -30,7 +38,7 @@ function makeVideo() {
   } as unknown as HTMLVideoElement;
 }
 
-function setup() {
+function setup(extra: Partial<Parameters<typeof ZoomTimeline>[0]> = {}) {
   const video = makeVideo();
   const onLoopChange = vi.fn();
   const onWindowMove = vi.fn();
@@ -42,6 +50,7 @@ function setup() {
       loop={{ start: 25, end: 30 }}
       onLoopChange={onLoopChange}
       onWindowMove={onWindowMove}
+      {...extra}
     />
   );
 
@@ -213,5 +222,93 @@ describe("ZoomTimeline count-in beacon", () => {
     expect(beacon.textContent).toBe("2");
     // 25s in the 20–40s window → 25% across the strip.
     expect(parseFloat(beacon.style.left)).toBeCloseTo(25, 6);
+  });
+});
+
+describe("ZoomTimeline practice marks", () => {
+  it("shift+pointerdown on the track adds a mark at the pointer time and does not scrub", () => {
+    const onAddMark = vi.fn();
+    const { video, track } = setup({ marks: [], onAddMark });
+
+    // 1px == 1s in the [20,40] window; clientX=7 → 27s.
+    act(() => {
+      fireEvent.pointerDown(track, { pointerId: 1, clientX: 7, shiftKey: true });
+    });
+
+    expect(onAddMark).toHaveBeenCalledWith(27);
+    expect(video.pause).not.toHaveBeenCalled(); // scrub path pauses; add must not
+  });
+
+  it("plain pointerdown on the track still scrubs", () => {
+    const onAddMark = vi.fn();
+    const { video, track } = setup({ marks: [], onAddMark });
+
+    act(() => {
+      fireEvent.pointerDown(track, { pointerId: 1, clientX: 7 });
+      fireEvent.pointerUp(track, { pointerId: 1, clientX: 7 });
+    });
+
+    expect(onAddMark).not.toHaveBeenCalled();
+    expect(video.pause).toHaveBeenCalled();
+  });
+
+  it("renders markers at their window position with active/inert state", () => {
+    // loop = [25,30]: 26 live, 24 inert (before start), 29.95 inert (tail).
+    setup({ marks: [24, 26, 29.95], activeMark: 26 });
+
+    const live = screen.getByRole("button", { name: "Practice mark at 0:26" });
+    expect(live.dataset.active).toBe("true");
+    expect(live.dataset.inert).toBeUndefined();
+    // 26s in [20,40] → 30% across the strip.
+    expect(parseFloat(live.style.left)).toBeCloseTo(30, 5);
+
+    const before = screen.getByRole("button", { name: "Practice mark at 0:24" });
+    expect(before.dataset.inert).toBe("true");
+    const tail = screen.getByRole("button", { name: /0:29/ });
+    expect(tail.dataset.inert).toBe("true");
+  });
+
+  it("does not render marks outside the zoom window", () => {
+    setup({ marks: [10, 26] }); // 10s is outside [20,40]
+    expect(screen.queryByRole("button", { name: "Practice mark at 0:10" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Practice mark at 0:26" })).toBeInTheDocument();
+  });
+
+  it("click toggles, shift+click removes", () => {
+    const onToggleMark = vi.fn();
+    const onRemoveMark = vi.fn();
+    setup({ marks: [26], onToggleMark, onRemoveMark });
+
+    const mark = screen.getByRole("button", { name: "Practice mark at 0:26" });
+    fireEvent.click(mark);
+    expect(onToggleMark).toHaveBeenCalledWith(26);
+    expect(onRemoveMark).not.toHaveBeenCalled();
+
+    fireEvent.click(mark, { shiftKey: true });
+    expect(onRemoveMark).toHaveBeenCalledWith(26);
+    expect(onToggleMark).toHaveBeenCalledTimes(1);
+  });
+
+  it("pressing a marker does not start a track scrub", () => {
+    const { video } = setup({ marks: [26] });
+    const mark = screen.getByRole("button", { name: "Practice mark at 0:26" });
+    act(() => {
+      fireEvent.pointerDown(mark, { pointerId: 1, clientX: 6 });
+    });
+    expect(video.pause).not.toHaveBeenCalled();
+  });
+
+  it("draws the drill fill from the active mark to the loop end", () => {
+    setup({ marks: [26], activeMark: 26 });
+    const fill = document.querySelector(".you-loop-zoom-drill-fill") as HTMLElement;
+    expect(fill).not.toBeNull();
+    // 26→30 in [20,40]: left 30%, width 20%.
+    expect(parseFloat(fill.style.left)).toBeCloseTo(30, 5);
+    expect(parseFloat(fill.style.width)).toBeCloseTo(20, 5);
+  });
+
+  it("draws no drill fill when the active mark is inert", () => {
+    setup({ marks: [24], activeMark: 24 });
+    expect(document.querySelector(".you-loop-zoom-drill-fill")).toBeNull();
   });
 });

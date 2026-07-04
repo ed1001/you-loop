@@ -124,8 +124,9 @@ export function ZoomTimeline({
     if (startRef.current) startRef.current.style.left = `${startPct}%`;
     if (endRef.current) endRef.current.style.left = `${endPct}%`;
     if (fillRef.current) {
-      fillRef.current.style.left = `${startPct}%`;
-      fillRef.current.style.width = `${endPct - startPct}%`;
+      // Overshoot 2px past each cursor center so the fill tucks under the brackets (no sliver of bare track).
+      fillRef.current.style.left = `calc(${startPct}% - 2px)`;
+      fillRef.current.style.width = `calc(${endPct - startPct}% + 4px)`;
     }
     if (startChipRef.current)
       startChipRef.current.textContent = formatTimePrecise(seg.start);
@@ -486,7 +487,10 @@ export function ZoomTimeline({
         <div
           ref={fillRef}
           className="you-loop-zoom-fill"
-          style={{ left: `${pct(loop.start)}%`, width: `${pct(loop.end) - pct(loop.start)}%` }}
+          style={{
+            left: `calc(${pct(loop.start)}% - 2px)`,
+            width: `calc(${pct(loop.end) - pct(loop.start)}% + 4px)`
+          }}
         />
         {activeMark != null && !isInertMark(activeMark, loop) && (
           <div

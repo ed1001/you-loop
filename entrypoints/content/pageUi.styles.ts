@@ -1214,18 +1214,6 @@ export const PAGE_UI_STYLES = `
       touch-action: none;
     }
 
-    /* Faint tick hatch for a sense of magnified scale. */
-    .you-loop-zoom-track::before {
-      background-image: repeating-linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.1) 0 1px,
-        transparent 1px 24px
-      );
-      content: "";
-      inset: 0;
-      position: absolute;
-    }
-
     /* A filled teal knob, like YouTube's scrubber dot. */
     /* Playhead: an ivory needle, deliberately NOT teal — teal is the loop's
        structural color (brackets, band). A neutral needle stays legible when it

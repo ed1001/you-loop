@@ -498,7 +498,8 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       name,
       state.loopSegment,
       zoomLoop,
-      countInSettings
+      countInSettings,
+      undefined
     );
     savedLoops = [...savedLoops, loop];
     selectedLoopId = loop.id;

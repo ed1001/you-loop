@@ -1,6 +1,7 @@
 import type { LoopSegment } from "../playback/types";
 import type { CountInSettings } from "./countInStore";
 import { sanitizeCountInSettings } from "./countInStore";
+import { sanitizeMarks } from "../playback/marks";
 
 // Legacy single-blob key (storage.local). Read only by the migration.
 export const SAVED_STORE_KEY = "you-loop:saved";
@@ -21,6 +22,9 @@ export type SavedLoop = {
   // Per-loop count-in snapshot. Absent/null on legacy loops (no migration:
   // they simply fall back to the global count-in default at play time).
   countIn?: CountInSettings | null;
+  // Deep-study practice marks (absolute times, seconds). Absent on legacy
+  // loops and loops saved without marks — no migration; they load cleanly.
+  marks?: number[];
 };
 
 export type VideoEntry = {
@@ -79,11 +83,16 @@ export function resolveStorage(storage?: Partial<LoopStorage>): LoopStorage {
 function sanitizeEntry(entry: VideoEntry): VideoEntry {
   return {
     ...entry,
-    loops: entry.loops.map((loop) =>
-      loop.countIn == null
-        ? loop
-        : { ...loop, countIn: sanitizeCountInSettings(loop.countIn) }
-    )
+    loops: entry.loops.map((loop) => {
+      let next = loop;
+      if (next.countIn != null) {
+        next = { ...next, countIn: sanitizeCountInSettings(next.countIn) };
+      }
+      if (next.marks != null) {
+        next = { ...next, marks: sanitizeMarks(next.marks) };
+      }
+      return next;
+    })
   };
 }
 
@@ -192,12 +201,20 @@ export async function addLoop(
   main: LoopSegment,
   zoom: LoopSegment | null,
   countIn?: CountInSettings | null,
+  marks?: number[] | null,
   storage?: Partial<LoopStorage>,
   now: number = Date.now()
 ): Promise<SavedLoop> {
   const s = resolveStorage(storage);
   const existing = await readEntry(s, videoId);
-  const loop: SavedLoop = { id: crypto.randomUUID(), name, main, zoom, countIn };
+  const loop: SavedLoop = {
+    id: crypto.randomUUID(),
+    name,
+    main,
+    zoom,
+    countIn,
+    ...(marks != null ? { marks } : {})
+  };
   const entry: VideoEntry = existing
     ? { ...existing, loops: [...existing.loops, loop], lastUsedId: loop.id }
     : { loops: [loop], lastUsedId: loop.id, addedAt: now };
@@ -240,7 +257,7 @@ function definedOnly<T extends object>(patch: T): Partial<T> {
 export async function updateLoop(
   videoId: string,
   loopId: string,
-  patch: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn">>,
+  patch: Partial<Pick<SavedLoop, "name" | "main" | "zoom" | "countIn" | "marks">>,
   storage?: Partial<LoopStorage>
 ): Promise<SavedLoop | null> {
   const s = resolveStorage(storage);

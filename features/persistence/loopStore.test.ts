@@ -28,15 +28,15 @@ const sync = (a: FakeArea) => ({ sync: a, local: a } as { sync: SyncArea; local:
 const seg = (start: number, end: number) => ({ start, end });
 
 async function seedTwo(store: { sync: SyncArea; local: SyncArea }) {
-  const a = await addLoop("v", "A", seg(1, 2), null, null, store, 10);
-  const b = await addLoop("v", "B", seg(3, 4), null, null, store, 20);
+  const a = await addLoop("v", "A", seg(1, 2), null, null, null, store, 10);
+  const b = await addLoop("v", "B", seg(3, 4), null, null, null, store, 20);
   return { a, b };
 }
 
 describe("loopStore", () => {
   it("adds a loop and reads it back", async () => {
     const area = makeArea();
-    const loop = await addLoop("vid1", "Verse", seg(1, 2), null, null, sync(area), 1000);
+    const loop = await addLoop("vid1", "Verse", seg(1, 2), null, null, null, sync(area), 1000);
 
     expect(loop.id).toBeTruthy();
     const entry = await loadEntry("vid1", sync(area));
@@ -49,8 +49,8 @@ describe("loopStore", () => {
 
   it("stamps addedAt once and keeps it across later edits", async () => {
     const area = makeArea();
-    await addLoop("v", "A", seg(1, 2), null, null, sync(area), 100);
-    await addLoop("v", "B", seg(3, 4), null, null, sync(area), 200);
+    await addLoop("v", "A", seg(1, 2), null, null, null, sync(area), 100);
+    await addLoop("v", "B", seg(3, 4), null, null, null, sync(area), 200);
     expect(area.raw("v")?.addedAt).toBe(100);
   });
 
@@ -82,7 +82,7 @@ describe("loopStore", () => {
 
   it("backfills the title on load only when it changed", async () => {
     const area = makeArea();
-    await addLoop("v", "A", seg(1, 2), null, null, sync(area), 10);
+    await addLoop("v", "A", seg(1, 2), null, null, null, sync(area), 10);
 
     const titled = await loadEntry("v", sync(area), "My Song");
     expect(titled?.title).toBe("My Song");
@@ -94,9 +94,9 @@ describe("loopStore", () => {
 
   it("lists saved videos newest-added first, with loop counts", async () => {
     const area = makeArea();
-    await addLoop("old", "A", seg(1, 2), null, null, sync(area), 100);
-    await addLoop("new", "A", seg(1, 2), null, null, sync(area), 200);
-    await addLoop("new", "B", seg(3, 4), null, null, sync(area), 210);
+    await addLoop("old", "A", seg(1, 2), null, null, null, sync(area), 100);
+    await addLoop("new", "A", seg(1, 2), null, null, null, sync(area), 200);
+    await addLoop("new", "B", seg(3, 4), null, null, null, sync(area), 210);
     await loadEntry("old", sync(area), "Old Video");
 
     const list = await listEntries(sync(area));
@@ -108,7 +108,7 @@ describe("loopStore", () => {
   it("removes a video and all its loops", async () => {
     const area = makeArea();
     await seedTwo(sync(area));
-    await addLoop("w", "C", seg(5, 6), null, null, sync(area), 30);
+    await addLoop("w", "C", seg(5, 6), null, null, null, sync(area), 30);
 
     await removeVideo("v", sync(area));
 
@@ -128,7 +128,7 @@ describe("loopStore", () => {
     const localArea = makeArea();
     const store = { sync: syncArea, local: localArea };
 
-    const loop = await addLoop("v", "A", seg(1, 2), null, null, store, 10);
+    const loop = await addLoop("v", "A", seg(1, 2), null, null, null, store, 10);
     // Sync never stored it; local did.
     expect(syncArea.raw("v")).toBeUndefined();
     expect(localArea.raw("v")?.loops[0].id).toBe(loop.id);
@@ -146,7 +146,7 @@ describe("loopStore", () => {
     const store = { sync: syncArea, local: localArea };
     // Stale local-only copy under the same key.
     await localArea.set({ [keyFor("v")]: { loops: [], lastUsedId: null, addedAt: 1 } });
-    await addLoop("v", "Fresh", seg(1, 2), null, null, store, 50);
+    await addLoop("v", "Fresh", seg(1, 2), null, null, null, store, 50);
 
     const entry = await loadEntry("v", store);
     expect(entry?.loops[0]?.name).toBe("Fresh");
@@ -155,7 +155,7 @@ describe("loopStore", () => {
   it("addLoop stores a count-in snapshot and loadEntry returns it sanitized", async () => {
     const area = makeArea();
     const snap = { bpm: 140, beatsPerBar: 4, noteValue: 4, bars: 1 };
-    const loop = await addLoop("v1", "solo", seg(1, 2), null, snap, sync(area));
+    const loop = await addLoop("v1", "solo", seg(1, 2), null, snap, null, sync(area));
     expect(loop.countIn).toEqual(snap);
 
     // Corrupt it in place, then read back: sanitized.
@@ -167,7 +167,7 @@ describe("loopStore", () => {
 
   it("updateLoop replace-only patch overwrites main/zoom/countIn, leaving name untouched", async () => {
     const area = makeArea();
-    const loop = await addLoop("v1", "riff", seg(1, 2), null, null, sync(area));
+    const loop = await addLoop("v1", "riff", seg(1, 2), null, null, null, sync(area));
     const updated = await updateLoop(
       "v1",
       loop.id,
@@ -187,7 +187,7 @@ describe("loopStore", () => {
   it("updateLoop rename-only patch leaves main/zoom/countIn untouched", async () => {
     const area = makeArea();
     const snap = { bpm: 100, beatsPerBar: 4, noteValue: 4, bars: 1 };
-    const loop = await addLoop("v1", "riff", seg(1, 2), seg(1.2, 1.8), snap, sync(area));
+    const loop = await addLoop("v1", "riff", seg(1, 2), seg(1.2, 1.8), snap, null, sync(area));
     const updated = await updateLoop("v1", loop.id, { name: "solo" }, sync(area));
     expect(updated?.name).toBe("solo");
     const entry = await loadEntry("v1", sync(area));
@@ -198,7 +198,7 @@ describe("loopStore", () => {
 
   it("updateLoop cannot erase a name via an undefined-spread", async () => {
     const area = makeArea();
-    const loop = await addLoop("v1", "riff", seg(1, 2), null, null, sync(area));
+    const loop = await addLoop("v1", "riff", seg(1, 2), null, null, null, sync(area));
     const updated = await updateLoop(
       "v1",
       loop.id,
@@ -210,9 +210,41 @@ describe("loopStore", () => {
 
   it("updateLoop on a vanished id is a null no-op", async () => {
     const area = makeArea();
-    await addLoop("v1", "riff", seg(1, 2), null, null, sync(area));
+    await addLoop("v1", "riff", seg(1, 2), null, null, null, sync(area));
     expect(
       await updateLoop("v1", "nope", { main: seg(0, 1), zoom: null, countIn: null }, sync(area))
     ).toBeNull();
+  });
+
+  it("round-trips marks through add and load", async () => {
+    const area = makeArea();
+    await addLoop("vid", "A", seg(1, 9), null, null, [2, 5.5], sync(area), 1);
+    const entry = await loadEntry("vid", sync(area));
+    expect(entry?.loops[0].marks).toEqual([2, 5.5]);
+  });
+
+  it("loads a legacy loop without a marks field cleanly", async () => {
+    const area = makeArea();
+    await addLoop("vid", "A", seg(1, 9), null, null, undefined, sync(area), 1);
+    const entry = await loadEntry("vid", sync(area));
+    expect(entry?.loops[0].marks).toBeUndefined();
+  });
+
+  it("sanitizes corrupt marks on read", async () => {
+    const area = makeArea();
+    const loop = await addLoop("vid", "A", seg(1, 9), null, null, [2], sync(area), 1);
+    // Corrupt the stored entry directly, as a bad sync write would.
+    const raw = area.raw("vid")!;
+    raw.loops = [{ ...loop, marks: [9, NaN, -3, 9, "x"] as unknown as number[] }];
+    const entry = await loadEntry("vid", sync(area));
+    expect(entry?.loops[0].marks).toEqual([9]);
+  });
+
+  it("updateLoop can overwrite marks", async () => {
+    const area = makeArea();
+    const loop = await addLoop("vid", "A", seg(1, 9), null, null, [2], sync(area), 1);
+    await updateLoop("vid", loop.id, { marks: [3, 4] }, sync(area));
+    const entry = await loadEntry("vid", sync(area));
+    expect(entry?.loops[0].marks).toEqual([3, 4]);
   });
 });

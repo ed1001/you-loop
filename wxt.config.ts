@@ -6,9 +6,12 @@ export default defineConfig({
   webExt: {
     disabled: true
   },
-  manifest: {
-    name: "Étude — Loop & Slow Down YouTube for Practice",
-    short_name: "Étude",
+  manifest: ({ mode }) => ({
+    name:
+      mode === "development"
+        ? "Étude (dev) — Loop & Slow Down YouTube for Practice"
+        : "Étude — Loop & Slow Down YouTube for Practice",
+    short_name: mode === "development" ? "Étude dev" : "Étude",
     description: "Practice tools for YouTube — loop a section, slow it down, zoom in for precision. Made for musicians learning by ear.",
     permissions: ["storage"],
     host_permissions: ["https://www.youtube.com/*"],
@@ -22,9 +25,14 @@ export default defineConfig({
     browser_specific_settings: {
       gecko: {
         // Required for MV3 on AMO (Chrome ignores browser_specific_settings).
-        id: "etude@ed1001.dev",
+        // Dev builds use a DIFFERENT id: Firefox keys an add-on's storage by
+        // this id, so a temporary dev load with the store id would share —
+        // and, on removal, wipe — the real install's saved loops. A separate
+        // id gives dev its own storage universe. (Chrome is immune: unpacked
+        // loads always get their own extension id.)
+        id: mode === "development" ? "etude-dev@ed1001.dev" : "etude@ed1001.dev",
         data_collection_permissions: { required: ["none"] }
       }
     }
-  }
+  })
 });

@@ -8,6 +8,7 @@ import { EtudeWordmark } from "./EtudeWordmark";
 import type { SavedLoop } from "../persistence/loopStore";
 import { CountInControl } from "./CountInControl";
 import type { CountInSettings } from "../persistence/countInStore";
+import { quickSaveShortcutLabel } from "../playback/shortcuts";
 
 type Props = {
   enabled: boolean;
@@ -36,6 +37,17 @@ type Props = {
   onEditLoop: (id: string, patch: { name?: string; replaceState?: boolean }) => void;
   onApplyLoop: (id: string) => void;
   onDeleteLoop: (id: string) => void;
+  // The saved loop the live state came from (applied, saved, or restored),
+  // even when it has since been edited; null when there is none.
+  activeLoop: SavedLoop | null;
+  // Live state differs from `activeLoop`.
+  activeLoopDirty: boolean;
+  // Overwrite `activeLoop` with the live state (the modal's "Save changes").
+  onQuickSave: () => void;
+  // Bumped to focus the modal's name field (⌘S with no active loop).
+  saveFocusToken: number;
+  // Short "Saved" confirmation above the pill; `id` re-keys it per save.
+  saveToast: { id: number; text: string } | null;
   countInOn: boolean;
   countInSettings: CountInSettings;
   onToggleCountIn: () => void;
@@ -88,11 +100,22 @@ export function LoopPanel({
   onEditLoop,
   onApplyLoop,
   onDeleteLoop,
+  activeLoop,
+  activeLoopDirty,
+  onQuickSave,
+  saveFocusToken,
+  saveToast,
   countInOn,
   countInSettings,
   onToggleCountIn,
   onCountInSettingsChange
 }: Props) {
+  const shortcut = quickSaveShortcutLabel();
+  const dirty = activeLoop != null && activeLoopDirty;
+  const chipTitle =
+    activeLoop != null
+      ? `Saved loops — on “${activeLoop.name}”${dirty ? ` (edited — ${shortcut} to save)` : ""}`
+      : "Saved loops";
   return (
     <>
     <div
@@ -313,12 +336,17 @@ export function LoopPanel({
               onSettingsChange={onCountInSettingsChange}
             />
 
+            {/* Saved-loops toggle doubles as the "which loop am I on" chip:
+                the active loop's name, with a dot once it has been edited. */}
             <button
               type="button"
               className="you-loop-loops-toggle"
+              data-has-loop={activeLoop != null}
+              data-dirty={dirty}
               aria-haspopup="dialog"
               aria-expanded={loopsOpen}
               aria-label="Saved loops"
+              title={chipTitle}
               disabled={!canSaveLoops}
               onPointerDown={swallow}
               onMouseDown={swallow}
@@ -330,12 +358,24 @@ export function LoopPanel({
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path
                   d="M7 4h10v16l-5-3.5L7 20z"
-                  fill="none"
+                  fill={activeLoop != null ? "currentColor" : "none"}
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinejoin="round"
                 />
               </svg>
+              {activeLoop != null && (
+                <span className="you-loop-loops-chip-name">
+                  {activeLoop.name}
+                </span>
+              )}
+              {dirty && (
+                <span
+                  className="you-loop-loops-chip-dot"
+                  data-testid="loop-dirty-dot"
+                  aria-hidden="true"
+                />
+              )}
             </button>
           </div>
         </div>
@@ -346,6 +386,10 @@ export function LoopPanel({
         container={loopsContainer}
         loops={savedLoops}
         selectedId={selectedLoopId}
+        activeLoop={activeLoop}
+        activeDirty={dirty}
+        focusNameToken={saveFocusToken}
+        onSaveChanges={onQuickSave}
         duration={duration}
         onClose={onCloseLoops}
         onSaveAsNew={onSaveAsNew}
@@ -394,6 +438,11 @@ export function LoopPanel({
         position is computed once, so it is perfectly still and only fades.
         Rendered after the pill so it paints on top of the pill background;
         its footprint inside the pill is reserved by the spacer slot above. */}
+    {saveToast != null && (
+      <span key={saveToast.id} className="you-loop-save-toast" role="status">
+        {saveToast.text}
+      </span>
+    )}
     <span className="you-loop-wordmark" data-on={enabled} aria-hidden="true">
       <EtudeWordmark />
     </span>

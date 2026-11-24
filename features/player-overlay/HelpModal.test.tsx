@@ -48,7 +48,7 @@ describe("HelpModal", () => {
     const keys = Array.from(container.querySelectorAll(".you-loop-kbd")).map(
       (el) => el.textContent
     );
-    expect(keys).toEqual(["A", "S", "D", "[ ]", "⇧ [ ]", "⇧ drag", "⇧ click"]);
+    expect(keys).toEqual(["A", "S", "D", "[ ]", "⇧ [ ]", "Ctrl+S", "⇧ drag", "⇧ click"]);
   });
 
   it("calls onClose when the backdrop is clicked", () => {

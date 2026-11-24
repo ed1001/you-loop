@@ -1581,6 +1581,106 @@ describe("pencil edit", () => {
     expect(savedEntry.loops[1].name).toBe("dup");
     expect(savedEntry.loops[1].main).toEqual(savedEntry.loops[0].main);
   });
+
+  describe("quick-save", () => {
+    // Launch-restore UPDATE_ENTRY's loop "A" so it is the active loop.
+    async function mountActive() {
+      const ctx = await mountWatch("vid1", {
+        [keyFor("vid1")]: UPDATE_ENTRY,
+        [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
+      });
+      await flushAsync();
+      return ctx;
+    }
+
+    // Drift the live loop, then let the drag-end click guard clear.
+    async function drift(player: HTMLElement) {
+      driftMainStart(player);
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+
+    // Active loop "A", then drifted off it.
+    async function mountDrifted() {
+      const ctx = await mountActive();
+      await drift(ctx.player);
+      return ctx;
+    }
+
+    function openSavedLoops() {
+      act(() => {
+        fireEvent.click(screen.getByRole("button", { name: "Saved loops" }));
+      });
+    }
+
+    async function clickAndFlush(element: HTMLElement) {
+      await act(async () => {
+        fireEvent.click(element);
+      });
+      await flushAsync();
+    }
+
+    const savedMain = (dump: () => Record<string, unknown>) =>
+      (dump()[keyFor("vid1")] as typeof UPDATE_ENTRY).loops[0].main;
+
+    it("names the active loop on the chip; the dot appears on edit and ⌘S saves and clears it", async () => {
+      const { player, dump } = await mountActive();
+      expect(screen.getByRole("button", { name: "Saved loops" })).toHaveTextContent("A");
+      expect(screen.queryByTestId("loop-dirty-dot")).not.toBeInTheDocument();
+
+      await drift(player);
+      expect(screen.getByTestId("loop-dirty-dot")).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.keyDown(document.body, { key: "s", metaKey: true });
+      });
+      await flushAsync();
+
+      expect(savedMain(dump)).toEqual({ start: 20, end: 100 });
+      expect(screen.queryByTestId("loop-dirty-dot")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("Saved “A”");
+    });
+
+    it("re-applying the loop clears the dot without saving", async () => {
+      const { dump } = await mountDrifted();
+      openSavedLoops();
+      await clickAndFlush(screen.getByLabelText("Apply A"));
+
+      expect(screen.queryByTestId("loop-dirty-dot")).not.toBeInTheDocument();
+      expect(savedMain(dump)).toEqual({ start: 5, end: 100 });
+    });
+
+    it("the modal's Current loop card shows Edited and saves changes", async () => {
+      const { dump } = await mountDrifted();
+      openSavedLoops();
+      expect(screen.getByText("Current loop")).toBeInTheDocument();
+      expect(screen.getAllByText("Edited").length).toBeGreaterThan(0);
+
+      await clickAndFlush(screen.getByRole("button", { name: "Save changes" }));
+
+      expect(savedMain(dump)).toEqual({ start: 20, end: 100 });
+      expect(screen.getByText("Saved")).toBeInTheDocument();
+    });
+
+    it("with no active loop, ⌘S opens the modal focused on the name field", async () => {
+      await mountWatch("vid1", {
+        [keyFor("vid1")]: UPDATE_ENTRY,
+        [LOOP_ON_KEY]: true
+      });
+      await flushAsync();
+
+      // Saved loops exist but none was applied, so there's no active loop.
+      expect(screen.getByRole("button", { name: "Saved loops" })).not.toHaveTextContent("A");
+
+      await act(async () => {
+        fireEvent.keyDown(document.body, { key: "s", metaKey: true });
+      });
+
+      expect(screen.queryByText("Current loop")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(screen.getByPlaceholderText("Name this loop"));
+    });
+  });
 });
 
 describe("deep-study practice marks", () => {

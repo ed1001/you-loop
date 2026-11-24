@@ -20,6 +20,14 @@ type Props = {
   container: HTMLElement | null;
   loops: SavedLoop[];
   selectedId: string | null;
+  // The loop the live state came from (even if since edited), for the
+  // "Current loop" card; null when there is none.
+  activeLoop: SavedLoop | null;
+  activeDirty: boolean;
+  // Bumped to focus the save-as-new name field when the modal opens or is
+  // already open (quick-save with no active loop).
+  focusNameToken: number;
+  onSaveChanges: () => void;
   // Total video length in seconds, for positioning each row's loop-map band.
   duration: number;
   onClose: () => void;
@@ -57,6 +65,10 @@ export function SavedLoopsModal({
   container,
   loops,
   selectedId,
+  activeLoop,
+  activeDirty,
+  focusNameToken,
+  onSaveChanges,
   duration,
   onClose,
   onSaveAsNew,
@@ -75,6 +87,10 @@ export function SavedLoopsModal({
   // its toggle but only committed by Save, so Cancel can still discard it.
   const [replaceArmed, setReplaceArmed] = useState(false);
   const listRef = useRef<HTMLUListElement | null>(null);
+  const newNameRef = useRef<HTMLInputElement | null>(null);
+  // The focus request already honoured, so reopening the modal normally
+  // doesn't re-focus the name field.
+  const handledFocusToken = useRef(0);
   const selectedRowRef = useRef<HTMLLIElement | null>(null);
   const editingRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
@@ -125,6 +141,15 @@ export function SavedLoopsModal({
     // Intentionally only re-seed on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Focus the save-as-new field on request. Runs after the open-seed effect
+  // above, so the field is empty and ready to type into.
+  useEffect(() => {
+    if (!open || !mounted) return;
+    if (focusNameToken === handledFocusToken.current) return;
+    handledFocusToken.current = focusNameToken;
+    newNameRef.current?.focus();
+  }, [open, mounted, focusNameToken]);
 
   // Block YouTube's capture-phase shortcut handlers while interacting with the
   // modal: stop propagation from window (above document) without preventDefault
@@ -237,6 +262,47 @@ export function SavedLoopsModal({
         <header className="you-loop-lm-head">
           <h2 className="you-loop-lm-title">Saved loops</h2>
         </header>
+
+        {activeLoop != null && (
+          <section className="you-loop-lm-current" data-dirty={activeDirty}>
+            <div className="you-loop-lm-current-top">
+              <div className="you-loop-lm-current-text">
+                <h3 className="you-loop-lm-label you-loop-lm-current-label">
+                  Current loop
+                </h3>
+                <p className="you-loop-lm-current-name">{activeLoop.name}</p>
+              </div>
+              <span
+                className="you-loop-lm-badge"
+                data-edited={activeDirty}
+              >
+                {activeDirty ? "Edited" : "Saved"}
+              </span>
+            </div>
+            <div className="you-loop-lm-current-actions">
+              <button
+                type="button"
+                className="you-loop-lm-current-save"
+                onClick={(event) => {
+                  swallow(event);
+                  onSaveChanges();
+                }}
+              >
+                Save changes
+              </button>
+              <button
+                type="button"
+                className="you-loop-lm-current-new"
+                onClick={(event) => {
+                  swallow(event);
+                  newNameRef.current?.focus();
+                }}
+              >
+                Save as new
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="you-loop-lm-list-wrap">
           <h3 className="you-loop-lm-label">Your loops</h3>
@@ -353,6 +419,11 @@ export function SavedLoopsModal({
                       >
                         <span className="you-loop-lm-name-text">
                           {loop.name}
+                          {activeDirty && loop.id === activeLoop?.id && (
+                            <span className="you-loop-lm-badge" data-edited="true">
+                              Edited
+                            </span>
+                          )}
                         </span>
                         <span className="you-loop-lm-range">
                           {formatRange(loop.main)}
@@ -407,6 +478,7 @@ export function SavedLoopsModal({
           <h3 className="you-loop-lm-label">Save current loop</h3>
 
           <input
+            ref={newNameRef}
             className="you-loop-loops-input you-loop-lm-name"
             data-loops-field="new"
             type="text"

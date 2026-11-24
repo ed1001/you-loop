@@ -16,7 +16,8 @@ import { clampLoopToRegion } from "../../features/player-overlay/zoomRegion";
 import { LoopPanel } from "../../features/player-overlay/LoopPanel";
 import { createLoopKeyHandlers } from "../../features/playback/shortcuts";
 import { translateSegment } from "../../features/playback/translateSegment";
-import { addMark, removeMark, resolveSegment, marksEqual } from "../../features/playback/marks";
+import { addMark, removeMark, resolveSegment } from "../../features/playback/marks";
+import { isLoopDirty } from "../../features/persistence/loopDirty";
 import { HelpModal } from "../../features/player-overlay/HelpModal";
 import {
   addLoop,
@@ -77,43 +78,6 @@ type MountedPageUi = {
 };
 
 const mountedPageUis = new WeakMap<Element, MountedPageUi>();
-
-// Two loop segments are equal when both null or both endpoints match.
-function segmentsEqual(a: LoopSegment | null, b: LoopSegment | null): boolean {
-  if (a == null || b == null) return a === b;
-  return a.start === b.start && a.end === b.end;
-}
-
-// Two count-in settings are equal when every field matches.
-function countInEqual(a: CountInSettings, b: CountInSettings): boolean {
-  return (
-    a.bpm === b.bpm &&
-    a.beatsPerBar === b.beatsPerBar &&
-    a.noteValue === b.noteValue &&
-    a.bars === b.bars
-  );
-}
-
-// The save button is live only when the current selection differs from the
-// saved loop it came from: no source loop means a fresh, savable selection; an
-// exact match (main, zoom, and — for loops that carry a tempo snapshot —
-// count-in) means there's nothing new to save. Legacy loops (no snapshot)
-// never go tempo-dirty: there's nothing to compare against.
-function isLoopDirty(
-  source: SavedLoop | undefined,
-  segment: LoopSegment | null,
-  zoom: LoopSegment | null,
-  countIn: CountInSettings,
-  marks: number[]
-): boolean {
-  if (segment == null) return false;
-  if (source == null) return true;
-  if (!segmentsEqual(source.main, segment) || !segmentsEqual(source.zoom, zoom)) {
-    return true;
-  }
-  if (!marksEqual(source.marks, marks)) return true;
-  return source.countIn != null && !countInEqual(source.countIn, countIn);
-}
 
 // The store-level patch for a pencil-edit commit: the name field only when
 // provided, and the replace-with-current fields (main/zoom/count-in,
@@ -187,6 +151,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   let savedLoops: SavedLoop[] = [];
   let selectedLoopId: string | null = null;
   let loopsOpen = false;
+  // Quick-save UI: a bump focuses the modal's name field; the toast confirms
+  // an overwrite and clears itself.
+  let saveFocusToken = 0;
+  let saveToast: { id: number; text: string } | null = null;
+  let saveToastTimer = 0;
   // Count-in state: global on/off and per-video tempo/meter settings.
   let countInOn = false;
   let countInSettings: CountInSettings = DEFAULT_COUNT_IN_SETTINGS;
@@ -581,14 +550,15 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   // replace makes the edited loop the new selection (it now matches current
   // state, so its row reads selected/clean); a rename alone must not steal
   // the selection from whatever row already holds it.
+  // Resolves true when the loop was written.
   const editSavedLoop = async (
     id: string,
     patch: { name?: string; replaceState?: boolean }
-  ): Promise<void> => {
-    if (videoId == null) return;
-    if (patch.replaceState && state.loopSegment == null) return;
+  ): Promise<boolean> => {
+    if (videoId == null) return false;
+    if (patch.replaceState && state.loopSegment == null) return false;
     const storePatch = buildEditStorePatch(patch, state.loopSegment, zoomLoop, countInSettings, marks);
-    if (Object.keys(storePatch).length === 0) return;
+    if (Object.keys(storePatch).length === 0) return false;
 
     const updated = await updateLoop(videoId, id, storePatch);
     if (updated == null) {
@@ -598,6 +568,39 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       if (patch.replaceState) selectedLoopId = id;
     }
     render();
+    return updated != null;
+  };
+
+  const showSaveToast = (text: string) => {
+    saveToast = { id: (saveToast?.id ?? 0) + 1, text };
+    window.clearTimeout(saveToastTimer);
+    saveToastTimer = window.setTimeout(() => {
+      saveToast = null;
+      if (!stopped) render();
+    }, 2000);
+    render();
+  };
+
+  // ⌘S / the modal's "Save changes". With an active saved loop (the one last applied, saved
+  // or restored — even if since edited), overwrite it with the live state.
+  // Without one, open the modal on the save-as-new name field. Returns false
+  // when saving isn't possible (loop off, not a watch page), so the shortcut
+  // leaves the key to the browser.
+  const quickSave = (): boolean => {
+    if (!state.loopEnabled || videoId == null || state.loopSegment == null) {
+      return false;
+    }
+    const active = savedLoops.find((l) => l.id === selectedLoopId);
+    if (active == null) {
+      loopsOpen = true;
+      saveFocusToken++;
+      render();
+      return true;
+    }
+    void editSavedLoop(active.id, { replaceState: true }).then((saved) => {
+      if (saved && !stopped) showSaveToast(`Saved “${active.name}”`);
+    });
+    return true;
   };
 
   const deleteSavedLoop = async (id: string) => {
@@ -642,16 +645,24 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     state.loopSegment != null &&
     zoomLoop != null;
 
-  const render = () => {
-    const duration = getVideoDuration(video);
-    const selectedLoop = savedLoops.find((l) => l.id === selectedLoopId);
+  // The saved loop the live state came from (null if none) and whether the
+  // live state has drifted from it. Hoisted out of render() so that stays a
+  // simple dispatch.
+  const activeLoopState = () => {
+    const activeLoop = savedLoops.find((l) => l.id === selectedLoopId) ?? null;
     const loopDirty = isLoopDirty(
-      selectedLoop,
+      activeLoop ?? undefined,
       state.loopSegment,
       zoomLoop,
       countInSettings,
       marks
     );
+    return { activeLoop, loopDirty };
+  };
+
+  const render = () => {
+    const duration = getVideoDuration(video);
+    const { activeLoop, loopDirty } = activeLoopState();
     const zoomVisible = zoomStripVisible();
     // Beacon at the point playback will resume from — the zoom sub-region
     // start while magnified, else the main loop start. Rendered by the zoom
@@ -733,6 +744,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
           onEditLoop={(id, patch) => void editSavedLoop(id, patch)}
           onApplyLoop={applyLoop}
           onDeleteLoop={deleteSavedLoop}
+          activeLoop={activeLoop}
+          activeLoopDirty={loopDirty}
+          onQuickSave={() => void quickSave()}
+          saveFocusToken={saveFocusToken}
+          saveToast={saveToast}
           countInOn={countInOn}
           countInSettings={countInSettings}
           onToggleCountIn={onToggleCountIn}
@@ -859,6 +875,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
       });
       render();
     },
+    quickSave,
     // Restart (A) counts you in too when count-in is on. Declared below; only
     // invoked on a keypress, so it is initialized by call time.
     startCountIn: () => {
@@ -976,6 +993,7 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     stop: () => {
       stopped = true;
       clearZoomCloseTimer();
+      window.clearTimeout(saveToastTimer);
       stopEnforce();
       countInController.cancel();
       countInPlayer.dispose();

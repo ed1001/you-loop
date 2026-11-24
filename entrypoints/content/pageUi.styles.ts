@@ -1715,6 +1715,70 @@ export const PAGE_UI_STYLES = `
       opacity: 0.4;
     }
 
+    /* With an active saved loop the loops toggle widens into a chip naming
+       it, so you can always see which loop you're on. */
+    .you-loop-loops-toggle[data-has-loop="true"] {
+      border-radius: 999px;
+      color: #5eead4;
+      gap: 6px;
+      padding: 0 11px 0 9px;
+      width: auto;
+    }
+
+    .you-loop-loops-toggle[data-has-loop="true"] svg {
+      height: 13px;
+      width: 13px;
+    }
+
+    .you-loop-loops-chip-name {
+      color: rgba(255, 255, 255, 0.88);
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Edited since last save. */
+    .you-loop-loops-chip-dot {
+      background: #5eead4;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18);
+      flex: none;
+      height: 7px;
+      width: 7px;
+    }
+
+    /* "Saved" confirmation: floats just above the progress bar at the pill's
+       fixed center (anchored like the wordmark), then fades. */
+    .you-loop-save-toast {
+      animation: you-loop-save-toast 1.8s ease both;
+      background: rgba(20, 184, 166, 0.95);
+      border-radius: 999px;
+      color: #04211e;
+      font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      left: 50%;
+      max-width: 80%;
+      overflow: hidden;
+      padding: 5px 12px;
+      pointer-events: none;
+      position: absolute;
+      text-overflow: ellipsis;
+      top: calc(100% - 40px);
+      white-space: nowrap;
+      z-index: 2147483647;
+    }
+
+    @keyframes you-loop-save-toast {
+      0% { opacity: 0; transform: translate(-50%, 6px); }
+      12%, 75% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -4px); }
+    }
+
     /* Shared base for the modal's text inputs. */
     .you-loop-loops-input {
       background: rgba(255, 255, 255, 0.08);
@@ -1822,6 +1886,101 @@ export const PAGE_UI_STYLES = `
       letter-spacing: 0.08em;
       margin: 0 0 10px;
       text-transform: uppercase;
+    }
+
+    /* "Current loop" card: which saved loop you're on, whether it has been
+       edited, and the two ways to keep the edits. */
+    .you-loop-lm-current {
+      background: rgba(94, 234, 212, 0.06);
+      border: 1px solid rgba(94, 234, 212, 0.28);
+      border-radius: 12px;
+      padding: 12px 14px 14px;
+    }
+
+    .you-loop-lm-current[data-dirty="true"] {
+      background: rgba(251, 191, 36, 0.05);
+      border-color: rgba(251, 191, 36, 0.35);
+    }
+
+    .you-loop-lm-current-top {
+      align-items: flex-start;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .you-loop-lm-current-text {
+      min-width: 0;
+    }
+
+    .you-loop-lm-current-label {
+      margin-bottom: 4px;
+    }
+
+    .you-loop-lm-current-name {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .you-loop-lm-badge {
+      background: rgba(94, 234, 212, 0.16);
+      border-radius: 999px;
+      color: #5eead4;
+      flex: none;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      text-transform: uppercase;
+    }
+
+    .you-loop-lm-badge[data-edited="true"] {
+      background: rgba(251, 191, 36, 0.14);
+      color: #fbbf24;
+    }
+
+    .you-loop-lm-current-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .you-loop-lm-current-save,
+    .you-loop-lm-current-new {
+      border-radius: 8px;
+      cursor: pointer;
+      flex: 1;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 8px 12px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .you-loop-lm-current-save {
+      background: #5eead4;
+      border: 0;
+      color: #06302b;
+    }
+
+    .you-loop-lm-current-save:hover {
+      background: #7af0de;
+    }
+
+    .you-loop-lm-current-new {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .you-loop-lm-current-new:hover {
+      border-color: rgba(94, 234, 212, 0.5);
+      color: #fff;
     }
 
     .you-loop-lm-save {
@@ -2265,6 +2424,25 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-page-ui[data-compact="true"] .you-loop-modes {
       display: none;
+    }
+
+    /* Narrow players: the loop chip folds back to the round icon; the edited
+       dot pins to its corner. */
+    .you-loop-page-ui[data-compact="true"] .you-loop-loops-toggle[data-has-loop="true"] {
+      border-radius: 50%;
+      padding: 0;
+      position: relative;
+      width: 26px;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-loops-chip-name {
+      display: none;
+    }
+
+    .you-loop-page-ui[data-compact="true"] .you-loop-loops-chip-dot {
+      position: absolute;
+      right: 1px;
+      top: 1px;
     }
 
     .you-loop-page-ui[data-compact="true"] .you-loop-mode-compact {

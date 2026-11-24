@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLoopKeyHandlers, type LoopKeyDeps } from "./shortcuts";
+import {
+  createLoopKeyHandlers,
+  quickSaveShortcutLabel,
+  type LoopKeyDeps
+} from "./shortcuts";
 import type { LoopSegment } from "./types";
 import { NUDGE_SECONDS } from "./reducer";
 
@@ -210,5 +214,48 @@ describe("window step/nudge keys", () => {
     const input = document.createElement("input");
     handlers.onKeyDown(keyEvent("]", { code: "BracketRight", target: input }));
     expect(moveActiveWindow).not.toHaveBeenCalled();
+  });
+});
+
+describe("quick-save chord", () => {
+  it("⌘S calls quickSave and swallows the event; never cues", () => {
+    const quickSave = vi.fn(() => true);
+    const { vid, handlers } = setup({ quickSave });
+    const event = keyEvent("s", { metaKey: true });
+    handlers.onKeyDown(event);
+    expect(quickSave).toHaveBeenCalledTimes(1);
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(vid.play).not.toHaveBeenCalled();
+  });
+
+  it("Ctrl+S works too", () => {
+    const quickSave = vi.fn(() => true);
+    const { handlers } = setup({ quickSave });
+    handlers.onKeyDown(keyEvent("S", { ctrlKey: true }));
+    expect(quickSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the event to the browser when quickSave declines", () => {
+    const { handlers } = setup({ quickSave: () => false });
+    const event = keyEvent("s", { metaKey: true });
+    handlers.onKeyDown(event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("ignores the chord while typing, when inactive, on repeat, or with Shift", () => {
+    const quickSave = vi.fn(() => true);
+    const input = document.createElement("input");
+    setup({ quickSave }).handlers.onKeyDown(keyEvent("s", { metaKey: true, target: input }));
+    setup({ quickSave, isActive: () => false }).handlers.onKeyDown(
+      keyEvent("s", { metaKey: true })
+    );
+    setup({ quickSave }).handlers.onKeyDown(keyEvent("s", { metaKey: true, repeat: true }));
+    setup({ quickSave }).handlers.onKeyDown(keyEvent("s", { metaKey: true, shiftKey: true }));
+    expect(quickSave).not.toHaveBeenCalled();
+  });
+
+  it("labels the chord per platform", () => {
+    expect(quickSaveShortcutLabel("MacIntel")).toBe("⌘S");
+    expect(quickSaveShortcutLabel("Win32")).toBe("Ctrl+S");
   });
 });

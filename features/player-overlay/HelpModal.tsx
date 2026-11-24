@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { quickSaveShortcutLabel } from "../playback/shortcuts";
 import { useModalPresence } from "./useModalPresence";
 import { EtudeWordmark } from "./EtudeWordmark";
 
@@ -190,7 +191,7 @@ const CONTROLS: Control[] = [
   {
     icon: SaveIcon,
     term: "Saved loops",
-    desc: "Save the current loop, zoom and count-in as a named loop. Keep several per video — tap one to apply it, or use its pencil to rename it or replace it with your current loop. They come back automatically next visit, last-used applied.",
+    desc: "Save the current loop, zoom, marks and count-in as a named loop. Keep several per video — tap one to apply it, or use its pencil to rename it or replace it with your current loop. The button shows the loop you're on, with a dot once you've changed it — press the save shortcut (below) to write your changes straight back to that loop.",
   },
 ];
 
@@ -221,6 +222,11 @@ const SHORTCUTS: Shortcut[] = [
     keys: "⇧ [ ]",
     name: "Step window",
     desc: "Move the loop forward/back by its own length, keeping the length.",
+  },
+  {
+    keys: quickSaveShortcutLabel(),
+    name: "Save loop",
+    desc: "Save your changes to the loop you're on. Not on a saved loop yet? Opens Saved loops to name a new one.",
   },
   {
     keys: "⇧ drag",

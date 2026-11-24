@@ -17,6 +17,10 @@ export type LoopKeyDeps = {
   // started (it will play on the downbeat, so the shortcut must NOT also play);
   // false/absent means play immediately as usual.
   startCountIn?: () => boolean;
+  // Optional: ⌘S / Ctrl+S. Saves changes to the current saved loop (or starts
+  // a save-as-new). Returns false when saving isn't possible right now, so the
+  // key falls through to the browser.
+  quickSave?: () => boolean;
 };
 
 export type LoopKeyHandlers = {
@@ -32,6 +36,23 @@ const HANDLED_KEYS = new Set([RESTART_KEY, SNAP_BACK_KEY, PUSH_TO_HEAR_KEY]);
 // Bracket keys move the window; matched by event.code so Shift (which turns
 // "[" into "{") doesn't change the match.
 const STEP_CODES = new Set(["BracketLeft", "BracketRight"]);
+
+// Shown in tooltips and the help card.
+export function quickSaveShortcutLabel(
+  platform: string = typeof navigator === "undefined" ? "" : navigator.platform
+): string {
+  return /Mac|iPhone|iPad/.test(platform) ? "⌘S" : "Ctrl+S";
+}
+
+// ⌘S on Mac, Ctrl+S elsewhere (either accepted everywhere), no Shift/Alt.
+function isQuickSaveKey(event: KeyboardEvent): boolean {
+  return (
+    (event.metaKey || event.ctrlKey) &&
+    !event.shiftKey &&
+    !event.altKey &&
+    event.key.toLowerCase() === "s"
+  );
+}
 
 // Don't steal keys while the user is typing (e.g. the YouTube search box).
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -92,7 +113,21 @@ export function createLoopKeyHandlers(deps: LoopKeyDeps): LoopKeyHandlers {
     }
   };
 
+  // Returns true if the event was the quick-save chord, so onKeyDown stops —
+  // it must never fall through to the S (cue) shortcut.
+  const handleQuickSave = (event: KeyboardEvent): boolean => {
+    if (!isQuickSaveKey(event)) return false;
+    if (deps.quickSave == null || event.repeat) return true;
+    if (isTypingTarget(event.target) || !deps.isActive()) return true;
+    if (deps.quickSave()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    return true;
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
+    if (handleQuickSave(event)) return;
     if (handleStepKey(event)) return;
 
     const key = event.key.toLowerCase();

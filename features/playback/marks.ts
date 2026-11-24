@@ -40,6 +40,14 @@ export function resolveSegment(
   return { start: activeMark, end: base.end };
 }
 
+// Times are pinned to 3dp, so two times within half a millisecond are the
+// same time; the slack absorbs float noise from arithmetic on stored values.
+const TIME_EPSILON = 0.0005;
+
+export function timesEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) < TIME_EPSILON;
+}
+
 // Element-wise compare for the saved-loop dirty check. Legacy loops lack the
 // marks field entirely — undefined counts as empty.
 export function marksEqual(
@@ -48,7 +56,7 @@ export function marksEqual(
 ): boolean {
   const x = a ?? [];
   const y = b ?? [];
-  return x.length === y.length && x.every((v, i) => v === y[i]);
+  return x.length === y.length && x.every((v, i) => timesEqual(v, y[i]));
 }
 
 // Storage-read boundary (same role as sanitizeCountInSettings): a corrupt

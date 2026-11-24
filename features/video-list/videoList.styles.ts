@@ -65,24 +65,6 @@ export const VIDEO_LIST_STYLES = `
       gap: 8px;
     }
 
-    /* Recessed count chip, same vocabulary as the kbd keys and speed well. */
-    .you-loop-lm-vcount {
-      background: rgba(0, 0, 0, 0.34);
-      border-radius: 999px;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      padding: 3px 9px;
-      transition: color 0.15s ease;
-      white-space: nowrap;
-    }
-
-    .you-loop-lm-vopen:not(:disabled):hover .you-loop-lm-vcount {
-      color: #5eead4;
-    }
-
     /* Rows cascade in as the pane mounts — a quick stagger that makes the
        library feel assembled rather than dumped. Capped after the first rows
        so long lists don't keep the tail invisible. */
@@ -90,6 +72,12 @@ export const VIDEO_LIST_STYLES = `
       animation: you-loop-vlist-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
       display: flex;
       gap: 6px;
+      position: relative;
+    }
+
+    /* The row whose move menu is open paints above its later siblings. */
+    .you-loop-lm-vrow[data-menu-open="true"] {
+      z-index: 2;
     }
 
     .you-loop-lm-vrow:nth-child(2) { animation-delay: 0.035s; }
@@ -162,5 +150,254 @@ export const VIDEO_LIST_STYLES = `
     .you-loop-lm-vdel[data-confirming="true"] {
       border-color: rgba(248, 113, 113, 0.5);
       color: #f87171;
+    }
+
+    /* ── Folders (popup) ─────────────────────────────────────────────── */
+    .you-loop-lm-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    /* Inside groups the outer container scrolls, not each list. */
+    .you-loop-lm-groups .you-loop-lm-vlist {
+      max-height: none;
+      overflow: visible;
+    }
+
+    .you-loop-lm-ghead {
+      align-items: center;
+      display: flex;
+      gap: 4px;
+      margin-bottom: 6px;
+      min-height: 26px;
+      padding: 0 2px;
+    }
+
+    .you-loop-lm-gtoggle {
+      align-items: center;
+      background: none;
+      border: 0;
+      color: rgba(255, 255, 255, 0.78);
+      cursor: pointer;
+      display: flex;
+      flex: 1;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 700;
+      gap: 6px;
+      min-width: 0;
+      padding: 3px 0;
+      text-align: left;
+    }
+
+    .you-loop-lm-gtoggle:hover {
+      color: #fff;
+    }
+
+    .you-loop-lm-gchev {
+      color: rgba(255, 255, 255, 0.4);
+      flex: none;
+      height: 12px;
+      transition: transform 0.15s ease;
+      width: 12px;
+    }
+
+    .you-loop-lm-group[data-collapsed="true"] .you-loop-lm-gchev {
+      transform: rotate(-90deg);
+    }
+
+    .you-loop-lm-ficon {
+      color: #5eead4;
+      flex: none;
+      height: 14px;
+      width: 14px;
+    }
+
+    .you-loop-lm-group[data-unfiled="true"] .you-loop-lm-ficon {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .you-loop-lm-gname {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .you-loop-lm-gcount {
+      color: rgba(255, 255, 255, 0.38);
+      flex: none;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    .you-loop-lm-gact {
+      align-items: center;
+      background: none;
+      border: 0;
+      border-radius: 5px;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0;
+      padding: 4px 6px;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+
+    .you-loop-lm-gact svg {
+      height: 13px;
+      width: 13px;
+    }
+
+    .you-loop-lm-ghead:hover .you-loop-lm-gact,
+    .you-loop-lm-gact:focus-visible,
+    .you-loop-lm-gdel[data-confirming="true"] {
+      opacity: 1;
+    }
+
+    .you-loop-lm-gact:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+
+    .you-loop-lm-gdel:hover,
+    .you-loop-lm-gdel[data-confirming="true"] {
+      color: #f87171;
+    }
+
+    .you-loop-lm-finput {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(94, 234, 212, 0.6);
+      border-radius: 6px;
+      box-sizing: border-box;
+      color: #fff;
+      flex: 1;
+      font-family: inherit;
+      font-size: 12.5px;
+      min-width: 0;
+      outline: none;
+      padding: 5px 8px;
+    }
+
+    .you-loop-lm-gempty {
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: rgba(255, 255, 255, 0.38);
+      font-size: 12px;
+      margin: 0;
+      padding: 10px 12px;
+    }
+
+    /* Move-to-folder: takes no width until the row is hovered (or it has
+       focus / its menu is open), so titles keep their full width at rest. */
+    .you-loop-lm-vmove {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.035);
+      border: 0 solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      color: rgba(255, 255, 255, 0.55);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
+      justify-content: center;
+      margin-left: -6px;
+      opacity: 0;
+      overflow: hidden;
+      padding: 0;
+      transition: opacity 0.15s ease, width 0.15s ease, margin 0.15s ease,
+        border-color 0.15s ease, color 0.15s ease;
+      width: 0;
+    }
+
+    .you-loop-lm-vrow:hover .you-loop-lm-vmove,
+    .you-loop-lm-vmove:focus-visible,
+    .you-loop-lm-vmove[data-open="true"] {
+      border-width: 1px;
+      margin-left: 0;
+      width: 34px;
+    }
+
+    .you-loop-lm-vmove svg {
+      flex: none;
+      height: 14px;
+      width: 14px;
+    }
+
+    .you-loop-lm-vrow:hover .you-loop-lm-vmove,
+    .you-loop-lm-vmove:focus-visible,
+    .you-loop-lm-vmove[data-open="true"] {
+      opacity: 1;
+    }
+
+    .you-loop-lm-vmove:hover,
+    .you-loop-lm-vmove[data-open="true"] {
+      border-color: rgba(94, 234, 212, 0.5);
+      color: #5eead4;
+    }
+
+    .you-loop-lm-vmenu {
+      background: #1b1b1f;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+      padding: 5px;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      width: 190px;
+      z-index: 3;
+    }
+
+    .you-loop-lm-vmenu-kicker {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin: 0;
+      padding: 5px 8px 4px;
+      text-transform: uppercase;
+    }
+
+    .you-loop-lm-vmenu-item {
+      background: none;
+      border: 0;
+      border-radius: 6px;
+      color: rgba(255, 255, 255, 0.85);
+      cursor: pointer;
+      display: block;
+      font-family: inherit;
+      font-size: 12.5px;
+      overflow: hidden;
+      padding: 7px 8px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+    }
+
+    .you-loop-lm-vmenu-item:hover {
+      background: rgba(94, 234, 212, 0.1);
+      color: #fff;
+    }
+
+    .you-loop-lm-vmenu-item[data-current="true"] {
+      color: #5eead4;
+    }
+
+    .you-loop-lm-vmenu-item[data-current="true"]::after {
+      content: " ✓";
+    }
+
+    .you-loop-lm-vmenu-sep {
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      margin: 4px 0;
     }
 `;

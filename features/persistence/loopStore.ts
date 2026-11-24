@@ -37,6 +37,9 @@ export type VideoEntry = {
   // Captured on visit. Optional: entries that never had a title (or where
   // capture failed) lack it, and the cross-video list falls back to the id.
   title?: string;
+  // Popup folder this video is filed under. Absent (legacy, or never filed)
+  // or pointing at a deleted folder both mean Unfiled — no migration.
+  folderId?: string;
 };
 
 // Legacy single-blob store shape. Used only by the migration.
@@ -49,6 +52,7 @@ export type SavedVideo = {
   title?: string;
   count: number;
   addedAt: number;
+  folderId?: string;
 };
 
 // Kept for settingsStore.ts, which imports this and uses only get/set.
@@ -190,7 +194,8 @@ export async function listEntries(
       videoId,
       title: entry.title,
       count: entry.loops.length,
-      addedAt: entry.addedAt
+      addedAt: entry.addedAt,
+      ...(entry.folderId != null ? { folderId: entry.folderId } : {})
     }))
     .sort((x, y) => y.addedAt - x.addedAt || (x.videoId < y.videoId ? -1 : 1));
 }
@@ -298,5 +303,18 @@ export async function setLastUsed(
 ): Promise<void> {
   await mutateEntry(storage, videoId, (entry) => {
     entry.lastUsedId = loopId;
+  });
+}
+
+// File a video under a folder, or back to Unfiled with null. No-op when the
+// video has no entry.
+export async function setVideoFolder(
+  videoId: string,
+  folderId: string | null,
+  storage?: Partial<LoopStorage>
+): Promise<void> {
+  await mutateEntry(storage, videoId, (entry) => {
+    if (folderId == null) delete entry.folderId;
+    else entry.folderId = folderId;
   });
 }

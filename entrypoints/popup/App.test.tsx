@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { keyFor } from "../../features/persistence/loopStore";
 import { ENABLED_KEY, LAUNCH_KEY } from "../../features/persistence/settingsStore";
+import { COLLAPSED_GROUPS_KEY, FOLDERS_KEY } from "../../features/persistence/folderStore";
 import { makeMemoryArea as makeArea } from "../../features/persistence/memoryArea.testutil";
 import { App } from "./App";
 
@@ -100,5 +101,97 @@ describe("popup App", () => {
         "No saved videos yet. Videos with saved loops appear here."
       )
     ).toBeInTheDocument();
+  });
+
+  it("creates a folder, files a video into it, and persists both", async () => {
+    const area = makeArea(seededStore);
+    render(<App area={area} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "New folder" }));
+    const input = screen.getByRole("textbox", { name: "New folder name" });
+    fireEvent.change(input, { target: { value: "Paganini" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(
+      await screen.findByRole("button", { name: "Paganini, 0 videos" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Move Caprice 24 to folder" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Paganini" }));
+
+    expect(
+      screen.getByRole("button", { name: "Paganini, 1 video" })
+    ).toBeInTheDocument();
+    await vi.waitFor(() => {
+      const folders = area.dump()[FOLDERS_KEY] as { id: string; name: string }[];
+      expect(folders.map((f) => f.name)).toEqual(["Paganini"]);
+      expect(
+        (area.dump()[keyFor("vid1")] as { folderId?: string }).folderId
+      ).toBe(folders[0].id);
+    });
+  });
+
+  it("New folder… from a move menu creates the folder with that video in it", async () => {
+    const area = makeArea({
+      ...seededStore,
+      [FOLDERS_KEY]: [{ id: "f1", name: "Jazz", createdAt: 1 }]
+    });
+    render(<App area={area} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Move Caprice 24 to folder" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New folder…" }));
+    const input = screen.getByRole("textbox", { name: "New folder name" });
+    fireEvent.change(input, { target: { value: "Paganini" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Paganini, 1 video" })
+    ).toBeInTheDocument();
+  });
+
+  it("deleting a folder keeps its videos, now under Unfiled", async () => {
+    const area = makeArea({
+      ...seededStore,
+      [keyFor("vid1")]: { ...seededStore[keyFor("vid1")], folderId: "f1" },
+      [FOLDERS_KEY]: [{ id: "f1", name: "Paganini", createdAt: 1 }]
+    });
+    render(<App area={area} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Delete folder Paganini" })
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm delete folder Paganini" })
+    );
+
+    // No folders left → flat list again, with both videos still there.
+    expect(screen.getByText("Caprice 24")).toBeInTheDocument();
+    expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(area.dump()[FOLDERS_KEY]).toEqual([]);
+      const entry = area.dump()[keyFor("vid1")] as { folderId?: string; loops: unknown[] };
+      expect(entry.folderId).toBeUndefined();
+      expect(entry.loops).toHaveLength(1);
+    });
+  });
+
+  it("remembers collapsed groups", async () => {
+    const area = makeArea({
+      ...seededStore,
+      [keyFor("vid1")]: { ...seededStore[keyFor("vid1")], folderId: "f1" },
+      [FOLDERS_KEY]: [{ id: "f1", name: "Paganini", createdAt: 1 }],
+      [COLLAPSED_GROUPS_KEY]: ["f1"]
+    });
+    render(<App area={area} />);
+
+    const header = await screen.findByRole("button", { name: "Paganini, 1 video" });
+    await vi.waitFor(() => expect(header).toHaveAttribute("aria-expanded", "false"));
+    expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
+
+    fireEvent.click(header);
+    expect(screen.getByText("Caprice 24")).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(area.dump()[COLLAPSED_GROUPS_KEY]).toEqual([]);
+    });
   });
 });

@@ -91,13 +91,94 @@ body {
   outline-offset: 2px;
 }
 
+.popup-labelrow {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 14px 6px;
+  min-height: 22px;
+}
+
 .popup-label {
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  margin: 10px 14px 6px;
+  margin: 0;
   text-transform: uppercase;
+}
+
+.popup-newfolder {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  gap: 5px;
+  padding: 3px 6px;
+}
+
+.popup-newfolder:hover,
+.popup-newfolder:focus-visible {
+  background: rgba(94, 234, 212, 0.08);
+  color: #5eead4;
+  outline: none;
+}
+
+.popup-newfolder svg {
+  height: 13px;
+  width: 13px;
+}
+
+.popup-create {
+  display: flex;
+  gap: 6px;
+  margin: 0 10px 10px;
+}
+
+.popup-create-input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(94, 234, 212, 0.6);
+  border-radius: 6px;
+  color: #fff;
+  flex: 1;
+  font-family: inherit;
+  font-size: 12.5px;
+  min-width: 0;
+  outline: none;
+  padding: 6px 8px;
+}
+
+.popup-create-ok,
+.popup-create-cancel {
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.popup-create-ok {
+  background: #5eead4;
+  color: #06302b;
+}
+
+.popup-create-ok:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: default;
+}
+
+.popup-create-cancel {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .popup-list {

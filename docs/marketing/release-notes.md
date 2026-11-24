@@ -1,5 +1,35 @@
 # Étude — release notes
 
+## 0.5.0
+
+### Store "what's new" (Chrome Web Store + AMO version notes)
+
+New in 0.5 — keep your practice library tidy, and save without breaking flow:
+
+• Folders — group your saved videos into folders from the toolbar popup. Create, rename and collapse them; move a video with one click.
+• Quick save — press ⌘S (Ctrl+S on Windows/Linux) to save your changes straight back to the loop you're on.
+• Always know where you are — the Saved loops button now names the loop you're on and shows a dot once you've changed it.
+• Simpler Saved loops window — one list, with "Save changes" and "Save as new" right underneath.
+
+Free, no account, no tracking.
+
+### Full notes (GitHub release)
+
+**Added**
+- **Folders in the popup.** Group saved videos into folders: create, rename and delete them, and move a video from its row. Folders collapse (remembered per device), with Unfiled last. Deleting a folder only unfiles its videos — nothing is removed.
+- **Quick save.** ⌘S / Ctrl+S overwrites the loop you're on with the current region, zoom, marks and count-in, with a short "Saved" confirmation. With no loop active it opens Saved loops on the name field.
+- **Active-loop chip.** The Saved loops button names the loop you applied or saved, and shows a dot once the live state has drifted from it.
+
+**Changed**
+- **Saved loops window, simplified.** One list plus a footer that reads "You're on …" with a Saved/Edited status, **Save changes** and **Save as new**. The loop you're on stays highlighted in the list after you edit it. The list scrolls while the title and footer stay put, so it fits small players.
+- **Popup rows** show the video name at full width; move and delete appear on hover.
+- **Help** covers the chip, the dot and the save shortcut.
+
+**Notes**
+- Still free, no account, and no data collected. Saved loops and folders live in your browser and ride its own account sync across your devices when that's turned on — never through an Étude server.
+
+_Tag: `v0.5.0`._
+
 ## 0.4.0
 
 ### Store "what's new" (Chrome Web Store + AMO version notes)

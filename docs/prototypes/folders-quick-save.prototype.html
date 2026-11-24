@@ -1,0 +1,1572 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Not shipped, not imported by the extension.
+  Question: what should (1) quick-save + "you're on loop X, it's edited" look
+  like in the player pill + Saved Loops modal, and (2) folders look like in
+  the toolbar popup's saved-video list?
+  Three overlay variants (?o=A|B|C) and four popup variants (?p=A|B|C|D),
+  switchable from the floating bar or ←/→ (overlay) and Shift+←/→ (popup).
+  All state is in memory.
+  Run: open docs/prototypes/folders-quick-save.prototype.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Folders + quick-save prototype</title>
+<style>
+  :root {
+    --teal: #14b8a6;
+    --teal-hi: #5eead4;
+    --ink: #0b0c0d;
+    --amber: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: #0f0f0f;
+    color: #fff;
+    font-family: "Roboto", system-ui, -apple-system, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px 24px 110px;
+  }
+  button { font-family: inherit; }
+  svg { display: block; }
+
+  /* ── page chrome (not part of the design) ───────────────────────────── */
+  .proto-head {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 28px;
+    margin-bottom: 18px;
+  }
+  .proto-head h1 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0 0 4px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
+  .proto-note {
+    color: rgba(255,255,255,0.62);
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 760px;
+    margin: 0;
+  }
+  .proto-note b { color: #fff; }
+  .proto-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .proto-controls button {
+    background: #1f1f23;
+    border: 1px dashed rgba(255,255,255,0.22);
+    border-radius: 6px;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .proto-controls button[data-on="true"] {
+    border-color: #f472b6;
+    color: #f9a8d4;
+  }
+  .stage {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+  }
+  .col-label {
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+  }
+  .variant-blurb {
+    color: rgba(255,255,255,0.6);
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 10px 0 0;
+    max-width: 780px;
+  }
+  .variant-blurb b { color: #fff; }
+
+  /* ── fake YouTube player ───────────────────────────────────────────── */
+  .player {
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(120, 80, 60, 0.55), transparent 60%),
+      radial-gradient(ellipse at 75% 60%, rgba(40, 60, 90, 0.6), transparent 55%),
+      #111;
+    border-radius: 12px;
+    height: 470px;
+    overflow: hidden;
+    position: relative;
+    width: 780px;
+  }
+  .yt-chrome {
+    background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+    bottom: 0;
+    height: 150px;
+    left: 0;
+    position: absolute;
+    right: 0;
+  }
+  .yt-bar {
+    background: rgba(255,255,255,0.2);
+    bottom: 96px;
+    height: 4px;
+    left: 12px;
+    position: absolute;
+    right: 12px;
+  }
+  .yt-played { background: #f00; height: 100%; width: 31%; }
+  .yt-band {
+    background: rgba(20,184,166,0.35);
+    border-left: 2px solid var(--teal-hi);
+    border-right: 2px solid var(--teal-hi);
+    height: 14px;
+    position: absolute;
+    top: -5px;
+  }
+  .yt-controls {
+    bottom: 54px;
+    color: rgba(255,255,255,0.85);
+    display: flex;
+    font-size: 13px;
+    gap: 18px;
+    left: 18px;
+    position: absolute;
+  }
+  .pill-anchor {
+    bottom: 96px;
+    height: 0;
+    left: 12px;
+    position: absolute;
+    right: 12px;
+  }
+
+  /* ── the real pill (styles lifted from pageUi.styles.ts) ───────────── */
+  .you-loop-panel {
+    align-items: center;
+    background: rgba(38, 38, 42, 0.9);
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    display: flex;
+    gap: 6px;
+    left: 50%;
+    padding: 4px;
+    position: absolute;
+    top: 100%;
+    transform: translate(-50%, 12px);
+    width: max-content;
+    z-index: 5;
+  }
+  .ic {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 0;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    display: inline-flex;
+    flex: none;
+    height: 30px;
+    justify-content: center;
+    padding: 0;
+    position: relative;
+    transition: color 0.18s ease, background 0.18s ease;
+    width: 30px;
+  }
+  .ic svg { height: 16px; width: 16px; }
+  .ic:hover { background: rgba(20, 184, 166, 0.18); color: var(--teal); }
+  .ic.power { background: rgba(20, 184, 166, 0.18); color: var(--teal); }
+  .ic.power svg { height: 17px; width: 17px; }
+  .modes {
+    background: rgba(0, 0, 0, 0.34);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.05);
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+  }
+  .mode {
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    color: rgba(255,255,255,0.62);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 7px 14px;
+    text-transform: uppercase;
+  }
+  .mode[data-active="true"] { background: var(--teal); color: #0a0a0a; }
+  .well {
+    background: rgba(0, 0, 0, 0.34);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.85);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    padding: 7px 12px;
+  }
+
+  /* tooltip */
+  [data-tip]:hover::after {
+    background: rgba(18, 18, 20, 0.96);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    bottom: calc(100% + 10px);
+    color: #fff;
+    content: attr(data-tip);
+    font-size: 11.5px;
+    font-weight: 500;
+    left: 50%;
+    letter-spacing: 0;
+    padding: 5px 8px;
+    pointer-events: none;
+    position: absolute;
+    text-transform: none;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 20;
+  }
+
+  /* change dot — shared */
+  .dot {
+    background: var(--teal-hi);
+    border: 2px solid rgb(38, 38, 42);
+    border-radius: 50%;
+    height: 10px;
+    position: absolute;
+    right: -1px;
+    top: -1px;
+    width: 10px;
+  }
+
+  /* toast */
+  .toast {
+    animation: toast-in 1.8s ease both;
+    background: rgba(20, 184, 166, 0.95);
+    border-radius: 999px;
+    color: #04211e;
+    font-size: 12px;
+    font-weight: 700;
+    left: 50%;
+    padding: 5px 12px;
+    pointer-events: none;
+    position: absolute;
+    top: calc(100% - 26px);
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 6;
+  }
+  @keyframes toast-in {
+    0% { opacity: 0; transform: translate(-50%, 6px); }
+    12%, 75% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -4px); }
+  }
+
+  /* B — name chip + popover */
+  .chip {
+    align-items: center;
+    background: rgba(0,0,0,0.34);
+    border: 0;
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.88);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 7px;
+    height: 30px;
+    max-width: 170px;
+    padding: 0 10px 0 9px;
+    position: relative;
+  }
+  .chip:hover { color: #fff; box-shadow: inset 0 0 0 1px rgba(94,234,212,0.5); }
+  .chip .chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip[data-empty="true"] { color: rgba(255,255,255,0.5); font-weight: 500; }
+  .chip svg.bm { color: var(--teal); flex: none; height: 13px; width: 13px; }
+  .chip[data-empty="true"] svg.bm { color: rgba(255,255,255,0.45); }
+  .chip .chip-dot {
+    background: var(--teal-hi);
+    border-radius: 50%;
+    flex: none;
+    height: 7px;
+    width: 7px;
+  }
+  .chip svg.caret { color: rgba(255,255,255,0.45); flex: none; height: 12px; width: 12px; }
+  .pop {
+    background: rgba(28, 28, 32, 0.97);
+    border: 1px solid rgba(0,0,0,0.6);
+    border-radius: 12px;
+    bottom: calc(100% + 10px);
+    box-shadow: 0 0 0 1px rgba(20,184,166,0.16), 0 18px 50px rgba(0,0,0,0.6);
+    padding: 12px;
+    position: absolute;
+    right: 0;
+    width: 250px;
+    z-index: 10;
+  }
+  .pop-head { margin-bottom: 10px; }
+  .pop-kicker {
+    color: rgba(255,255,255,0.42);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .pop-name {
+    align-items: center;
+    color: #fff;
+    display: flex;
+    font-size: 14px;
+    font-weight: 700;
+    gap: 8px;
+    margin-top: 3px;
+  }
+  .pop-actions { display: flex; flex-direction: column; gap: 6px; }
+  .pop hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 10px 0 8px; }
+  .pop-link {
+    background: none;
+    border: 0;
+    color: rgba(255,255,255,0.62);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 0;
+    text-align: left;
+  }
+  .pop-link:hover { color: var(--teal-hi); }
+
+  /* C — morphing save pill */
+  .msave {
+    align-items: center;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 11.5px;
+    font-weight: 700;
+    gap: 6px;
+    height: 30px;
+    letter-spacing: 0.02em;
+    padding: 0 12px 0 10px;
+    position: relative;
+    transition: background 0.18s ease, color 0.18s ease;
+    white-space: nowrap;
+  }
+  .msave svg { height: 14px; width: 14px; }
+  .msave[data-state="clean"] {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.55);
+    padding: 0 12px 0 10px;
+  }
+  .msave[data-state="dirty"] { background: var(--teal); color: #04211e; }
+  .msave[data-state="dirty"]:hover { background: var(--teal-hi); }
+  .msave[data-state="none"] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px rgba(94,234,212,0.55);
+    color: var(--teal-hi);
+  }
+  .msave-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+  .msave-group { display: inline-flex; gap: 3px; }
+  .msave-plus {
+    align-items: center;
+    background: rgba(20,184,166,0.2);
+    border: 0;
+    border-radius: 999px;
+    color: var(--teal-hi);
+    cursor: pointer;
+    display: inline-flex;
+    height: 30px;
+    justify-content: center;
+    position: relative;
+    width: 30px;
+  }
+  .msave-plus svg { height: 14px; width: 14px; }
+
+  /* ── Saved loops modal (lifted) ─────────────────────────────────────── */
+  .lm-backdrop {
+    align-items: center;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 24px;
+    position: absolute;
+    z-index: 30;
+  }
+  .lm-card {
+    background: rgba(28, 28, 32, 0.9);
+    backdrop-filter: blur(18px) saturate(1.2);
+    border: 1px solid rgba(0,0,0,0.6);
+    border-radius: 16px;
+    box-shadow: 0 0 0 1px rgba(20,184,166,0.16), 0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.82);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: calc(100% - 24px);
+    max-width: 420px;
+    overflow-y: auto;
+    padding: 24px 26px 22px;
+    position: relative;
+    width: 100%;
+  }
+  .lm-close {
+    align-items: center;
+    background: rgba(255,255,255,0.06);
+    border: 0;
+    border-radius: 50%;
+    color: rgba(255,255,255,0.55);
+    cursor: pointer;
+    display: inline-flex;
+    height: 28px;
+    justify-content: center;
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    width: 28px;
+  }
+  .lm-close svg { height: 15px; width: 15px; }
+  .lm-title { color: #fff; font-size: 17px; font-weight: 700; margin: 0; }
+  .lm-label {
+    color: rgba(255,255,255,0.42);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+  }
+  .lm-list { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+  .lm-row {
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    display: flex;
+    gap: 6px;
+    padding: 3px 6px 3px 4px;
+    position: relative;
+  }
+  .lm-row:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); }
+  .lm-row[data-selected="true"] { background: rgba(94,234,212,0.08); border-color: var(--teal-hi); }
+  .lm-row[data-drifted="true"] { border-color: rgba(94,234,212,0.45); border-style: dashed; }
+  .lm-map { border-radius: 7px; inset: 0; overflow: hidden; pointer-events: none; position: absolute; }
+  .lm-band { background: rgba(20,184,166,0.14); height: 100%; position: absolute; top: 0; }
+  .lm-row[data-selected="true"] .lm-band { background: rgba(20,184,166,0.22); }
+  .lm-apply {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    flex: 1;
+    gap: 12px;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 6px 4px;
+    position: relative;
+    text-align: left;
+  }
+  .lm-name { align-items: center; display: flex; font-size: 13px; font-weight: 600; gap: 7px; }
+  .lm-range { color: rgba(255,255,255,0.45); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .badge {
+    background: rgba(94,234,212,0.16);
+    border-radius: 999px;
+    color: var(--teal-hi);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    text-transform: uppercase;
+  }
+  .badge.edited { background: rgba(251,191,36,0.14); color: var(--amber); }
+  .lm-save {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .lm-save[data-focus="true"] { border-color: rgba(94,234,212,0.45); box-shadow: 0 0 0 3px rgba(94,234,212,0.08); }
+  .input {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12.5px;
+    padding: 6px 8px;
+    width: 100%;
+  }
+  .input:focus { border-color: rgba(94,234,212,0.6); outline: none; }
+  .btn-primary {
+    background: var(--teal-hi);
+    border: 0;
+    border-radius: 8px;
+    color: #06302b;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 8px 14px;
+  }
+  .btn-primary:hover { background: #7af0de; }
+  .btn-ghost {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+  }
+  .btn-ghost:hover { border-color: rgba(94,234,212,0.5); color: #fff; }
+  .lm-savebtn { margin-top: 12px; width: 100%; }
+
+  /* current-loop strip (modal, all overlay variants) */
+  .cur {
+    background: rgba(94,234,212,0.06);
+    border: 1px solid rgba(94,234,212,0.28);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .cur[data-dirty="true"] { background: rgba(251,191,36,0.05); border-color: rgba(251,191,36,0.35); }
+  .cur-top { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+  .cur-name { color: #fff; font-size: 14px; font-weight: 700; }
+  .cur-sub { color: rgba(255,255,255,0.5); font-size: 11.5px; margin-top: 2px; }
+  .cur-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .cur-actions > * { flex: 1; }
+  kbd {
+    background: rgba(0,0,0,0.35);
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+    font-family: inherit;
+    font-size: 10.5px;
+    margin-left: 6px;
+    opacity: 0.8;
+    padding: 1px 5px;
+  }
+  .btn-primary kbd { background: rgba(0,0,0,0.12); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+
+  /* ── Popup (lifted from popup/style.css + videoList.styles.ts) ─────── */
+  .popup {
+    background: var(--ink);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 470px;
+    overflow: visible;
+    padding-bottom: 10px;
+    position: relative;
+    width: 320px;
+  }
+  .popup-head {
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 14px;
+  }
+  .wordmark { font-family: Georgia, serif; font-size: 18px; font-style: italic; font-weight: 500; }
+  .wordmark i { color: var(--teal-hi); font-style: italic; }
+  .switch {
+    background: var(--teal);
+    border: 0;
+    border-radius: 999px;
+    height: 20px;
+    position: relative;
+    width: 36px;
+  }
+  .switch::after {
+    background: var(--ink);
+    border-radius: 50%;
+    content: "";
+    height: 16px;
+    left: 18px;
+    position: absolute;
+    top: 2px;
+    width: 16px;
+  }
+  .popup-labelrow {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 14px 6px;
+  }
+  .popup-label {
+    color: rgba(255,255,255,0.5);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .newfolder {
+    align-items: center;
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    color: rgba(255,255,255,0.55);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 11.5px;
+    font-weight: 600;
+    gap: 5px;
+    padding: 3px 6px;
+  }
+  .newfolder:hover { background: rgba(94,234,212,0.08); color: var(--teal-hi); }
+  .newfolder svg { height: 13px; width: 13px; }
+  .popup-list { padding: 0 10px; }
+  .vlist { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+  .vrow { display: flex; gap: 6px; position: relative; }
+  .vopen {
+    align-items: center;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    flex: 1;
+    gap: 12px;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 11px 12px;
+    text-align: left;
+  }
+  .vopen:hover { background: rgba(94,234,212,0.07); border-color: rgba(94,234,212,0.5); }
+  .vname { font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vcount {
+    background: rgba(0,0,0,0.34);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.5);
+    flex: none;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    padding: 3px 9px;
+  }
+  .vside {
+    align-items: center;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: rgba(255,255,255,0.55);
+    cursor: pointer;
+    display: inline-flex;
+    flex: none;
+    font-size: 11px;
+    font-weight: 600;
+    justify-content: center;
+    min-width: 32px;
+    opacity: 0;
+    padding: 0 9px;
+  }
+  .vside svg { height: 14px; width: 14px; }
+  .vrow:hover .vside, .vside[data-armed="true"], .vside[data-open="true"] { opacity: 1; }
+  .vside.move:hover, .vside.move[data-open="true"] { border-color: rgba(94,234,212,0.5); color: var(--teal-hi); }
+  .vside.del:hover, .vside.del[data-armed="true"] { border-color: rgba(248,113,113,0.5); color: #f87171; }
+  .empty { color: rgba(255,255,255,0.45); font-size: 12.5px; padding: 6px 4px 10px; }
+
+  /* move menu */
+  .menu {
+    background: #1b1b1f;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+    padding: 5px;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    width: 190px;
+    z-index: 15;
+  }
+  .menu-kicker {
+    color: rgba(255,255,255,0.4);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 5px 8px 4px;
+    text-transform: uppercase;
+  }
+  .menu button {
+    align-items: center;
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    display: flex;
+    font-size: 12.5px;
+    gap: 8px;
+    padding: 7px 8px;
+    text-align: left;
+    width: 100%;
+  }
+  .menu button:hover { background: rgba(94,234,212,0.1); color: #fff; }
+  .menu button[data-current="true"] { color: var(--teal-hi); }
+  .menu button svg { color: rgba(255,255,255,0.45); flex: none; height: 14px; width: 14px; }
+  .menu button[data-current="true"] svg { color: var(--teal-hi); }
+  .menu hr { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 4px 0; }
+
+  /* A — collapsible groups */
+  .group + .group { margin-top: 12px; }
+  .ghead {
+    align-items: center;
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+    min-height: 26px;
+    padding: 0 2px;
+  }
+  .gtoggle {
+    align-items: center;
+    background: none;
+    border: 0;
+    color: rgba(255,255,255,0.78);
+    cursor: pointer;
+    display: flex;
+    flex: 1;
+    font-size: 12.5px;
+    font-weight: 700;
+    gap: 6px;
+    min-width: 0;
+    padding: 3px 0;
+    text-align: left;
+  }
+  .gtoggle:hover { color: #fff; }
+  .gtoggle .chev { color: rgba(255,255,255,0.4); flex: none; height: 12px; transition: transform 0.15s ease; width: 12px; }
+  .group[data-collapsed="true"] .chev { transform: rotate(-90deg); }
+  .gtoggle .fi { color: var(--teal-hi); flex: none; height: 14px; width: 14px; }
+  .group[data-unfiled="true"] .gtoggle .fi { color: rgba(255,255,255,0.4); }
+  .gname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gcount { color: rgba(255,255,255,0.38); flex: none; font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .gact {
+    background: none;
+    border: 0;
+    border-radius: 5px;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0;
+    padding: 4px 6px;
+  }
+  .gact svg { height: 13px; width: 13px; }
+  .ghead:hover .gact, .gact[data-armed="true"] { opacity: 1; }
+  .gact:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .gact.del:hover, .gact.del[data-armed="true"] { color: #f87171; }
+  .group[data-collapsed="true"] .vlist { display: none; }
+  .gempty {
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: rgba(255,255,255,0.38);
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+  .inline-input { display: flex; gap: 6px; margin: 0 0 10px; }
+  .inline-input .input { flex: 1; }
+  .inline-input .btn-primary { padding: 6px 10px; }
+
+  /* B — folder chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 14px 10px;
+  }
+  .fchip {
+    align-items: center;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 6px;
+    padding: 5px 11px;
+  }
+  .fchip:hover { border-color: rgba(94,234,212,0.5); color: #fff; }
+  .fchip[data-active="true"] { background: rgba(94,234,212,0.14); border-color: var(--teal-hi); color: var(--teal-hi); }
+  .fchip .n { color: rgba(255,255,255,0.4); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .fchip[data-active="true"] .n { color: rgba(94,234,212,0.7); }
+  .fchip.add { border-style: dashed; color: rgba(255,255,255,0.5); padding: 5px 9px; }
+  .fchip.add svg { height: 12px; width: 12px; }
+  .fbar {
+    align-items: center;
+    color: rgba(255,255,255,0.5);
+    display: flex;
+    font-size: 11.5px;
+    gap: 6px;
+    justify-content: flex-end;
+    margin: -4px 14px 8px;
+  }
+  .fbar button { background: none; border: 0; color: rgba(255,255,255,0.55); cursor: pointer; font-size: 11.5px; font-weight: 600; padding: 2px 4px; }
+  .fbar button:hover { color: #fff; }
+  .fbar button.del[data-armed="true"], .fbar button.del:hover { color: #f87171; }
+  .vfolder { color: rgba(255,255,255,0.4); font-size: 10.5px; font-weight: 600; margin-top: 2px; }
+  .vtext { display: flex; flex-direction: column; min-width: 0; }
+
+  /* D — chips with fixes */
+  .chips-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin: 0 0 10px;
+    overflow-x: auto;
+    padding: 0 14px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 28px), transparent);
+  }
+  .chips-scroll::-webkit-scrollbar { display: none; }
+  .chips-scroll .fchip { flex: none; max-width: 150px; }
+  .chips-scroll .fchip .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-wrap { flex: none; position: relative; }
+  .fchip .more {
+    align-items: center;
+    background: rgba(94,234,212,0.18);
+    border-radius: 999px;
+    color: var(--teal-hi);
+    display: inline-flex;
+    font-size: 12px;
+    height: 16px;
+    justify-content: center;
+    letter-spacing: 0.05em;
+    line-height: 1;
+    margin-right: -5px;
+    width: 18px;
+  }
+  .fchip .more:hover { background: rgba(94,234,212,0.32); }
+  .chip-menu { left: 14px; right: auto; top: auto; }
+  .chip-menu button.danger:hover, .chip-menu button.danger[data-armed="true"] { background: rgba(248,113,113,0.12); color: #f87171; }
+  .vrow[data-leaving="true"] .vopen { opacity: 0.45; }
+  .vrow[data-leaving="true"] .vside { display: none; }
+  .moved {
+    align-items: center;
+    animation: moved-out 2.6s ease both;
+    background: rgba(20,20,22,0.92);
+    border: 1px solid rgba(94,234,212,0.4);
+    border-radius: 10px;
+    color: rgba(255,255,255,0.85);
+    display: flex;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 10px;
+    inset: 0;
+    justify-content: center;
+    position: absolute;
+  }
+  .moved b { color: var(--teal-hi); }
+  .moved button { background: none; border: 0; color: var(--teal-hi); cursor: pointer; font-size: 12px; font-weight: 700; text-decoration: underline; }
+  @keyframes moved-out { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* C — drill-in */
+  .frow .vopen .fi { color: var(--teal-hi); flex: none; height: 16px; width: 16px; }
+  .frow .vleft { align-items: center; display: flex; gap: 10px; min-width: 0; }
+  .crumb {
+    align-items: center;
+    display: flex;
+    gap: 6px;
+    margin: 10px 10px 8px;
+  }
+  .crumb .back {
+    align-items: center;
+    background: rgba(255,255,255,0.06);
+    border: 0;
+    border-radius: 50%;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: inline-flex;
+    height: 26px;
+    justify-content: center;
+    width: 26px;
+  }
+  .crumb .back:hover { background: rgba(94,234,212,0.15); color: var(--teal-hi); }
+  .crumb .back svg { height: 14px; width: 14px; }
+  .crumb .ctitle { color: #fff; flex: 1; font-size: 14px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sep-label {
+    color: rgba(255,255,255,0.38);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 12px 2px 6px;
+    text-transform: uppercase;
+  }
+
+  /* ── floating switcher (not part of the design) ─────────────────────── */
+  .switcher {
+    align-items: center;
+    background: #fdf2f8;
+    border-radius: 999px;
+    bottom: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    color: #831843;
+    display: flex;
+    font-size: 12.5px;
+    font-weight: 700;
+    gap: 14px;
+    left: 50%;
+    padding: 6px 8px;
+    position: fixed;
+    transform: translateX(-50%);
+    z-index: 100;
+  }
+  .sw-group { align-items: center; display: flex; gap: 4px; }
+  .sw-group button {
+    background: #fbcfe8;
+    border: 0;
+    border-radius: 50%;
+    color: #831843;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    height: 28px;
+    width: 28px;
+  }
+  .sw-label { min-width: 210px; text-align: center; }
+  .sw-sep { background: #f9a8d4; height: 22px; width: 1px; }
+</style>
+</head>
+<body>
+<div class="proto-head">
+  <div>
+    <h1>Prototype — folders + quick-save</h1>
+    <p class="proto-note">
+      <b>Left:</b> player overlay — quick-save + “you’re on loop X, it’s edited”.
+      <b>Right:</b> toolbar popup — folders. Everything is clickable; state is fake.
+      Use the pink buttons to force a state. ←/→ switch overlay variant, Shift+←/→ popup variant.
+    </p>
+  </div>
+  <div class="proto-controls" id="controls"></div>
+</div>
+
+<div class="stage">
+  <section>
+    <p class="col-label" id="o-label"></p>
+    <div class="player" id="player"></div>
+    <p class="variant-blurb" id="o-blurb"></p>
+  </section>
+  <section>
+    <p class="col-label" id="p-label"></p>
+    <div class="popup" id="popup"></div>
+    <p class="variant-blurb" id="p-blurb" style="max-width:320px"></p>
+  </section>
+</div>
+
+<div class="switcher" id="switcher"></div>
+
+<script>
+// ─── icons ────────────────────────────────────────────────────────────
+const I = {
+  power: '<svg viewBox="0 0 24 24"><path d="M12 3.5v7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M7.6 6.6a7 7 0 1 0 8.8 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  zoom: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15 15l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  metro: '<svg viewBox="0 0 24 24"><path d="M8 21h8l-3-16h-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 15l5-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  pitch: '<svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  bookmark: '<svg viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.5L7 20z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  bookmarkFill: '<svg viewBox="0 0 24 24" class="bm"><path d="M7 4h10v16l-5-3.5L7 20z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  bookmarkHollow: '<svg viewBox="0 0 24 24" class="bm"><path d="M7 4h10v16l-5-3.5L7 20z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 4v5h7V4M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  help: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.05" fill="currentColor"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  caret: '<svg viewBox="0 0 24 24" class="caret"><path d="M7 14l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" class="chev"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  chevR: '<svg viewBox="0 0 24 24" style="width:15px;height:15px;color:rgba(94,234,212,.7)"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" class="fi"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  folderPlus: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v6M9 13h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  folderMove: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 13h6M13.5 10.5L16 13l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  tray: '<svg viewBox="0 0 24 24"><path d="M4 13h4l1.5 3h5L16 13h4v6H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
+};
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ─── fake state ───────────────────────────────────────────────────────
+const O = {
+  loops: [
+    { id: "l1", name: "Verse riff", range: "0:42 – 1:03", left: 14, width: 7 },
+    { id: "l2", name: "Solo bars 9–16", range: "2:10 – 2:31", left: 46, width: 7 },
+    { id: "l3", name: "Coda run", range: "4:02 – 4:12", left: 82, width: 4 }
+  ],
+  activeId: "l1",
+  dirty: true,
+  modal: false,
+  focusNew: false,
+  pop: false,       // B: chip popover
+  popNaming: false, // B: inline save-as-new in popover
+  toast: null
+};
+const P = {
+  folders: [
+    { id: "f1", name: "Paganini" },
+    { id: "f2", name: "Jazz standards" }
+  ],
+  videos: [
+    { id: "v1", title: "Caprice No. 24 – Hilary Hahn", count: 3, folder: "f1" },
+    { id: "v2", title: "Caprice No. 5 – Augustin Hadelich", count: 2, folder: "f1" },
+    { id: "v3", title: "Giant Steps – John Coltrane", count: 2, folder: "f2" },
+    { id: "v4", title: "Autumn Leaves – Chet Baker", count: 1, folder: "f2" },
+    { id: "v5", title: "Moonlight Sonata 3rd mvt – Valentina Lisitsa", count: 4, folder: null },
+    { id: "v6", title: "Recuerdos de la Alhambra – Ana Vidović", count: 1, folder: null }
+  ],
+  collapsed: new Set(),
+  menuFor: null,      // video id whose move menu is open
+  armedDel: null,     // "v:<id>" | "f:<id>"
+  creating: false,
+  renaming: null,     // folder id
+  chip: "all",        // B: active filter chip
+  drill: null,        // C: open folder id
+  chipMenu: null,     // D: folder id whose ⋯ menu is open
+  leaving: {}         // D: vid -> previous folder, for the "Moved to" row
+};
+const leaveTimers = {};
+
+// ─── variants ─────────────────────────────────────────────────────────
+const OVERLAY = {
+  A: {
+    name: "Save button + dot",
+    blurb: "<b>A.</b> New <b>Save</b> icon next to the bookmark. Teal dot = current loop has unsaved changes. Hover names the loop. Click / <kbd>⌘S</kbd> overwrites it instantly (toast confirms). No current loop → opens the modal with the name field focused. Modal gets a <b>Current loop</b> card on top: name + <b>Edited</b> badge, <b>Save changes</b> / <b>Save as new</b>."
+  },
+  B: {
+    name: "Loop-name chip + popover",
+    blurb: "<b>B.</b> The bookmark button becomes a <b>chip showing the current loop name</b> (dot when edited). Click → small popover: <b>Save changes</b>, <b>Save as new…</b> (inline name), and a link to all saved loops. You always see which loop you’re on without opening anything. <kbd>⌘S</kbd> still quick-saves. Costs pill width (name truncates)."
+  },
+  C: {
+    name: "Morphing save pill",
+    blurb: "<b>C.</b> One button that changes with state. Clean → quiet <b>✓ Verse riff</b>. Edited → loud teal <b>Save “Verse riff”</b> plus a <b>+</b> for save-as-new. No loop → outline <b>Save loop</b> (opens modal, name focused). The pill itself tells you everything; bookmark stays for browsing. Widest of the three when edited."
+  }
+};
+const POPUP = {
+  A: {
+    name: "Collapsible groups",
+    blurb: "<b>A.</b> Folder headers with chevron + count; click to collapse (remembered per device). Hover a header → rename / delete. Hover a video → <b>move</b> icon opens a folder menu. <b>Unfiled</b> sits last. With zero folders the list looks exactly like today."
+  },
+  B: {
+    name: "Filter chips",
+    blurb: "<b>B.</b> Folders as chips above one flat list: <b>All · Unfiled · Paganini · Jazz…</b> Pick a chip to filter. Rename/delete act on the active chip. In <b>All</b>, each row shows its folder underneath. Compact; no nesting to scroll past."
+  },
+  C: {
+    name: "Drill-in folders",
+    blurb: "<b>C.</b> Top level lists folders as big rows (with counts), then unfiled videos. Click a folder to drill in, ← back out. Feels like a file browser; one level only. Rename/delete live in the folder’s title bar."
+  },
+  D: {
+    name: "Chips, with fixes",
+    blurb: "<b>D.</b> B plus fixes for its weak spots. Always <b>opens on All</b> (try <i>Reopen popup</i>). Chips stay on <b>one scrolling row</b> (try <i>Many folders</i>). Selected folder chip gets a <b>⋯</b> for rename/delete right on the chip. Moving a video out of the current filter leaves a <b>“Moved to X · Undo”</b> row for a moment, so it doesn’t just vanish. In All, filed videos show their folder under the title."
+  }
+};
+const params = new URLSearchParams(location.search);
+let ov = OVERLAY[params.get("o")] ? params.get("o") : "A";
+let pv = POPUP[params.get("p")] ? params.get("p") : "A";
+
+// ─── overlay rendering ────────────────────────────────────────────────
+const activeLoop = () => O.loops.find((l) => l.id === O.activeId) || null;
+
+function pillCommon(inner) {
+  return `
+    <div class="you-loop-panel">
+      <button class="ic power">${I.power}</button>
+      <div class="modes"><button class="mode" data-active="true">Loop</button><button class="mode">One-shot</button></div>
+      <span class="well">1.00×</span>
+      <button class="ic">${I.pitch}</button>
+      <button class="ic">${I.zoom}</button>
+      <button class="ic">${I.metro}</button>
+      ${inner}
+      <button class="ic">${I.help}</button>
+    </div>`;
+}
+
+function pillA() {
+  const loop = activeLoop();
+  const tip = loop
+    ? O.dirty ? `Save changes to “${loop.name}”  ⌘S` : `“${loop.name}” is saved  ⌘S`
+    : "Save loop…  ⌘S";
+  return pillCommon(`
+    <button class="ic" data-act="quicksave" data-tip="${esc(tip)}">${I.save}${loop && O.dirty ? '<span class="dot"></span>' : ""}</button>
+    <button class="ic" data-act="modal" data-tip="Saved loops">${I.bookmark}</button>`);
+}
+
+function pillB() {
+  const loop = activeLoop();
+  const chip = loop
+    ? `<button class="chip" data-act="pop">${I.bookmarkFill}<span class="chip-name">${esc(loop.name)}</span>${O.dirty ? '<span class="chip-dot"></span>' : ""}${I.caret}</button>`
+    : `<button class="chip" data-empty="true" data-act="pop">${I.bookmarkHollow}<span class="chip-name">Unsaved loop</span>${I.caret}</button>`;
+  let pop = "";
+  if (O.pop) {
+    const head = loop
+      ? `<div class="pop-kicker">Current loop</div><div class="pop-name">${esc(loop.name)} ${O.dirty ? '<span class="badge edited">Edited</span>' : '<span class="badge">Saved</span>'}</div>`
+      : `<div class="pop-kicker">Not saved yet</div><div class="pop-name">Name this loop</div>`;
+    const naming = O.popNaming || !loop;
+    pop = `<div class="pop" data-stop>
+      <div class="pop-head">${head}</div>
+      <div class="pop-actions">
+        ${loop ? `<button class="btn-primary" data-act="quicksave">Save changes<kbd>⌘S</kbd></button>` : ""}
+        ${naming
+          ? `<div class="inline-input" style="margin:0"><input class="input" id="pop-name" placeholder="Name this loop" /><button class="btn-primary" data-act="saveNewFromPop">Save</button></div>`
+          : `<button class="btn-ghost" data-act="popNaming">Save as new…</button>`}
+      </div>
+      <hr />
+      <button class="pop-link" data-act="modal">All saved loops (${O.loops.length}) →</button>
+    </div>`;
+  }
+  return pillCommon(`<span style="position:relative">${chip}${pop}</span>`);
+}
+
+function pillC() {
+  const loop = activeLoop();
+  let btn;
+  if (!loop) {
+    btn = `<button class="msave" data-state="none" data-act="quicksave" data-tip="Save this loop  ⌘S">${I.plus}Save loop</button>`;
+  } else if (!O.dirty) {
+    btn = `<button class="msave" data-state="clean" data-tip="On “${esc(loop.name)}” — no changes">${I.check}<span class="msave-name">${esc(loop.name)}</span></button>`;
+  } else {
+    btn = `<span class="msave-group">
+      <button class="msave" data-state="dirty" data-act="quicksave" data-tip="Overwrite “${esc(loop.name)}”  ⌘S">${I.save}<span class="msave-name">Save “${esc(loop.name)}”</span></button>
+      <button class="msave-plus" data-act="saveAsNew" data-tip="Save as new loop">${I.plus}</button>
+    </span>`;
+  }
+  return pillCommon(`${btn}<button class="ic" data-act="modal" data-tip="Saved loops">${I.bookmark}</button>`);
+}
+
+function modalHtml() {
+  const loop = activeLoop();
+  const cur = loop
+    ? `<section class="cur" data-dirty="${O.dirty}">
+        <div class="cur-top">
+          <div><div class="lm-label" style="margin:0 0 4px">Current loop</div><div class="cur-name">${esc(loop.name)}</div><div class="cur-sub">${loop.range}${O.dirty ? " · changed since last save" : ""}</div></div>
+          ${O.dirty ? '<span class="badge edited">Edited</span>' : '<span class="badge">Saved</span>'}
+        </div>
+        ${O.dirty ? `<div class="cur-actions"><button class="btn-primary" data-act="quicksave">Save changes<kbd>⌘S</kbd></button><button class="btn-ghost" data-act="saveAsNew">Save as new</button></div>` : ""}
+      </section>`
+    : "";
+  const rows = O.loops.map((l) => {
+    const isActive = l.id === O.activeId;
+    return `<li class="lm-row" data-selected="${isActive && !O.dirty}" data-drifted="${isActive && O.dirty}">
+      <span class="lm-map"><span class="lm-band" style="left:${l.left}%;width:${l.width}%"></span></span>
+      <button class="lm-apply" data-act="apply" data-id="${l.id}"><span class="lm-name">${esc(l.name)}${isActive ? (O.dirty ? ' <span class="badge edited">Edited</span>' : ' <span class="badge">Current</span>') : ""}</span><span class="lm-range">${l.range}</span></button>
+    </li>`;
+  }).join("");
+  return `<div class="lm-backdrop" data-act="closeModal">
+    <div class="lm-card" data-stop>
+      <button class="lm-close" data-act="closeModal">${I.close}</button>
+      <h2 class="lm-title">Saved loops</h2>
+      ${cur}
+      <section><h3 class="lm-label">Your loops</h3><ul class="lm-list">${rows}</ul></section>
+      <section class="lm-save" data-focus="${O.focusNew}">
+        <h3 class="lm-label">Save current loop as new</h3>
+        <input class="input" id="new-name" placeholder="Name this loop" />
+        <button class="btn-primary lm-savebtn" data-act="saveNewFromModal">Save</button>
+      </section>
+    </div>
+  </div>`;
+}
+
+function renderOverlay() {
+  const pill = ov === "A" ? pillA() : ov === "B" ? pillB() : pillC();
+  const loop = activeLoop();
+  const band = loop ? `<div class="yt-band" style="left:${loop.left}%;width:${loop.width}%"></div>` : `<div class="yt-band" style="left:0;width:100%;opacity:.5"></div>`;
+  document.getElementById("player").innerHTML = `
+    <div class="yt-chrome"></div>
+    <div class="yt-bar"><div class="yt-played"></div>${band}</div>
+    <div class="yt-controls"><span>▶</span><span>⏭</span><span>🔊</span><span>1:58 / 5:12</span></div>
+    <div class="pill-anchor">${pill}${O.toast ? `<div class="toast" key="${Date.now()}">${esc(O.toast)}</div>` : ""}</div>
+    ${O.modal ? modalHtml() : ""}`;
+  document.getElementById("o-label").textContent = `Player overlay — ${ov}: ${OVERLAY[ov].name}`;
+  document.getElementById("o-blurb").innerHTML = OVERLAY[ov].blurb;
+  if (O.modal && O.focusNew) document.getElementById("new-name")?.focus();
+  if (O.pop && (O.popNaming || !activeLoop())) document.getElementById("pop-name")?.focus();
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  O.toast = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { O.toast = null; renderOverlay(); }, 1800);
+}
+
+function quickSave() {
+  const loop = activeLoop();
+  if (!loop) { O.modal = true; O.focusNew = true; O.pop = false; return; }
+  O.dirty = false;
+  O.pop = false;
+  O.popNaming = false;
+  toast(`Saved “${loop.name}”`);
+}
+
+function saveNew(name) {
+  name = (name || "").trim();
+  if (!name) return false;
+  const id = "l" + Math.random().toString(36).slice(2, 7);
+  O.loops.push({ id, name, range: "1:12 – 1:30", left: 24, width: 6 });
+  O.activeId = id;
+  O.dirty = false;
+  O.focusNew = false;
+  O.pop = false;
+  O.popNaming = false;
+  toast(`Saved “${name}”`);
+  return true;
+}
+
+document.getElementById("player").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-act]");
+  const inStop = e.target.closest("[data-stop]");
+  if (!t) {
+    if (O.pop && !inStop) { O.pop = false; O.popNaming = false; renderOverlay(); }
+    return;
+  }
+  if (t.dataset.act === "closeModal" && inStop && !t.classList.contains("lm-close")) return;
+  switch (t.dataset.act) {
+    case "quicksave": quickSave(); break;
+    case "modal": O.modal = true; O.focusNew = false; O.pop = false; break;
+    case "closeModal": O.modal = false; O.focusNew = false; break;
+    case "apply": O.activeId = t.dataset.id; O.dirty = false; toast(`Loaded “${activeLoop().name}”`); break;
+    case "saveAsNew":
+      if (ov === "B") { O.pop = true; O.popNaming = true; }
+      else { O.modal = true; O.focusNew = true; }
+      break;
+    case "saveNewFromModal": saveNew(document.getElementById("new-name").value); break;
+    case "saveNewFromPop": saveNew(document.getElementById("pop-name").value); break;
+    case "pop": O.pop = !O.pop; O.popNaming = false; break;
+    case "popNaming": O.popNaming = true; break;
+  }
+  renderOverlay();
+});
+document.getElementById("player").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  if (e.target.id === "new-name") { saveNew(e.target.value); renderOverlay(); }
+  if (e.target.id === "pop-name") { saveNew(e.target.value); renderOverlay(); }
+});
+
+// ─── popup rendering ──────────────────────────────────────────────────
+const folderName = (id) => P.folders.find((f) => f.id === id)?.name ?? "Unfiled";
+const inFolder = (fid) => P.videos.filter((v) => (v.folder ?? null) === fid);
+
+function moveMenu(v) {
+  const opts = P.folders.map((f) =>
+    `<button data-pact="moveTo" data-vid="${v.id}" data-fid="${f.id}" data-current="${v.folder === f.id}">${I.folder}${esc(f.name)}</button>`).join("");
+  return `<div class="menu" data-pstop>
+    <div class="menu-kicker">Move to</div>
+    ${opts}
+    <button data-pact="moveTo" data-vid="${v.id}" data-fid="" data-current="${v.folder == null}">${I.tray}Unfiled</button>
+    <hr />
+    <button data-pact="newFolderFor" data-vid="${v.id}">${I.folderPlus}New folder…</button>
+  </div>`;
+}
+
+function videoRow(v, { showFolder = false } = {}) {
+  const armed = P.armedDel === "v:" + v.id;
+  const name = showFolder
+    ? `<span class="vtext"><span class="vname">${esc(v.title)}</span><span class="vfolder">${esc(folderName(v.folder))}</span></span>`
+    : `<span class="vname">${esc(v.title)}</span>`;
+  return `<li class="vrow">
+    <button class="vopen" title="${esc(v.title)}">${name}<span class="vcount">${v.count} ${v.count === 1 ? "loop" : "loops"}</span></button>
+    <button class="vside move" data-pact="menu" data-vid="${v.id}" data-open="${P.menuFor === v.id}" title="Move to folder">${I.folderMove}</button>
+    <button class="vside del" data-pact="delVideo" data-vid="${v.id}" data-armed="${armed}">${armed ? "Delete?" : "✕"}</button>
+    ${P.menuFor === v.id ? moveMenu(v) : ""}
+  </li>`;
+}
+
+function nameInput(id, value, placeholder) {
+  return `<div class="inline-input" data-pstop><input class="input" id="${id}" value="${esc(value)}" placeholder="${placeholder}" /><button class="btn-primary" data-pact="commit-${id}">OK</button></div>`;
+}
+
+function popupA() {
+  const groups = [...P.folders.map((f) => ({ id: f.id, name: f.name })), { id: null, name: "Unfiled" }];
+  if (P.folders.length === 0) {
+    return `<ul class="vlist">${P.videos.map((v) => videoRow(v)).join("")}</ul>`;
+  }
+  return groups.map((g) => {
+    const key = g.id ?? "unfiled";
+    const vids = inFolder(g.id);
+    if (g.id == null && vids.length === 0) return "";
+    const collapsed = P.collapsed.has(key);
+    const armed = P.armedDel === "f:" + g.id;
+    const head = P.renaming === g.id && g.id != null
+      ? nameInput("rename", g.name, "Folder name")
+      : `<div class="ghead">
+          <button class="gtoggle" data-pact="toggle" data-key="${key}">${I.chev}${I.folder}<span class="gname">${esc(g.name)}</span><span class="gcount">${vids.length}</span></button>
+          ${g.id != null ? `<button class="gact" data-pact="rename" data-fid="${g.id}" title="Rename">${I.pencil}</button>
+          <button class="gact del" data-pact="delFolder" data-fid="${g.id}" data-armed="${armed}" title="Delete folder (videos move to Unfiled)">${armed ? "Delete folder?" : "✕"}</button>` : ""}
+        </div>`;
+    const body = vids.length
+      ? `<ul class="vlist">${vids.map((v) => videoRow(v)).join("")}</ul>`
+      : `<ul class="vlist"><li class="gempty">Empty — use a video’s move icon to file it here.</li></ul>`;
+    return `<div class="group" data-collapsed="${collapsed}" data-unfiled="${g.id == null}">${head}${body}</div>`;
+  }).join("");
+}
+
+function popupB() {
+  const total = P.videos.length;
+  const unfiled = inFolder(null).length;
+  const chip = (key, label, n) => `<button class="fchip" data-pact="chip" data-key="${key}" data-active="${P.chip === key}">${esc(label)}<span class="n">${n}</span></button>`;
+  const chips = `<div class="chips">
+    ${chip("all", "All", total)}
+    ${P.folders.map((f) => chip(f.id, f.name, inFolder(f.id).length)).join("")}
+    ${chip("unfiled", "Unfiled", unfiled)}
+    <button class="fchip add" data-pact="newFolder">${I.plus}Folder</button>
+  </div>`;
+  const activeFolder = P.folders.find((f) => f.id === P.chip);
+  const armed = activeFolder && P.armedDel === "f:" + activeFolder.id;
+  const bar = activeFolder
+    ? (P.renaming === activeFolder.id
+        ? `<div style="margin:0 14px">${nameInput("rename", activeFolder.name, "Folder name")}</div>`
+        : `<div class="fbar"><button data-pact="rename" data-fid="${activeFolder.id}">Rename</button>·<button class="del" data-pact="delFolder" data-fid="${activeFolder.id}" data-armed="${armed}">${armed ? "Delete folder? (videos kept)" : "Delete folder"}</button></div>`)
+    : "";
+  const list = P.chip === "all" ? P.videos : P.chip === "unfiled" ? inFolder(null) : inFolder(P.chip);
+  const creating = P.creating ? `<div style="margin:0 14px">${nameInput("create", "", "New folder name")}</div>` : "";
+  return { above: chips + creating + bar, list: list.length ? `<ul class="vlist">${list.map((v) => videoRow(v, { showFolder: P.chip === "all" })).join("")}</ul>` : `<p class="empty">Nothing here yet — use a video’s move icon.</p>` };
+}
+
+function popupC() {
+  if (P.drill) {
+    const f = P.folders.find((x) => x.id === P.drill);
+    const armed = P.armedDel === "f:" + f.id;
+    const vids = inFolder(f.id);
+    const head = P.renaming === f.id
+      ? `<div style="margin:10px 10px 0">${nameInput("rename", f.name, "Folder name")}</div>`
+      : `<div class="crumb"><button class="back" data-pact="back">${I.back}</button><span class="ctitle">${esc(f.name)}</span>
+          <button class="gact" style="opacity:1" data-pact="rename" data-fid="${f.id}">${I.pencil}</button>
+          <button class="gact del" style="opacity:1" data-pact="delFolder" data-fid="${f.id}" data-armed="${armed}">${armed ? "Delete?" : "✕"}</button></div>`;
+    return { crumb: head, list: vids.length ? `<ul class="vlist">${vids.map((v) => videoRow(v)).join("")}</ul>` : `<p class="empty">Empty folder.</p>` };
+  }
+  const frows = P.folders.map((f) => {
+    const n = inFolder(f.id).length;
+    return `<li class="vrow frow"><button class="vopen" data-pact="drill" data-fid="${f.id}"><span class="vleft">${I.folder}<span class="vname">${esc(f.name)}</span></span><span style="display:flex;gap:6px;align-items:center"><span class="vcount">${n} ${n === 1 ? "video" : "videos"}</span>${I.chevR}</span></button></li>`;
+  }).join("");
+  const unfiled = inFolder(null);
+  return {
+    crumb: "",
+    list: `<ul class="vlist">${frows}</ul>${unfiled.length ? `<div class="sep-label">Unfiled</div><ul class="vlist">${unfiled.map((v) => videoRow(v)).join("")}</ul>` : ""}`
+  };
+}
+
+function popupD() {
+  const chip = (key, label, n) => {
+    const active = P.chip === key;
+    const isFolder = key !== "all" && key !== "unfiled";
+    return `<span class="chip-wrap"><button class="fchip" data-pact="chip" data-key="${key}" data-active="${active}" title="${esc(label)}"><span class="lbl">${esc(label)}</span><span class="n">${n}</span>${active && isFolder ? `<span class="more" data-pact="chipMenu" data-fid="${key}">⋯</span>` : ""}</button></span>`;
+  };
+  const chips = `<div class="chips-scroll">
+    ${chip("all", "All", P.videos.length)}
+    ${P.folders.map((f) => chip(f.id, f.name, inFolder(f.id).length)).join("")}
+    ${chip("unfiled", "Unfiled", inFolder(null).length)}
+    <button class="fchip add" data-pact="newFolder">${I.plus}Folder</button>
+  </div>`;
+  const f = P.folders.find((x) => x.id === P.chipMenu);
+  const armed = f && P.armedDel === "f:" + f.id;
+  const menu = f
+    ? `<div style="position:relative;margin:-6px 0 6px"><div class="menu chip-menu" data-pstop>
+        <div class="menu-kicker">${esc(f.name)}</div>
+        <button data-pact="rename" data-fid="${f.id}">${I.pencil}Rename</button>
+        <button class="danger" data-pact="delFolder" data-fid="${f.id}" data-armed="${armed}">${armed ? "Delete folder? Videos are kept" : "Delete folder"}</button>
+      </div></div>`
+    : "";
+  const renaming = P.renaming && P.folders.some((x) => x.id === P.renaming)
+    ? `<div style="margin:0 14px">${nameInput("rename", folderName(P.renaming), "Folder name")}</div>` : "";
+  const creating = P.creating ? `<div style="margin:0 14px">${nameInput("create", "", "New folder name")}</div>` : "";
+  const matches = (v) => P.chip === "all" || (P.chip === "unfiled" ? v.folder == null : v.folder === P.chip);
+  const list = P.videos.filter((v) => matches(v) || P.leaving[v.id]);
+  const rows = list.map((v) => {
+    if (!P.leaving[v.id]) return videoRow(v, { showFolder: P.chip === "all" && v.folder != null });
+    return videoRow(v).replace('<li class="vrow">', '<li class="vrow" data-leaving="true">')
+      .replace("</li>", `<div class="moved" data-pstop>Moved to <b>${esc(folderName(v.folder))}</b><button data-pact="undoMove" data-vid="${v.id}">Undo</button></div></li>`);
+  }).join("");
+  return {
+    above: chips + menu + renaming + creating,
+    list: list.length ? `<ul class="vlist">${rows}</ul>` : `<p class="empty">Nothing here yet — use a video’s move icon.</p>`
+  };
+}
+
+function renderPopup() {
+  let above = "", list = "", crumb = "";
+  if (pv === "A") list = popupA();
+  if (pv === "B") ({ above, list } = popupB());
+  if (pv === "C") ({ crumb, list } = popupC());
+  if (pv === "D") ({ above, list } = popupD());
+  const creating = P.creating && pv !== "B" && pv !== "D" ? `<div style="margin:0 10px">${nameInput("create", "", "New folder name")}</div>` : "";
+  const labelRow = pv === "B" || pv === "D"
+    ? `<div class="popup-labelrow"><p class="popup-label">Saved videos</p></div>`
+    : `<div class="popup-labelrow"><p class="popup-label">Saved videos</p>${P.drill ? "" : `<button class="newfolder" data-pact="newFolder">${I.folderPlus}New folder</button>`}</div>`;
+  document.getElementById("popup").innerHTML = `
+    <header class="popup-head"><span class="wordmark"><i>É</i>tude</span><button class="switch"></button></header>
+    ${crumb || labelRow}
+    ${above}
+    ${creating}
+    <div class="popup-list">${list}</div>`;
+  document.getElementById("p-label").textContent = `Toolbar popup — ${pv}: ${POPUP[pv].name}`;
+  document.getElementById("p-blurb").innerHTML = POPUP[pv].blurb;
+  document.getElementById("create")?.focus();
+  const r = document.getElementById("rename");
+  if (r) { r.focus(); r.select(); }
+}
+
+let pendingMoveVid = null;
+function commitCreate(value) {
+  const name = (value || "").trim();
+  P.creating = false;
+  if (!name) return;
+  const id = "f" + Math.random().toString(36).slice(2, 7);
+  P.folders.push({ id, name });
+  if (pendingMoveVid) {
+    P.videos.find((v) => v.id === pendingMoveVid).folder = id;
+    pendingMoveVid = null;
+  }
+  if (pv === "B") P.chip = id;
+}
+function commitRename(value) {
+  const name = (value || "").trim();
+  const f = P.folders.find((x) => x.id === P.renaming);
+  if (f && name) f.name = name;
+  P.renaming = null;
+}
+
+document.getElementById("popup").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-pact]");
+  if (!t) {
+    if (!e.target.closest("[data-pstop]")) { P.menuFor = null; P.armedDel = null; P.chipMenu = null; renderPopup(); }
+    return;
+  }
+  const { pact, vid, fid, key } = t.dataset;
+  const wasArmed = P.armedDel;
+  if (pact !== "delVideo" && pact !== "delFolder") P.armedDel = null;
+  if (pact !== "chipMenu" && pact !== "delFolder") P.chipMenu = null;
+  switch (pact) {
+    case "toggle": P.collapsed.has(key) ? P.collapsed.delete(key) : P.collapsed.add(key); break;
+    case "menu": P.menuFor = P.menuFor === vid ? null : vid; break;
+    case "moveTo": {
+      const v = P.videos.find((x) => x.id === vid);
+      const prev = v.folder;
+      v.folder = fid || null;
+      P.menuFor = null;
+      if (pv === "D" && P.chip !== "all" && prev !== v.folder) {
+        P.leaving[vid] = { prev };
+        clearTimeout(leaveTimers[vid]);
+        leaveTimers[vid] = setTimeout(() => { delete P.leaving[vid]; renderPopup(); }, 2600);
+      }
+      break;
+    }
+    case "undoMove": {
+      const v = P.videos.find((x) => x.id === vid);
+      v.folder = P.leaving[vid]?.prev ?? null;
+      delete P.leaving[vid];
+      clearTimeout(leaveTimers[vid]);
+      break;
+    }
+    case "chipMenu": P.chipMenu = P.chipMenu === fid ? null : fid; e.stopPropagation(); break;
+    case "newFolderFor": pendingMoveVid = vid; P.menuFor = null; P.creating = true; break;
+    case "newFolder": P.creating = true; P.renaming = null; break;
+    case "commit-create": commitCreate(document.getElementById("create").value); break;
+    case "commit-rename": commitRename(document.getElementById("rename").value); break;
+    case "rename": P.renaming = fid; P.creating = false; break;
+    case "delVideo":
+      if (wasArmed === "v:" + vid) { P.videos = P.videos.filter((v) => v.id !== vid); P.armedDel = null; }
+      else P.armedDel = "v:" + vid;
+      break;
+    case "delFolder":
+      if (wasArmed === "f:" + fid) {
+        P.folders = P.folders.filter((f) => f.id !== fid);
+        P.videos.forEach((v) => { if (v.folder === fid) v.folder = null; });
+        P.armedDel = null;
+        if (P.chip === fid) P.chip = pv === "D" ? "all" : "unfiled";
+        P.chipMenu = null;
+        if (P.drill === fid) P.drill = null;
+      } else P.armedDel = "f:" + fid;
+      break;
+    case "chip": P.chip = key; P.renaming = null; break;
+    case "drill": P.drill = fid; break;
+    case "back": P.drill = null; P.renaming = null; break;
+  }
+  renderPopup();
+});
+document.getElementById("popup").addEventListener("keydown", (e) => {
+  if (e.target.id === "create") {
+    if (e.key === "Enter") { commitCreate(e.target.value); renderPopup(); }
+    if (e.key === "Escape") { P.creating = false; pendingMoveVid = null; renderPopup(); }
+  }
+  if (e.target.id === "rename") {
+    if (e.key === "Enter") { commitRename(e.target.value); renderPopup(); }
+    if (e.key === "Escape") { P.renaming = null; renderPopup(); }
+  }
+});
+
+// ─── state controls (prototype only) ──────────────────────────────────
+function renderControls() {
+  const set = [
+    ["No current loop", () => { O.activeId = null; O.dirty = false; }, () => O.activeId == null],
+    ["On loop, saved", () => { O.activeId = O.activeId ?? "l1"; O.dirty = false; }, () => O.activeId != null && !O.dirty],
+    ["On loop, edited", () => { O.activeId = O.activeId ?? "l1"; O.dirty = true; }, () => O.activeId != null && O.dirty],
+    ["Long loop name", () => { O.loops[0].name = "Bars 33–48 left-hand shift practice"; O.activeId = "l1"; }, () => O.loops[0].name.length > 20],
+    ["Open modal", () => { O.modal = true; O.focusNew = false; }, () => O.modal],
+    ["Popup: many folders", () => {
+      const names = ["Bach partitas", "Scales & arpeggios", "Bebop heads", "Sight-reading", "Wedding gig set — September", "Ear training"];
+      names.forEach((n, i) => { if (!P.folders.some((f) => f.name === n)) P.folders.push({ id: "fx" + i, name: n }); });
+    }, () => P.folders.length > 4],
+    ["Reopen popup", () => {
+      P.menuFor = null; P.chipMenu = null; P.creating = false; P.renaming = null; P.armedDel = null; P.leaving = {};
+      if (pv === "D") P.chip = "all"; // D always opens on All; B remembers the last chip
+      P.drill = null;
+    }, () => false],
+    ["Popup: no folders", () => { P.folders = []; P.videos.forEach((v) => (v.folder = null)); P.chip = "all"; P.drill = null; }, () => P.folders.length === 0]
+  ];
+  const el = document.getElementById("controls");
+  el.innerHTML = set.map(([label], i) => `<button data-i="${i}" data-on="${set[i][2]()}">${label}</button>`).join("");
+  el.onclick = (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    set[+b.dataset.i][1]();
+    renderAll();
+  };
+}
+
+// ─── switcher ─────────────────────────────────────────────────────────
+function renderSwitcher() {
+  document.getElementById("switcher").innerHTML = `
+    <div class="sw-group"><button data-sw="o" data-d="-1">‹</button><span class="sw-label">Overlay ${ov} — ${OVERLAY[ov].name}</span><button data-sw="o" data-d="1">›</button></div>
+    <span class="sw-sep"></span>
+    <div class="sw-group"><button data-sw="p" data-d="-1">‹</button><span class="sw-label">Popup ${pv} — ${POPUP[pv].name}</span><button data-sw="p" data-d="1">›</button></div>`;
+}
+function cycle(which, d) {
+  if (which === "o") { const k = Object.keys(OVERLAY); ov = k[(k.indexOf(ov) + d + k.length) % k.length]; O.pop = false; }
+  else { const k = Object.keys(POPUP); pv = k[(k.indexOf(pv) + d + k.length) % k.length]; P.renaming = null; P.creating = false; P.menuFor = null; P.chipMenu = null; }
+  const q = new URLSearchParams({ o: ov, p: pv });
+  history.replaceState(null, "", "?" + q);
+  renderAll();
+}
+document.getElementById("switcher").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sw]");
+  if (b) cycle(b.dataset.sw, +b.dataset.d);
+});
+document.addEventListener("keydown", (e) => {
+  const t = e.target;
+  if (t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    cycle(e.shiftKey ? "p" : "o", e.key === "ArrowRight" ? 1 : -1);
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    quickSave();
+    renderOverlay();
+  }
+});
+
+function renderAll() { renderOverlay(); renderPopup(); renderControls(); renderSwitcher(); }
+renderAll();
+</script>
+</body>
+</html>

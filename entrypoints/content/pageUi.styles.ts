@@ -1743,9 +1743,9 @@ export const PAGE_UI_STYLES = `
 
     /* Edited since last save. */
     .you-loop-loops-chip-dot {
-      background: #5eead4;
+      background: #fbbf24;
       border-radius: 50%;
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18);
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18);
       flex: none;
       height: 7px;
       width: 7px;
@@ -1791,8 +1791,11 @@ export const PAGE_UI_STYLES = `
       padding: 6px 8px;
     }
 
-    .you-loop-loops-input:focus {
-      border-color: rgba(94, 234, 212, 0.6);
+    /* The border is the focus indicator (also for keyboard focus — these are
+       left out of the shared focus-visible ring so it doesn't double up). */
+    .you-loop-loops-input:focus,
+    .you-loop-loops-input:focus-visible {
+      border-color: #5eead4;
       outline: none;
     }
 
@@ -1828,11 +1831,11 @@ export const PAGE_UI_STYLES = `
       display: flex;
       flex-direction: column;
       font-family: "YouTube Sans", "Roboto", system-ui, sans-serif;
-      gap: 18px;
-      max-height: calc(100% - 48px);
-      max-width: 420px;
+      gap: 16px;
+      max-height: 100%;
+      max-width: 400px;
       overflow-y: auto;
-      padding: 24px 26px 22px;
+      padding: 22px 22px 20px;
       position: relative;
       width: 100%;
     }
@@ -1865,167 +1868,181 @@ export const PAGE_UI_STYLES = `
       color: #ffffff;
     }
 
-    .you-loop-lm-head {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
     .you-loop-lm-title {
       color: #fff;
+      flex: none;
       font-size: 17px;
       font-weight: 700;
       letter-spacing: 0.01em;
       margin: 0;
+      padding-right: 36px;
     }
 
-    .you-loop-lm-label {
-      color: rgba(255, 255, 255, 0.42);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      margin: 0 0 10px;
-      text-transform: uppercase;
+    .you-loop-lm-empty {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 2px 0 4px;
     }
 
-    /* "Current loop" card: which saved loop you're on, whether it has been
-       edited, and the two ways to keep the edits. */
-    .you-loop-lm-current {
-      background: rgba(94, 234, 212, 0.06);
-      border: 1px solid rgba(94, 234, 212, 0.28);
-      border-radius: 12px;
-      padding: 12px 14px 14px;
+    /* Edited-since-saved marker: the same amber dot on the pill chip, the
+       active row and the footer status. */
+    .you-loop-lm-dot,
+    .you-loop-lm-status[data-edited="true"]::before {
+      background: #fbbf24;
+      border-radius: 50%;
+      flex: none;
+      height: 6px;
+      width: 6px;
     }
 
-    .you-loop-lm-current[data-dirty="true"] {
-      background: rgba(251, 191, 36, 0.05);
-      border-color: rgba(251, 191, 36, 0.35);
-    }
-
-    .you-loop-lm-current-top {
-      align-items: flex-start;
+    /* Docked footer: the loop you're on, and how to keep it. Stays put while
+       the list above scrolls. */
+    .you-loop-lm-foot {
+      border-top: 1px solid rgba(255, 255, 255, 0.09);
       display: flex;
-      gap: 10px;
+      flex: none;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 16px;
+    }
+
+    .you-loop-lm-now {
+      align-items: center;
+      display: flex;
+      gap: 12px;
       justify-content: space-between;
-    }
-
-    .you-loop-lm-current-text {
-      min-width: 0;
-    }
-
-    .you-loop-lm-current-label {
-      margin-bottom: 4px;
-    }
-
-    .you-loop-lm-current-name {
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
       margin: 0;
+    }
+
+    .you-loop-lm-now-text {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .you-loop-lm-badge {
-      background: rgba(94, 234, 212, 0.16);
-      border-radius: 999px;
-      color: #5eead4;
-      flex: none;
-      font-size: 9.5px;
+    .you-loop-lm-now-text strong {
+      color: #fff;
       font-weight: 700;
-      letter-spacing: 0.06em;
-      padding: 2px 7px;
-      text-transform: uppercase;
     }
 
-    .you-loop-lm-badge[data-edited="true"] {
-      background: rgba(251, 191, 36, 0.14);
+    .you-loop-lm-status {
+      align-items: center;
+      color: rgba(255, 255, 255, 0.45);
+      display: inline-flex;
+      flex: none;
+      font-size: 12px;
+      font-weight: 600;
+      gap: 6px;
+    }
+
+    .you-loop-lm-status[data-edited="true"] {
       color: #fbbf24;
     }
 
-    .you-loop-lm-current-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
+    .you-loop-lm-status[data-edited="true"]::before {
+      content: "";
     }
 
-    .you-loop-lm-current-save,
-    .you-loop-lm-current-new {
-      border-radius: 8px;
-      cursor: pointer;
+    .you-loop-lm-now-actions,
+    .you-loop-lm-new {
+      display: flex;
+      gap: 8px;
+    }
+
+    .you-loop-lm-now-actions .you-loop-lm-btn {
       flex: 1;
+    }
+
+    .you-loop-lm-new-name {
+      flex: 1;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 10px;
+    }
+
+    .you-loop-lm-new-name::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* One button for the whole modal footer. Neutral by default; teal when it
+       is the thing to press (unsaved changes, or a new loop ready to save). */
+    .you-loop-lm-btn {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.88);
+      cursor: pointer;
+      display: inline-flex;
+      flex: none;
       font-family: inherit;
       font-size: 12.5px;
       font-weight: 700;
-      padding: 8px 12px;
-      transition: background 0.15s ease, border-color 0.15s ease;
+      gap: 8px;
+      justify-content: center;
+      line-height: 1;
+      padding: 9px 14px;
+      transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+      white-space: nowrap;
     }
 
-    .you-loop-lm-current-save {
-      background: #5eead4;
-      border: 0;
-      color: #06302b;
-    }
-
-    .you-loop-lm-current-save:hover {
-      background: #7af0de;
-    }
-
-    .you-loop-lm-current-new {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: rgba(255, 255, 255, 0.85);
-    }
-
-    .you-loop-lm-current-new:hover {
-      border-color: rgba(94, 234, 212, 0.5);
+    .you-loop-lm-btn:not(:disabled):hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.22);
       color: #fff;
     }
 
-    .you-loop-lm-save {
-      background: rgba(255, 255, 255, 0.035);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      padding: 14px 14px 14px;
-    }
-
-    .you-loop-lm-name {
-      width: 100%;
-    }
-
-    .you-loop-lm-savebtn {
+    .you-loop-lm-btn[data-primary="true"] {
       background: #5eead4;
-      border: 0;
-      border-radius: 8px;
+      border-color: transparent;
       color: #06302b;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12.5px;
-      font-weight: 700;
-      margin-top: 12px;
-      padding: 8px 14px;
-      transition: background 0.15s ease;
-      width: 100%;
     }
 
-    .you-loop-lm-savebtn:not(:disabled):hover {
+    .you-loop-lm-btn[data-primary="true"]:not(:disabled):hover {
       background: #7af0de;
+      border-color: transparent;
+      color: #06302b;
     }
 
-    .you-loop-lm-savebtn:disabled {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.4);
+    .you-loop-lm-btn:disabled {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: transparent;
+      color: rgba(255, 255, 255, 0.35);
       cursor: default;
+    }
+
+    .you-loop-lm-btn--quiet {
+      background: transparent;
+      border-color: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 600;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .you-loop-lm-kbd {
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.55;
     }
 
     .you-loop-lm-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
+      flex: 0 1 auto;
       list-style: none;
       margin: 0;
-      max-height: 220px;
+      max-height: 232px;
+      min-height: 42px;
       overflow-y: auto;
       padding: 0;
     }
@@ -2067,10 +2084,11 @@ export const PAGE_UI_STYLES = `
 
     .you-loop-lm-row {
       align-items: center;
-      /* Subtle outline on every saved loop; the selected one turns teal. */
+      /* Subtle outline on every saved loop; the one you're on turns teal. */
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 8px;
       display: flex;
+      flex: none;
       gap: 6px;
       padding: 3px 6px 3px 4px;
       position: relative;
@@ -2114,12 +2132,16 @@ export const PAGE_UI_STYLES = `
       text-align: left;
     }
 
-    .you-loop-lm-name-text {
+    .you-loop-lm-name {
       align-items: center;
       display: flex;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .you-loop-lm-name-text {
       font-size: 13px;
       font-weight: 600;
-      gap: 7px;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -2146,11 +2168,13 @@ export const PAGE_UI_STYLES = `
       border-radius: 4px;
       color: rgba(255, 255, 255, 0.55);
       cursor: pointer;
-      font-size: 13px;
       line-height: 1;
       opacity: 0;
       padding: 5px 6px;
-      transition: opacity 0.12s ease;
+      transition:
+        opacity 0.12s ease,
+        background 0.12s ease,
+        color 0.12s ease;
     }
 
     .you-loop-lm-row:hover .you-loop-lm-actions button,
@@ -2175,7 +2199,8 @@ export const PAGE_UI_STYLES = `
 
     /* An SVG with only a viewBox defaults to 300×150 — it must be sized
        explicitly or the pencil renders unusably. */
-    .you-loop-lm-edit svg {
+    .you-loop-lm-edit svg,
+    .you-loop-lm-delete svg {
       display: block;
       height: 13px;
       width: 13px;
@@ -2248,28 +2273,55 @@ export const PAGE_UI_STYLES = `
       color: rgba(255, 255, 255, 0.85);
     }
 
+    /* A checkbox in all but element: ticking it is part of the draft, and
+       only Save commits it (Cancel/Esc discards it). */
     .you-loop-lm-replace {
+      align-items: center;
       background: transparent;
-      border: 1px solid rgba(94, 234, 212, 0.5);
+      border: 0;
       border-radius: 6px;
-      color: #5eead4;
+      color: rgba(255, 255, 255, 0.75);
       cursor: pointer;
+      display: inline-flex;
       flex: none;
       font-family: inherit;
       font-size: 12px;
-      padding: 6px 10px;
-      transition: background 0.15s ease;
+      gap: 7px;
+      padding: 6px 4px 6px 2px;
+      transition: color 0.15s ease;
     }
 
-    .you-loop-lm-replace:hover {
-      background: rgba(94, 234, 212, 0.08);
-    }
-
-    /* Armed = part of the draft: filled + solid border until Save commits it
-       (or Cancel/Esc discards it). */
+    .you-loop-lm-replace:hover,
     .you-loop-lm-replace[data-armed="true"] {
-      background: rgba(94, 234, 212, 0.14);
+      color: #fff;
+    }
+
+    .you-loop-lm-check {
+      border: 1.5px solid rgba(255, 255, 255, 0.4);
+      border-radius: 4px;
+      box-sizing: border-box;
+      flex: none;
+      height: 14px;
+      position: relative;
+      transition: background 0.12s ease, border-color 0.12s ease;
+      width: 14px;
+    }
+
+    .you-loop-lm-replace[data-armed="true"] .you-loop-lm-check {
+      background: #5eead4;
       border-color: #5eead4;
+    }
+
+    .you-loop-lm-replace[data-armed="true"] .you-loop-lm-check::after {
+      border: solid #06302b;
+      border-width: 0 2px 2px 0;
+      content: "";
+      height: 7px;
+      left: 3.5px;
+      position: absolute;
+      top: 0.5px;
+      transform: rotate(45deg);
+      width: 3px;
     }
 
     /* Full-height position tint: a quick visual of where this loop sits
@@ -2311,8 +2363,7 @@ export const PAGE_UI_STYLES = `
        clicks don't show it (focus-visible), so pointer use stays clean. */
     .you-loop-page-ui button:focus-visible,
     .you-loop-help-backdrop button:focus-visible,
-    .you-loop-lm-backdrop button:focus-visible,
-    .you-loop-lm-backdrop input:focus-visible {
+    .you-loop-lm-backdrop button:focus-visible {
       outline: 2px solid rgba(94, 234, 212, 0.85);
       outline-offset: 2px;
     }

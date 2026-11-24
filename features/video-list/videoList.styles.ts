@@ -1,5 +1,4 @@
-// Styles for the shared saved-videos list. Interpolated into PAGE_UI_STYLES
-// (saved-loops modal) and rendered as a <style> tag by the popup.
+// Styles for the saved-videos list, rendered as a <style> tag by the popup.
 export const VIDEO_LIST_STYLES = `
     .you-loop-lm-empty {
       color: rgba(255, 255, 255, 0.45);
@@ -123,27 +122,52 @@ export const VIDEO_LIST_STYLES = `
       transform: translateX(0);
     }
 
-    /* Delete sits beside the row, hidden until hover (or keyboard focus, or
-       while armed). Arming turns it red and swaps ✕ for "Delete?". */
+    /* Delete sits beside the row and, like the move button, takes no width
+       until the row is hovered (or it has keyboard focus, or is armed), so
+       titles run the full width at rest. Arming turns it red and swaps the
+       trash icon for "Delete?". */
     .you-loop-lm-vdel {
+      align-items: center;
       background: rgba(255, 255, 255, 0.035);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 0 solid rgba(255, 255, 255, 0.08);
       border-radius: 10px;
       color: rgba(255, 255, 255, 0.55);
       cursor: pointer;
+      display: inline-flex;
       flex: none;
       font-family: inherit;
       font-size: 11px;
       font-weight: 600;
+      justify-content: center;
+      margin-left: -6px;
       opacity: 0;
-      padding: 0 10px;
-      transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      overflow: hidden;
+      padding: 0;
+      transition: opacity 0.15s ease, width 0.15s ease, margin 0.15s ease,
+        border-color 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+      width: 0;
+    }
+
+    .you-loop-lm-vdel svg,
+    .you-loop-lm-gdel svg {
+      flex: none;
+      height: 14px;
+      width: 14px;
     }
 
     .you-loop-lm-vrow:hover .you-loop-lm-vdel,
     .you-loop-lm-vdel:focus-visible,
     .you-loop-lm-vdel[data-confirming="true"] {
+      border-width: 1px;
+      margin-left: 0;
       opacity: 1;
+      width: 34px;
+    }
+
+    .you-loop-lm-vrow .you-loop-lm-vdel[data-confirming="true"] {
+      padding: 0 10px;
+      width: auto;
     }
 
     .you-loop-lm-vdel:hover,

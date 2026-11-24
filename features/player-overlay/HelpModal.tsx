@@ -191,7 +191,7 @@ const CONTROLS: Control[] = [
   {
     icon: SaveIcon,
     term: "Saved loops",
-    desc: "Save the current loop, zoom, marks and count-in as a named loop. Keep several per video — tap one to apply it, or use its pencil to rename it or replace it with your current loop. The button shows the loop you're on, with a dot once you've changed it — press the save shortcut (below) to write your changes straight back to that loop.",
+    desc: "Save the current loop, zoom, marks and count-in under a name. Keep several per video and tap one to apply it. The button names the loop you're on and shows a dot once you've changed it. Open it to save your changes or keep them as a new loop.",
   },
 ];
 

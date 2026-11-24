@@ -24,7 +24,7 @@ type Props = {
   currentVideoId?: string | null;
   onOpenVideo: (videoId: string) => void;
   // When provided, each row gets a delete button with a two-stage inline
-  // confirm (✕ → "Delete?"). Popup usage.
+  // confirm (trash icon → "Delete?"). Popup usage.
   onDeleteVideo?: (videoId: string) => void;
   folderControls?: FolderControls;
 };
@@ -49,6 +49,19 @@ const FolderIcon = (
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const TrashIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
       strokeLinejoin="round"
     />
   </svg>
@@ -112,7 +125,8 @@ export function VideoList({
   if (videos.length === 0 && (folderControls?.folders.length ?? 0) === 0) {
     return (
       <p className="you-loop-lm-empty">
-        No saved videos yet. Videos with saved loops appear here.
+        No saved videos yet. Save a loop on any YouTube video and it shows up
+        here.
       </p>
     );
   }
@@ -150,7 +164,7 @@ export function VideoList({
         >
           {group.videos.length === 0 ? (
             <p className="you-loop-lm-gempty">
-              Empty — use a video’s move button to file it here.
+              No videos here yet. Move one in with its folder button.
             </p>
           ) : (
             <ul className="you-loop-lm-vlist">
@@ -288,7 +302,7 @@ function FolderGroup({ group, controls, armed, setArmed, children }: GroupProps)
                   }
                 }}
               >
-                {confirming ? "Delete folder?" : "✕"}
+                {confirming ? "Delete folder?" : TrashIcon}
               </button>
             </>
           )}
@@ -494,7 +508,7 @@ function MoveButton({
   );
 }
 
-// Two-stage delete: ✕ arms, "Delete?" confirms.
+// Two-stage delete: the trash icon arms, "Delete?" confirms.
 function DeleteVideoButton({
   label,
   confirming,
@@ -521,7 +535,7 @@ function DeleteVideoButton({
         else onArm();
       }}
     >
-      {confirming ? "Delete?" : "✕"}
+      {confirming ? "Delete?" : TrashIcon}
     </button>
   );
 }

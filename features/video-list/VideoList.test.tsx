@@ -12,7 +12,7 @@ describe("VideoList", () => {
   it("shows the empty state when there are no videos", () => {
     render(<VideoList videos={[]} onOpenVideo={() => {}} />);
     expect(
-      screen.getByText("No saved videos yet. Videos with saved loops appear here.")
+      screen.getByText("No saved videos yet. Save a loop on any YouTube video and it shows up here.")
     ).toBeInTheDocument();
   });
 
@@ -141,7 +141,7 @@ describe("VideoList folders", () => {
       .getAllByRole("button", { expanded: true })
       .map((b) => b.getAttribute("aria-label"));
     expect(headers).toEqual(["Paganini, 1 video", "Jazz, 0 videos", "Unfiled, 1 video"]);
-    expect(screen.getByText(/Empty — use a video/)).toBeInTheDocument();
+    expect(screen.getByText(/No videos here yet/)).toBeInTheDocument();
   });
 
   it("collapsed groups hide their videos; header click toggles", () => {

@@ -98,7 +98,7 @@ describe("popup App", () => {
     render(<App area={makeArea()} />);
     expect(
       await screen.findByText(
-        "No saved videos yet. Videos with saved loops appear here."
+        "No saved videos yet. Save a loop on any YouTube video and it shows up here."
       )
     ).toBeInTheDocument();
   });

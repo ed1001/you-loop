@@ -29,7 +29,6 @@ type Props = {
   loopsContainer: HTMLElement | null;
   loopsOpen: boolean;
   savedLoops: SavedLoop[];
-  selectedLoopId: string | null;
   duration: number;
   onToggleLoops: () => void;
   onCloseLoops: () => void;
@@ -92,7 +91,6 @@ export function LoopPanel({
   loopsContainer,
   loopsOpen,
   savedLoops,
-  selectedLoopId,
   duration,
   onToggleLoops,
   onCloseLoops,
@@ -385,7 +383,6 @@ export function LoopPanel({
         open={loopsOpen && canSaveLoops}
         container={loopsContainer}
         loops={savedLoops}
-        selectedId={selectedLoopId}
         activeLoop={activeLoop}
         activeDirty={dirty}
         focusNameToken={saveFocusToken}

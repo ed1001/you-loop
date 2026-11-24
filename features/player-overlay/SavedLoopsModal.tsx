@@ -3,6 +3,7 @@ import type { MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { LoopSegment } from "../playback/types";
 import type { SavedLoop } from "../persistence/loopStore";
+import { quickSaveShortcutLabel } from "../playback/shortcuts";
 import { useModalPresence } from "./useModalPresence";
 
 // Must match the you-loop-help-sink duration so the card finishes its exit
@@ -19,12 +20,12 @@ type Props = {
   // player chrome and its events stay out of YouTube's progress bar.
   container: HTMLElement | null;
   loops: SavedLoop[];
-  selectedId: string | null;
-  // The loop the live state came from (even if since edited), for the
-  // "Current loop" card; null when there is none.
+  // The loop the live state came from (even if since edited): its row is
+  // marked and the footer names it. Null when there is none.
   activeLoop: SavedLoop | null;
+  // Live state differs from `activeLoop`.
   activeDirty: boolean;
-  // Bumped to focus the save-as-new name field when the modal opens or is
+  // Bumped to focus the new-loop name field when the modal opens or is
   // already open (quick-save with no active loop).
   focusNameToken: number;
   onSaveChanges: () => void;
@@ -64,7 +65,6 @@ export function SavedLoopsModal({
   open,
   container,
   loops,
-  selectedId,
   activeLoop,
   activeDirty,
   focusNameToken,
@@ -77,6 +77,10 @@ export function SavedLoopsModal({
   onDelete,
 }: Props) {
   const [newName, setNewName] = useState("");
+  // On an active loop the footer shows its status and actions; "Save as new"
+  // swaps that for the name field until saved or cancelled. With no active
+  // loop the name field is all the footer has, so this flag is moot.
+  const [naming, setNaming] = useState(false);
   // The row (if any) currently in pencil-edit mode, replacing its normal
   // apply/actions content with the name field + replace button. Retargets to
   // whichever row's pencil was clicked most recently; null once committed or
@@ -91,21 +95,24 @@ export function SavedLoopsModal({
   // The focus request already honoured, so reopening the modal normally
   // doesn't re-focus the name field.
   const handledFocusToken = useRef(0);
-  const selectedRowRef = useRef<HTMLLIElement | null>(null);
+  const activeRowRef = useRef<HTMLLIElement | null>(null);
   const editingRowRef = useRef<HTMLLIElement | null>(null);
   const [fadeTop, setFadeTop] = useState(false);
   const [fadeBottom, setFadeBottom] = useState(false);
   const { mounted, closing } = useModalPresence(open, EXIT_MS);
 
-  // Bring the currently-selected loop into view when the modal opens AND when
-  // the selection moves — saving a new loop appends it at the end of an
-  // overflowing list and selects it, so this is what scrolls the fresh row
-  // into view. `nearest` makes it a no-op for rows already visible.
+  const activeId = activeLoop?.id ?? null;
+  const showNameField = activeLoop == null || naming;
+
+  // Bring the active loop into view when the modal opens AND when it changes
+  // — saving a new loop appends it at the end of an overflowing list and
+  // makes it active, so this is what scrolls the fresh row into view.
+  // `nearest` makes it a no-op for rows already visible.
   useEffect(() => {
     if (!open || !mounted) return;
-    selectedRowRef.current?.scrollIntoView({ block: "nearest" });
+    activeRowRef.current?.scrollIntoView({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mounted, selectedId]);
+  }, [open, mounted, activeId]);
 
   // The pencil-edit form grows its row; a row at the clipped bottom edge of
   // the list would otherwise expand out of sight. Runs after the form has
@@ -135,6 +142,7 @@ export function SavedLoopsModal({
   useEffect(() => {
     if (!open) return;
     setNewName("");
+    setNaming(false);
     setEditingId(null);
     setEditName("");
     setReplaceArmed(false);
@@ -151,12 +159,17 @@ export function SavedLoopsModal({
     newNameRef.current?.focus();
   }, [open, mounted, focusNameToken]);
 
+  // "Save as new" reveals the name field; put the caret in it.
+  useEffect(() => {
+    if (naming) newNameRef.current?.focus();
+  }, [naming]);
+
   // Block YouTube's capture-phase shortcut handlers while interacting with the
   // modal: stop propagation from window (above document) without preventDefault
   // so typing, selects, and button activation still work. Esc backs out one
-  // level at a time: an open pencil edit cancels first, and only a second Esc
-  // (with nothing being edited) closes the modal. Enter in a text field commits
-  // it.
+  // level at a time: an open pencil edit or save-as-new name field cancels
+  // first, and only an Esc with neither open closes the modal. Enter in a text
+  // field commits it.
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -174,6 +187,8 @@ export function SavedLoopsModal({
         if (editingId != null) {
           setEditingId(null);
           setReplaceArmed(false);
+        } else if (naming && activeId != null) {
+          setNaming(false);
         } else {
           onClose();
         }
@@ -187,7 +202,7 @@ export function SavedLoopsModal({
       window.removeEventListener("keyup", onKey, true);
       window.removeEventListener("keypress", onKey, true);
     };
-  }, [open, onClose, editingId]);
+  }, [open, onClose, editingId, naming, activeId]);
 
   if (!mounted || container == null) return null;
 
@@ -198,6 +213,7 @@ export function SavedLoopsModal({
     if (!canSave) return;
     onSaveAsNew(newName.trim());
     setNewName("");
+    setNaming(false);
   };
 
   // A blank or unchanged name is a no-op on the name field — only a real,
@@ -259,63 +275,19 @@ export function SavedLoopsModal({
           </svg>
         </button>
 
-        <header className="you-loop-lm-head">
-          <h2 className="you-loop-lm-title">Saved loops</h2>
-        </header>
+        <h2 className="you-loop-lm-title">Saved loops</h2>
 
-        {activeLoop != null && (
-          <section className="you-loop-lm-current" data-dirty={activeDirty}>
-            <div className="you-loop-lm-current-top">
-              <div className="you-loop-lm-current-text">
-                <h3 className="you-loop-lm-label you-loop-lm-current-label">
-                  Current loop
-                </h3>
-                <p className="you-loop-lm-current-name">{activeLoop.name}</p>
-              </div>
-              <span
-                className="you-loop-lm-badge"
-                data-edited={activeDirty}
-              >
-                {activeDirty ? "Edited" : "Saved"}
-              </span>
-            </div>
-            <div className="you-loop-lm-current-actions">
-              <button
-                type="button"
-                className="you-loop-lm-current-save"
-                onClick={(event) => {
-                  swallow(event);
-                  onSaveChanges();
-                }}
-              >
-                Save changes
-              </button>
-              <button
-                type="button"
-                className="you-loop-lm-current-new"
-                onClick={(event) => {
-                  swallow(event);
-                  newNameRef.current?.focus();
-                }}
-              >
-                Save as new
-              </button>
-            </div>
-          </section>
-        )}
-
-        <section className="you-loop-lm-list-wrap">
-          <h3 className="you-loop-lm-label">Your loops</h3>
-          <ul
-            className="you-loop-lm-list"
-            ref={listRef}
-            data-fade-top={fadeTop}
-            data-fade-bottom={fadeBottom}
-            onScroll={updateFade}
-          >
+        <ul
+          className="you-loop-lm-list"
+          ref={listRef}
+          data-fade-top={fadeTop}
+          data-fade-bottom={fadeBottom}
+          onScroll={updateFade}
+        >
             {loops.length === 0 && (
               <li className="you-loop-lm-empty">
-                No saved loops yet. Save the current selection below.
+                Nothing saved for this video yet. Name your current loop below
+                to keep it.
               </li>
             )}
             {loops.map((loop) => {
@@ -326,12 +298,13 @@ export function SavedLoopsModal({
                   ref={
                     editing
                       ? editingRowRef
-                      : loop.id === selectedId
-                        ? selectedRowRef
+                      : loop.id === activeId
+                        ? activeRowRef
                         : undefined
                   }
                   className="you-loop-lm-row"
-                  data-selected={loop.id === selectedId}
+                  data-selected={loop.id === activeId}
+                  data-dirty={loop.id === activeId && activeDirty}
                   data-editing={editing}
                 >
                   <span className="you-loop-lm-map" aria-hidden="true">
@@ -374,9 +347,8 @@ export function SavedLoopsModal({
                             setReplaceArmed((armed) => !armed);
                           }}
                         >
-                          {replaceArmed
-                            ? "✓ Replace with current loop"
-                            : "Replace with current loop"}
+                          <span className="you-loop-lm-check" aria-hidden="true" />
+                          Replace with current loop
                         </button>
                         <span className="you-loop-lm-edit-actions">
                           <button
@@ -417,12 +389,15 @@ export function SavedLoopsModal({
                           onApply(loop.id);
                         }}
                       >
-                        <span className="you-loop-lm-name-text">
-                          {loop.name}
-                          {activeDirty && loop.id === activeLoop?.id && (
-                            <span className="you-loop-lm-badge" data-edited="true">
-                              Edited
-                            </span>
+                        <span className="you-loop-lm-name">
+                          <span className="you-loop-lm-name-text">
+                            {loop.name}
+                          </span>
+                          {activeDirty && loop.id === activeId && (
+                            <span
+                              className="you-loop-lm-dot"
+                              aria-hidden="true"
+                            />
                           )}
                         </span>
                         <span className="you-loop-lm-range">
@@ -463,7 +438,16 @@ export function SavedLoopsModal({
                             onDelete(loop.id);
                           }}
                         >
-                          ✕
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path
+                              d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </button>
                       </span>
                     </>
@@ -471,43 +455,98 @@ export function SavedLoopsModal({
                 </li>
               );
             })}
-          </ul>
-        </section>
+        </ul>
 
-        <section className="you-loop-lm-save">
-          <h3 className="you-loop-lm-label">Save current loop</h3>
-
-          <input
-            ref={newNameRef}
-            className="you-loop-loops-input you-loop-lm-name"
-            data-loops-field="new"
-            type="text"
-            placeholder="Name this loop"
-            maxLength={NAME_MAX_LENGTH}
-            value={newName}
-            onPointerDown={stopOnly}
-            onMouseDown={stopOnly}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSave();
-              }
-            }}
-          />
-
-          <button
-            type="button"
-            className="you-loop-lm-savebtn"
-            disabled={!canSave}
-            onClick={(event) => {
-              swallow(event);
-              handleSave();
-            }}
-          >
-            Save
-          </button>
-        </section>
+        {/* Docked footer: everything about the loop you're on right now.
+            Either its status and the two ways to keep it, or the name field
+            for saving it as a new loop. */}
+        <footer className="you-loop-lm-foot">
+          {activeLoop != null && !showNameField ? (
+            <>
+              <p className="you-loop-lm-now">
+                <span className="you-loop-lm-now-text">
+                  You’re on <strong>{activeLoop.name}</strong>
+                </span>
+                <span className="you-loop-lm-status" data-edited={activeDirty}>
+                  {activeDirty ? "Edited" : "Saved"}
+                </span>
+              </p>
+              <div className="you-loop-lm-now-actions">
+                <button
+                  type="button"
+                  className="you-loop-lm-btn"
+                  data-primary={activeDirty}
+                  onClick={(event) => {
+                    swallow(event);
+                    onSaveChanges();
+                  }}
+                >
+                  Save changes
+                  <kbd className="you-loop-lm-kbd" aria-hidden="true">
+                    {quickSaveShortcutLabel()}
+                  </kbd>
+                </button>
+                <button
+                  type="button"
+                  className="you-loop-lm-btn"
+                  onClick={(event) => {
+                    swallow(event);
+                    setNaming(true);
+                  }}
+                >
+                  Save as new
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="you-loop-lm-new">
+              <input
+                ref={newNameRef}
+                className="you-loop-loops-input you-loop-lm-new-name"
+                data-loops-field="new"
+                type="text"
+                placeholder="Name this loop"
+                aria-label="Name this loop"
+                maxLength={NAME_MAX_LENGTH}
+                value={newName}
+                onPointerDown={stopOnly}
+                onMouseDown={stopOnly}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSave();
+                  }
+                }}
+              />
+              {activeLoop != null && (
+                <button
+                  type="button"
+                  className="you-loop-lm-btn you-loop-lm-btn--quiet"
+                  onClick={(event) => {
+                    swallow(event);
+                    setNaming(false);
+                    setNewName("");
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="button"
+                className="you-loop-lm-btn"
+                data-primary="true"
+                disabled={!canSave}
+                onClick={(event) => {
+                  swallow(event);
+                  handleSave();
+                }}
+              >
+                Save
+              </button>
+            </div>
+          )}
+        </footer>
       </div>
     </div>,
     container,

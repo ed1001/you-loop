@@ -836,7 +836,7 @@ describe("page UI", () => {
 
   // Spec §2 headline behavior: changing count-in settings while a
   // snapshot-carrying saved loop is selected must flip the selection dirty
-  // (row deselects). Drives the change through the count-in popover's
+  // (its row stays marked as the active loop, now flagged edited). Drives the change through the count-in popover's
   // time-signature buttons — the simplest public seam for
   // onCountInSettingsChange — rather than the BPM drag/tap gestures, which
   // are covered in CountInControl.test.tsx.
@@ -862,7 +862,7 @@ describe("page UI", () => {
 
     // Launch auto-applied the loop: the row reads selected, clean.
     expect(
-      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+      document.querySelector('.you-loop-lm-row[data-selected="true"][data-dirty="false"]')
     ).not.toBeNull();
 
     // The pill button only opens the popover; on/off lives on the switch
@@ -874,10 +874,10 @@ describe("page UI", () => {
       fireEvent.click(screen.getByText("3/4"));
     });
 
-    // Tempo-dirty: the row deselects.
+    // Tempo-dirty: still the active row, now flagged edited.
     expect(
-      document.querySelector('.you-loop-lm-row[data-selected="true"]')
-    ).toBeNull();
+      document.querySelector('.you-loop-lm-row[data-selected="true"][data-dirty="true"]')
+    ).not.toBeNull();
   });
 
   // Negative counterpart: a legacy loop (no count-in snapshot) has nothing to
@@ -893,7 +893,7 @@ describe("page UI", () => {
       fireEvent.click(screen.getByLabelText("Saved loops"));
     });
     expect(
-      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+      document.querySelector('.you-loop-lm-row[data-selected="true"][data-dirty="false"]')
     ).not.toBeNull();
 
     act(() => {
@@ -904,7 +904,7 @@ describe("page UI", () => {
     });
 
     expect(
-      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+      document.querySelector('.you-loop-lm-row[data-selected="true"][data-dirty="false"]')
     ).not.toBeNull();
   });
 
@@ -1346,7 +1346,7 @@ describe("pencil edit", () => {
     // Edit row closes, and the row re-selects now that it matches current state.
     expect(screen.queryByLabelText("Cancel edit")).not.toBeInTheDocument();
     expect(
-      document.querySelector('.you-loop-lm-row[data-selected="true"]')
+      document.querySelector('.you-loop-lm-row[data-selected="true"][data-dirty="false"]')
     ).not.toBeNull();
   });
 
@@ -1483,6 +1483,9 @@ describe("pencil edit", () => {
     scrolled.mockClear();
 
     // Saving a new loop appends + selects it — the new row must scroll into view.
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Save as new" }));
+    });
     fireEvent.change(screen.getByPlaceholderText("Name this loop"), {
       target: { value: "Outro" }
     });
@@ -1556,7 +1559,7 @@ describe("pencil edit", () => {
     expect(screen.queryByText(/Current selection/)).not.toBeInTheDocument();
   });
 
-  it("save section stays enabled for a clean selection and can save a duplicate", async () => {
+  it("save as new is offered for a clean selection and can save a duplicate", async () => {
     const { dump } = await mountWatch("vid1", {
       [keyFor("vid1")]: SAVED_ENTRY,
       [LAUNCH_KEY]: { videoId: "vid1", ts: Date.now() }
@@ -1567,10 +1570,26 @@ describe("pencil edit", () => {
       fireEvent.click(screen.getByLabelText("Saved loops"));
     });
 
+    // On a saved loop the footer shows its status; Save as new swaps in the
+    // name field (and Escape backs out of it without closing the modal).
+    expect(screen.queryByPlaceholderText("Name this loop")).not.toBeInTheDocument();
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Save as new" }));
+    });
     const input = screen.getByPlaceholderText("Name this loop");
-    expect(input).not.toBeDisabled();
+    expect(document.activeElement).toBe(input);
+    act(() => {
+      fireEvent.keyDown(input, { key: "Escape" });
+    });
+    expect(screen.queryByPlaceholderText("Name this loop")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Saved loops" })).toBeInTheDocument();
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Save as new" }));
+    });
 
-    fireEvent.change(input, { target: { value: "dup" } });
+    fireEvent.change(screen.getByPlaceholderText("Name this loop"), {
+      target: { value: "dup" }
+    });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       for (let i = 0; i < 5; i++) await Promise.resolve();
@@ -1651,11 +1670,11 @@ describe("pencil edit", () => {
       expect(savedMain(dump)).toEqual({ start: 5, end: 100 });
     });
 
-    it("the modal's Current loop card shows Edited and saves changes", async () => {
+    it("the modal footer names the active loop, shows Edited and saves changes", async () => {
       const { dump } = await mountDrifted();
       openSavedLoops();
-      expect(screen.getByText("Current loop")).toBeInTheDocument();
-      expect(screen.getAllByText("Edited").length).toBeGreaterThan(0);
+      expect(screen.getByText(/You’re on/)).toHaveTextContent("You’re on A");
+      expect(screen.getByText("Edited")).toBeInTheDocument();
 
       await clickAndFlush(screen.getByRole("button", { name: "Save changes" }));
 
@@ -1677,7 +1696,7 @@ describe("pencil edit", () => {
         fireEvent.keyDown(document.body, { key: "s", metaKey: true });
       });
 
-      expect(screen.queryByText("Current loop")).not.toBeInTheDocument();
+      expect(screen.queryByText(/You’re on/)).not.toBeInTheDocument();
       expect(document.activeElement).toBe(screen.getByPlaceholderText("Name this loop"));
     });
   });

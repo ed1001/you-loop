@@ -1,5 +1,27 @@
 # Étude — release notes
 
+## 0.6.0
+
+### Store "what's new" (Chrome Web Store + AMO version notes)
+
+New in 0.6 — find any saved video in a second:
+
+• Search your saved videos — start typing as soon as you open the toolbar popup. Matches video titles and folder names; folders with a match open up, the rest step aside.
+• Escape or × clears the search and puts your folders back just as you left them.
+
+Free, no account, no tracking.
+
+### Full notes (GitHub release)
+
+**Added**
+- **Search in the popup.** A search field under "Saved videos", focused as soon as the popup opens, filters the list as you type — case-insensitive, on video titles. A folder whose name matches shows up as its own header, collapsed, so you can open it and browse; it doesn't drag in its non-matching videos. Folders holding a match open automatically. "No videos match" when nothing does.
+- **Clearing is instant.** Escape or the × button clears the search; Escape on an empty field closes the popup as before. Opening or closing folders while searching is temporary — your saved collapse state is never touched.
+
+**Notes**
+- Still free, no account, and no data collected. Saved loops and folders live in your browser and ride its own account sync across your devices when that's turned on — never through an Étude server.
+
+_Tag: `v0.6.0`._
+
 ## 0.5.0
 
 ### Store "what's new" (Chrome Web Store + AMO version notes)

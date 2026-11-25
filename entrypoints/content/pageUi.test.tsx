@@ -160,6 +160,17 @@ async function navigateTo(videoId: string) {
   });
 }
 
+// Unmount the page UI's React root and stop its controller. Clearing
+// document.body alone leaves the root mounted on a detached panel, still
+// running its rAF loop, listeners and async loads; a late render from one of
+// those can land after the test environment is torn down ("window is not
+// defined"). Call before wiping the DOM: it finds the panel by selector.
+function unmountPageUi() {
+  act(() => {
+    setPageUiVisible(document.body, false);
+  });
+}
+
 function expectPanelOn() {
   expect(screen.getByLabelText("Disable loop range")).toBeInTheDocument();
 }
@@ -171,14 +182,42 @@ function expectPanelOff() {
   ).not.toBeInTheDocument();
 }
 
+// Full per-test reset for blocks that mount on a watch page.
+function teardownWatchPage() {
+  // A scrub release arms a one-shot click trap (see suppressNextClick);
+  // discharge it so it cannot leak into the next test's first click.
+  fireEvent.click(document.body);
+  unmountPageUi();
+  document.body.innerHTML = "";
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
+}
+
 describe("page UI", () => {
-  afterEach(() => {
-    // A scrub release arms a one-shot click trap (see suppressNextClick);
-    // discharge it so it cannot leak into the next test's first click.
-    fireEvent.click(document.body);
-    document.body.innerHTML = "";
-    vi.unstubAllGlobals();
-    window.history.replaceState(null, "", "/");
+  afterEach(teardownWatchPage);
+
+  it("switching off while the video's saved state is still loading doesn't render into the torn-down UI", async () => {
+    window.history.replaceState(null, "", "/watch?v=vid1");
+    stubBrowserStorage({ [keyFor("vid1")]: SAVED_ENTRY });
+    const { player } = mountYouTubePlayer();
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
+    try {
+      // Mounting starts the async storage load; teardown lands before it
+      // resolves, so the load's continuation runs against a stopped UI.
+      act(() => {
+        setPageUiVisible(player, true);
+      });
+      act(() => {
+        setPageUiVisible(player, false);
+      });
+      await flushAsync();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
+    expect(rejections).toEqual([]);
   });
 
   it("mounts loop timeline handles in the player progress bar when enabled", () => {
@@ -1164,6 +1203,11 @@ describe("nextCompactState", () => {
 });
 
 describe("compact mode toggle", () => {
+  afterEach(() => {
+    unmountPageUi();
+    document.body.innerHTML = "";
+  });
+
   it("renders a mode toggle button reflecting the current mode", () => {
     const mounted = mountYouTubePlayer();
     act(() => {
@@ -1223,19 +1267,7 @@ describe("watchPlayerWidth", () => {
 });
 
 describe("pencil edit", () => {
-  // A preceding describe block ("compact mode toggle") mounts a player
-  // without tearing it down, so the DOM can arrive dirty here regardless of
-  // this block's own afterEach. Start clean rather than depend on run order.
-  beforeEach(() => {
-    document.body.innerHTML = "";
-  });
-
-  afterEach(() => {
-    fireEvent.click(document.body);
-    document.body.innerHTML = "";
-    vi.unstubAllGlobals();
-    window.history.replaceState(null, "", "/");
-  });
+  afterEach(teardownWatchPage);
 
   // A wide main region (unlike SAVED_ENTRY's narrow 5–9) so dragging the
   // start handle out to 20s lands cleanly inside it instead of clamping
@@ -1704,6 +1736,7 @@ describe("pencil edit", () => {
 
 describe("deep-study practice marks", () => {
   afterEach(() => {
+    unmountPageUi();
     document.body.innerHTML = "";
     vi.unstubAllGlobals();
   });

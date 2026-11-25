@@ -465,12 +465,13 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     }
 
     const entry = await loadEntry(id, undefined, getVideoTitle() ?? undefined);
-    if (videoId !== id) return; // navigated away mid-await
+    // Torn down (extension switched off) or navigated away mid-await.
+    if (stopped || videoId !== id) return;
 
     // Arrived via the popup's saved-videos list: the user picked this video to
     // practice, so the loop panel starts enabled instead of the default off.
     const launched = await takeLaunch(id);
-    if (videoId !== id) return;
+    if (stopped || videoId !== id) return;
 
     // Seed the editable region to the default. A specific saved loop is applied
     // only by an explicit action (picking it in the modal, or a popup launch
@@ -485,11 +486,11 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
     // The panel's on/off is a persisted global preference, so it sticks across
     // reloads, tabs, and navigation.
     const persistedOn = await getLoopOn();
-    if (videoId !== id) return; // navigated away mid-await
+    if (stopped || videoId !== id) return;
 
     countInOn = await getCountInEnabled();
     countInSettings = await loadCountInSettings(id);
-    if (videoId !== id) return; // navigated away mid-await
+    if (stopped || videoId !== id) return;
 
     applyPanelActivation(launched, entry, persistedOn);
     seededVideoId = id;
@@ -661,6 +662,9 @@ function renderTimelineCursors(container: Element, video: HTMLVideoElement) {
   };
 
   const render = () => {
+    // Async handlers (save, apply, edit, delete) render after a storage await
+    // that can resolve after teardown; rendering an unmounted root throws.
+    if (stopped) return;
     const duration = getVideoDuration(video);
     const { activeLoop, loopDirty } = activeLoopState();
     const zoomVisible = zoomStripVisible();

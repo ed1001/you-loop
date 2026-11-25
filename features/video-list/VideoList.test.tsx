@@ -8,6 +8,21 @@ const videos: SavedVideo[] = [
   { videoId: "vid2", title: undefined, count: 1, addedAt: 10 }
 ];
 
+const folders = [
+  { id: "f1", name: "Paganini", createdAt: 1 },
+  { id: "f2", name: "Jazz", createdAt: 2 }
+];
+const controls = (over: Partial<FolderControls> = {}): FolderControls => ({
+  folders,
+  collapsed: [],
+  onToggleGroup: vi.fn(),
+  onMoveVideo: vi.fn(),
+  onNewFolderFor: vi.fn(),
+  onRenameFolder: vi.fn(),
+  onDeleteFolder: vi.fn(),
+  ...over
+});
+
 describe("VideoList", () => {
   it("shows the empty state when there are no videos", () => {
     render(<VideoList videos={[]} onOpenVideo={() => {}} />);
@@ -104,24 +119,10 @@ describe("VideoList", () => {
 });
 
 describe("VideoList folders", () => {
-  const folders = [
-    { id: "f1", name: "Paganini", createdAt: 1 },
-    { id: "f2", name: "Jazz", createdAt: 2 }
-  ];
   const filed: SavedVideo[] = [
     { videoId: "vid1", title: "Caprice 24", count: 2, addedAt: 20, folderId: "f1" },
     { videoId: "vid2", title: "Giant Steps", count: 1, addedAt: 10 }
   ];
-  const controls = (over: Partial<FolderControls> = {}): FolderControls => ({
-    folders,
-    collapsed: [],
-    onToggleGroup: vi.fn(),
-    onMoveVideo: vi.fn(),
-    onNewFolderFor: vi.fn(),
-    onRenameFolder: vi.fn(),
-    onDeleteFolder: vi.fn(),
-    ...over
-  });
 
   it("renders flat (no group headers, no move buttons) with no folders", () => {
     render(
@@ -208,5 +209,123 @@ describe("VideoList folders", () => {
     expect(onDeleteFolder).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirm delete folder Paganini" }));
     expect(onDeleteFolder).toHaveBeenCalledWith("f1");
+  });
+});
+
+describe("VideoList search", () => {
+  const filed: SavedVideo[] = [
+    { videoId: "vid1", title: "Caprice 24", count: 2, addedAt: 30, folderId: "f1" },
+    { videoId: "vid2", title: "Giant Steps", count: 1, addedAt: 20, folderId: "f2" },
+    { videoId: "vid3", title: "Blue Bossa", count: 1, addedAt: 10 }
+  ];
+
+  it("filters a flat list by title, mixed case", () => {
+    render(<VideoList videos={filed} onOpenVideo={() => {}} query="gIANT" />);
+    expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+    expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
+    expect(screen.queryByText("Blue Bossa")).not.toBeInTheDocument();
+  });
+
+  it("shows No videos match when nothing matches (flat and grouped)", () => {
+    const { rerender } = render(
+      <VideoList videos={filed} onOpenVideo={() => {}} query="zzz" />
+    );
+    expect(screen.getByText("No videos match")).toBeInTheDocument();
+    rerender(
+      <VideoList videos={filed} onOpenVideo={() => {}} folderControls={controls()} query="zzz" />
+    );
+    expect(screen.getByText("No videos match")).toBeInTheDocument();
+  });
+
+  it("hides folders with no match; a name-only match shows collapsed and expands on click", () => {
+    const onToggleGroup = vi.fn();
+    render(
+      <VideoList
+        videos={filed}
+        onOpenVideo={() => {}}
+        folderControls={controls({ onToggleGroup })}
+        query="jazz"
+      />
+    );
+    expect(screen.queryByRole("button", { name: /Paganini/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Unfiled/ })).not.toBeInTheDocument();
+    const header = screen.getByRole("button", { name: "Jazz, 1 video" });
+    expect(header).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Giant Steps")).not.toBeInTheDocument();
+
+    fireEvent.click(header);
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+    expect(onToggleGroup).not.toHaveBeenCalled();
+  });
+
+  it("a name-matching folder shows only its own matching videos", () => {
+    const videos: SavedVideo[] = [
+      ...filed,
+      { videoId: "vid4", title: "Jazz Waltz", count: 1, addedAt: 5, folderId: "f2" }
+    ];
+    render(
+      <VideoList videos={videos} onOpenVideo={() => {}} folderControls={controls()} query="jazz" />
+    );
+    expect(screen.getByRole("button", { name: "Jazz, 1 video" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    expect(screen.getByText("Jazz Waltz")).toBeInTheDocument();
+    expect(screen.queryByText("Giant Steps")).not.toBeInTheDocument();
+  });
+
+  it("opens a stored-collapsed folder that has matches, and restores it when search clears", () => {
+    const onToggleGroup = vi.fn();
+    const { rerender } = render(
+      <VideoList
+        videos={filed}
+        onOpenVideo={() => {}}
+        folderControls={controls({ collapsed: ["f1"], onToggleGroup })}
+        query="caprice"
+      />
+    );
+    expect(screen.getByText("Caprice 24")).toBeInTheDocument();
+
+    // Collapse during search is transient.
+    fireEvent.click(screen.getByRole("button", { name: "Paganini, 1 video" }));
+    expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
+    expect(onToggleGroup).not.toHaveBeenCalled();
+
+    rerender(
+      <VideoList
+        videos={filed}
+        onOpenVideo={() => {}}
+        folderControls={controls({ collapsed: ["f1"], onToggleGroup })}
+        query=""
+      />
+    );
+    expect(screen.getByRole("button", { name: "Paganini, 1 video" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+    expect(screen.getByText("Blue Bossa")).toBeInTheDocument();
+  });
+
+  it("move and delete still act on filtered rows", () => {
+    const onMoveVideo = vi.fn();
+    const onDelete = vi.fn();
+    render(
+      <VideoList
+        videos={filed}
+        onOpenVideo={() => {}}
+        onDeleteVideo={onDelete}
+        folderControls={controls({ onMoveVideo })}
+        query="bossa"
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Move Blue Bossa to folder" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Jazz" }));
+    expect(onMoveVideo).toHaveBeenCalledWith("vid3", "f2");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Blue Bossa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Blue Bossa" }));
+    expect(onDelete).toHaveBeenCalledWith("vid3");
   });
 });

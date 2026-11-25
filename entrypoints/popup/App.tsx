@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   listEntries,
   removeVideo,
@@ -49,6 +49,8 @@ export function App({
     null
   );
   const [newName, setNewName] = useState("");
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void getEnabled(area).then(setEnabledState);
@@ -207,9 +209,65 @@ export function App({
           </button>
         </div>
       )}
+      {videos.length > 0 && (
+        <div className="popup-search">
+          <svg
+            className="popup-search-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M16 16l4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <input
+            type="text"
+            className="popup-search-input"
+            aria-label="Search videos"
+            placeholder="Search videos"
+            ref={searchRef}
+            autoFocus
+            spellCheck={false}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Escape clears first; with nothing to clear it falls through
+              // and closes the popup as usual.
+              if (e.key === "Escape" && query !== "") {
+                e.preventDefault();
+                e.stopPropagation();
+                setQuery("");
+              }
+            }}
+          />
+          {query !== "" && (
+            <button
+              type="button"
+              className="popup-search-clear"
+              aria-label="Clear search"
+              title="Clear search"
+              onClick={() => {
+                setQuery("");
+                searchRef.current?.focus();
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M7 7l10 10M17 7L7 17"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
       <div className="popup-list">
         <VideoList
           videos={videos}
+          query={videos.length > 0 ? query : ""}
           onOpenVideo={(id) => void handleOpen(id)}
           onDeleteVideo={handleDelete}
           folderControls={{

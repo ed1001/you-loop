@@ -24,6 +24,13 @@ const seededStore = {
   }
 };
 
+// vid1 ("Caprice 24") filed in folder "Paganini"; vid2 unfiled.
+const paganiniStore = {
+  ...seededStore,
+  [keyFor("vid1")]: { ...seededStore[keyFor("vid1")], folderId: "f1" },
+  [FOLDERS_KEY]: [{ id: "f1", name: "Paganini", createdAt: 1 }]
+};
+
 describe("popup App", () => {
   it("renders saved videos most-recent first", async () => {
     render(<App area={makeArea(seededStore)} />);
@@ -151,9 +158,7 @@ describe("popup App", () => {
 
   it("deleting a folder keeps its videos, now under Unfiled", async () => {
     const area = makeArea({
-      ...seededStore,
-      [keyFor("vid1")]: { ...seededStore[keyFor("vid1")], folderId: "f1" },
-      [FOLDERS_KEY]: [{ id: "f1", name: "Paganini", createdAt: 1 }]
+      ...paganiniStore
     });
     render(<App area={area} />);
 
@@ -177,9 +182,7 @@ describe("popup App", () => {
 
   it("remembers collapsed groups", async () => {
     const area = makeArea({
-      ...seededStore,
-      [keyFor("vid1")]: { ...seededStore[keyFor("vid1")], folderId: "f1" },
-      [FOLDERS_KEY]: [{ id: "f1", name: "Paganini", createdAt: 1 }],
+      ...paganiniStore,
       [COLLAPSED_GROUPS_KEY]: ["f1"]
     });
     render(<App area={area} />);
@@ -192,6 +195,98 @@ describe("popup App", () => {
     expect(screen.getByText("Caprice 24")).toBeInTheDocument();
     await vi.waitFor(() => {
       expect(area.dump()[COLLAPSED_GROUPS_KEY]).toEqual([]);
+    });
+  });
+
+  describe("search", () => {
+    it("is hidden with no saved videos", async () => {
+      render(<App area={makeArea({})} />);
+      await screen.findByText(/No saved videos yet/);
+      expect(screen.queryByRole("textbox", { name: "Search videos" })).not.toBeInTheDocument();
+    });
+
+    it("is autofocused and filters by title, mixed case", async () => {
+      render(<App area={makeArea(seededStore)} />);
+      const input = await screen.findByRole("textbox", { name: "Search videos" });
+      expect(input).toHaveAttribute("placeholder", "Search videos");
+      expect(input).toHaveFocus();
+
+      fireEvent.change(input, { target: { value: "gIaNt" } });
+      expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+      expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
+    });
+
+    it("shows No videos match when nothing matches", async () => {
+      render(<App area={makeArea(seededStore)} />);
+      const input = await screen.findByRole("textbox", { name: "Search videos" });
+      fireEvent.change(input, { target: { value: "zzz" } });
+      expect(screen.getByText("No videos match")).toBeInTheDocument();
+    });
+
+    it("Escape and the clear button both clear", async () => {
+      render(<App area={makeArea(seededStore)} />);
+      const input = await screen.findByRole("textbox", { name: "Search videos" });
+
+      fireEvent.change(input, { target: { value: "caprice" } });
+      expect(screen.queryByText("Giant Steps")).not.toBeInTheDocument();
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input).toHaveValue("");
+      expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: "caprice" } });
+      fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+      expect(input).toHaveValue("");
+      expect(screen.getByText("Giant Steps")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+    });
+
+    it("folder-name match shows the folder, not its non-matching videos", async () => {
+      const area = makeArea({
+        ...paganiniStore
+      });
+      render(<App area={area} />);
+      const input = await screen.findByRole("textbox", { name: "Search videos" });
+      await screen.findByRole("button", { name: "Paganini, 1 video" });
+
+      fireEvent.change(input, { target: { value: "pagan" } });
+      const header = screen.getByRole("button", { name: "Paganini, 1 video" });
+      expect(header).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
+      expect(screen.queryByText("Giant Steps")).not.toBeInTheDocument();
+    });
+
+    it("expands a collapsed folder with a match, leaving stored collapse state alone", async () => {
+      const area = makeArea({
+        ...paganiniStore,
+        [COLLAPSED_GROUPS_KEY]: ["f1"]
+      });
+      render(<App area={area} />);
+      const input = await screen.findByRole("textbox", { name: "Search videos" });
+      const header = await screen.findByRole("button", { name: "Paganini, 1 video" });
+      await vi.waitFor(() => expect(header).toHaveAttribute("aria-expanded", "false"));
+
+      fireEvent.change(input, { target: { value: "caprice" } });
+      expect(screen.getByText("Caprice 24")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Paganini, 1 video" }));
+      expect(screen.queryByText("Caprice 24")).not.toBeInTheDocument();
+
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(screen.getByRole("button", { name: "Paganini, 1 video" })).toHaveAttribute(
+        "aria-expanded",
+        "false"
+      );
+      expect(area.dump()[COLLAPSED_GROUPS_KEY]).toEqual(["f1"]);
+    });
+
+    it("opens a filtered result", async () => {
+      const openTab = vi.fn();
+      render(<App area={makeArea(seededStore)} openTab={openTab} closeWindow={() => {}} />);
+      const input = await screen.findByRole("textbox", { name: "Search videos" });
+      fireEvent.change(input, { target: { value: "steps" } });
+      fireEvent.click(screen.getByRole("button", { name: "Open Giant Steps" }));
+      await vi.waitFor(() =>
+        expect(openTab).toHaveBeenCalledWith("https://www.youtube.com/watch?v=vid2")
+      );
     });
   });
 });

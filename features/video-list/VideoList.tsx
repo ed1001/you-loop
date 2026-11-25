@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import type { Folder } from "../persistence/folderStore";
 import type { SavedVideo } from "../persistence/loopStore";
-import { groupVideos, type VideoGroup } from "./groupVideos";
+import {
+  groupVideos,
+  normalizeQuery,
+  searchGroups,
+  videoMatches,
+  type VideoGroup
+} from "./groupVideos";
 
 // Folder features (popup only). With no folders the list renders flat, exactly
 // as before folders existed.
@@ -27,6 +33,10 @@ type Props = {
   // confirm (trash icon → "Delete?"). Popup usage.
   onDeleteVideo?: (videoId: string) => void;
   folderControls?: FolderControls;
+  // Filters the list (popup search). While non-empty, folder collapse is
+  // transient: folders with matches open, name-only matches start closed, and
+  // toggling never touches the stored collapse state.
+  query?: string;
 };
 
 const FOLDER_NAME_MAX_LENGTH = 40;
@@ -92,11 +102,19 @@ export function VideoList({
   currentVideoId = null,
   onOpenVideo,
   onDeleteVideo,
-  folderControls
+  folderControls,
+  query = ""
 }: Props) {
   // One armed delete at a time across videos and folders: "v:<id>" / "f:<id>".
   const [armed, setArmed] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  // Search-time collapse overrides by group key; dropped when search clears.
+  const [searchCollapsed, setSearchCollapsed] = useState<Record<string, boolean>>({});
+  const searching = normalizeQuery(query) !== "";
+
+  useEffect(() => {
+    if (!searching) setSearchCollapsed({});
+  }, [searching]);
 
   // Close an open move menu on any outside press or Escape.
   useEffect(() => {
@@ -142,22 +160,46 @@ export function VideoList({
     setMenuFor
   };
 
+  const noMatches = <p className="you-loop-lm-empty">No videos match</p>;
+
   if (folderControls == null || folderControls.folders.length === 0) {
+    const shown = searching ? videos.filter((v) => videoMatches(v, query)) : videos;
+    if (shown.length === 0) return noMatches;
     return (
       <ul className="you-loop-lm-vlist">
-        {videos.map((video) => (
+        {shown.map((video) => (
           <VideoRow key={video.videoId} video={video} {...rowProps} />
         ))}
       </ul>
     );
   }
 
+  const grouped = groupVideos(videos, folderControls.folders);
+  const groups: (VideoGroup & { collapsed: boolean })[] = searching
+    ? searchGroups(grouped, query).map((g) => ({
+        ...g,
+        collapsed: searchCollapsed[g.key] ?? g.nameOnly
+      }))
+    : grouped.map((g) => ({
+        ...g,
+        collapsed: folderControls.collapsed.includes(g.key)
+      }));
+  if (groups.length === 0) return noMatches;
+
   return (
     <div className="you-loop-lm-groups">
-      {groupVideos(videos, folderControls.folders).map((group) => (
+      {groups.map((group) => (
         <FolderGroup
           key={group.key}
           group={group}
+          collapsed={group.collapsed}
+          onToggle={() => {
+            if (searching) {
+              setSearchCollapsed((prev) => ({ ...prev, [group.key]: !group.collapsed }));
+            } else {
+              folderControls.onToggleGroup(group.key);
+            }
+          }}
           controls={folderControls}
           armed={armed}
           setArmed={setArmed}
@@ -181,16 +223,25 @@ export function VideoList({
 
 type GroupProps = {
   group: VideoGroup;
+  collapsed: boolean;
+  onToggle: () => void;
   controls: FolderControls;
   armed: string | null;
   setArmed: (value: string | null) => void;
   children: ReactNode;
 };
 
-function FolderGroup({ group, controls, armed, setArmed, children }: GroupProps) {
+function FolderGroup({
+  group,
+  collapsed,
+  onToggle,
+  controls,
+  armed,
+  setArmed,
+  children
+}: GroupProps) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
-  const collapsed = controls.collapsed.includes(group.key);
   const name = group.folder?.name ?? "Unfiled";
   const armKey = `f:${group.key}`;
   const confirming = armed === armKey;
@@ -238,7 +289,7 @@ function FolderGroup({ group, controls, armed, setArmed, children }: GroupProps)
             className="you-loop-lm-gtoggle"
             aria-expanded={!collapsed}
             aria-label={`${name}, ${count} ${count === 1 ? "video" : "videos"}`}
-            onClick={() => controls.onToggleGroup(group.key)}
+            onClick={onToggle}
           >
             <svg
               className="you-loop-lm-gchev"

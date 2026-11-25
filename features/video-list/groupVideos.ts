@@ -30,3 +30,36 @@ export function groupVideos(
   if (unfiled.videos.length > 0) groups.push(unfiled);
   return groups;
 }
+
+// Search is case-insensitive substring on the shown label: title, or the
+// videoId for untitled videos.
+export function normalizeQuery(query: string): string {
+  return query.trim().toLowerCase();
+}
+
+export function videoMatches(video: SavedVideo, query: string): boolean {
+  return (video.title ?? video.videoId).toLowerCase().includes(normalizeQuery(query));
+}
+
+export type SearchGroup = VideoGroup & {
+  // Shown only because its folder name matched: it holds all its videos and
+  // starts collapsed, so the user can open it to browse.
+  nameOnly: boolean;
+};
+
+// Groups while searching. A group keeps only its matching videos; a folder
+// whose name matches is shown even with none (as `nameOnly`). Groups with
+// neither are dropped. Unfiled is not a folder, so its label never matches.
+export function searchGroups(groups: VideoGroup[], query: string): SearchGroup[] {
+  const q = normalizeQuery(query);
+  const result: SearchGroup[] = [];
+  for (const group of groups) {
+    const videos = group.videos.filter((v) => videoMatches(v, q));
+    if (videos.length > 0) {
+      result.push({ ...group, videos, nameOnly: false });
+    } else if (group.folder != null && group.folder.name.toLowerCase().includes(q)) {
+      result.push({ ...group, nameOnly: true });
+    }
+  }
+  return result;
+}
